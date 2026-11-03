@@ -12,7 +12,7 @@ metadata:
 
 Reads a recorded run, keeps its Diameter steps, and writes each request and each response to its own file, in the format
 described in [seagull-diameter-common](../seagull-diameter-common/SKILL.md#the-folder-of-recorded-steps). The
-structure of the source differs from file to file, so this skill has none built in: the user says how to read the
+structure of the source differs from file to file, so this skill has none built-in: the user says how to read the
 source, and the skill does what was said.
 
 ## Arguments

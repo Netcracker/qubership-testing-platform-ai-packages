@@ -11,11 +11,11 @@ To install the package and run the skills, follow the [user guide](docs/user-gui
 
 Both skills are commands: the agent runs them only when you type their name.
 
-| Skill                                                                                           | Purpose                                                                                     |
-|-------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
-| [/seagull-diameter-steps-extract](.apm/skills/seagull-diameter-steps-extract/SKILL.md)          | Turns a recorded run (an `xlsx` export, for example) into a folder of request and response files |
-| [/seagull-diameter-scenario-generate](.apm/skills/seagull-diameter-scenario-generate/SKILL.md)  | Turns that folder into Seagull scenarios, configuration, and a merged dictionary, then runs a dry run |
-| [seagull-diameter-common](.apm/skills/seagull-diameter-common/SKILL.md)                         | Shared scripts and the format of the folder. Not a task; the agent never invokes it         |
+| Skill                                                                                          | Purpose                                                                                               |
+| ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| [/seagull-diameter-steps-extract](.apm/skills/seagull-diameter-steps-extract/SKILL.md)         | Turns a recorded run (an `xlsx` export, for example) into a folder of request and response files      |
+| [/seagull-diameter-scenario-generate](.apm/skills/seagull-diameter-scenario-generate/SKILL.md) | Turns that folder into Seagull scenarios, configuration, and a merged dictionary, then runs a dry run |
+| [seagull-diameter-common](.apm/skills/seagull-diameter-common/SKILL.md)                        | Shared scripts and the format of the folder. Not a task; the agent never invokes it                   |
 
 ```mermaid
 flowchart LR

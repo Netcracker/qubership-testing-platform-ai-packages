@@ -23,15 +23,15 @@ the agent runs it, reads its report, and tells the user what to review.
 /seagull-diameter-scenario-generate <steps folder> dictionaries=<folder> merge=<A,B,C> [out=<folder>] [timeout=<ms>] [dest=<host:port>] [host-ip=<ip>]
 ```
 
-| Argument        | Meaning                                                                                                         | Default            |
-|-----------------|-----------------------------------------------------------------------------------------------------------------|--------------------|
-| `<steps folder>`| The folder of recorded steps                                                                                    | required           |
-| `dictionaries=` | The folder of the project's AVP dictionaries. It must hold `DiameterBaseProtocol.xml`                            | required           |
-| `merge=`        | The AVP dictionaries to merge into the Seagull dictionary, names without `.xml`, in order of precedence         | required           |
-| `out=`          | The folder to write to                                                                                          | `Seagull-Scenario` next to the steps folder |
-| `timeout=`      | How long Seagull waits for each answer, in milliseconds                                                         | 5000               |
-| `dest=`         | Address and port of the OCS, written into `config/conf.client.xml`                                              | `127.0.0.1:3868`   |
-| `host-ip=`      | The IP address that the CER announces as the client's own                                                       | `192.0.2.10`       |
+| Argument         | Meaning                                                                                                 | Default                                     |
+| ---------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `<steps folder>` | The folder of recorded steps                                                                            | required                                    |
+| `dictionaries=`  | The folder of the project's AVP dictionaries. It must hold `DiameterBaseProtocol.xml`                   | required                                    |
+| `merge=`         | The AVP dictionaries to merge into the Seagull dictionary, names without `.xml`, in order of precedence | required                                    |
+| `out=`           | The folder to write to                                                                                  | `Seagull-Scenario` next to the steps folder |
+| `timeout=`       | How long Seagull waits for each answer, in milliseconds                                                 | 5000                                        |
+| `dest=`          | Address and port of the OCS, written into `config/conf.client.xml`                                      | `127.0.0.1:3868`                            |
+| `host-ip=`       | The IP address that the CER announces as the client's own                                               | `192.0.2.10`                                |
 
 When `dictionaries=` or `merge=` is missing, list the `.xml` files of the dictionary folder and ask the user which to
 merge. Never guess. Start with the dictionary of the interface the messages use, and add another only when the
@@ -97,15 +97,15 @@ of the merged dictionaries, the first one in `merge=` keeps the name.
 
 ## What the output holds
 
-| Path                              | Content                                                                                          |
-|-----------------------------------|--------------------------------------------------------------------------------------------------|
-| `scenario/NN-<kind>-steps-<...>.client.xml` | The client scenario of one Diameter session: CER/CEA, then each request and its checks   |
-| `scenario/*.stub-server.xml`      | A stub OCS for the dry run: answers with the AVPs of the recorded answers                        |
-| `config/conf.client.xml`          | The client configuration with `dest` and the response timeout                                    |
-| `config/conf.dry-run.client.xml`  | The same, pointing at the stub OCS                                                               |
-| `config/conf.stub-server.xml`     | The stub OCS configuration                                                                       |
-| `dictionary/diameter-dictionary.xml` | The merged Seagull dictionary, used by the scenarios and the stub                              |
-| `generation-report.txt`           | What the generator did and what to review                                                        |
+| Path                                        | Content                                                                                |
+| ------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `scenario/NN-<kind>-steps-<...>.client.xml` | The client scenario of one Diameter session: CER/CEA, then each request and its checks |
+| `scenario/*.stub-server.xml`                | A stub OCS for the dry run: answers with the AVPs of the recorded answers              |
+| `config/conf.client.xml`                    | The client configuration with `dest` and the response timeout                          |
+| `config/conf.dry-run.client.xml`            | The same, pointing at the stub OCS                                                     |
+| `config/conf.stub-server.xml`               | The stub OCS configuration                                                             |
+| `dictionary/diameter-dictionary.xml`        | The merged Seagull dictionary, used by the scenarios and the stub                      |
+| `generation-report.txt`                     | What the generator did and what to review                                              |
 
 ## What the scenarios do
 

@@ -37,7 +37,7 @@ apm install --target claude kagw95/seagull-docker/agent-packages/seagull-diamete
 
 The part after `#` is the branch or tag to follow; use a tag to stay on one version. `--target` names the agent:
 `claude`,
-`codex`, `copilot`, `cursor`, `gemini`, or `opencode`, several joined with commas. APM downloads the package with git,
+`codex`, `copilot`, `cursor`, `gemini`, or `opencode`, several joined with commas. APM downloads the package with Git,
 so
 the repository must be readable with your credentials.
 
@@ -87,15 +87,15 @@ Skip this section. The first run of the generator checks the folder.
 /seagull-diameter-scenario-generate C:\work\Diameter-Steps dictionaries=C:\work\dictionaries merge=RoSCP,Gy,Integration out=C:\work\Seagull-Scenario dest=10.0.0.5:3868
 ```
 
-| Argument        | Meaning                                                                                                         |
-|-----------------|-----------------------------------------------------------------------------------------------------------------|
-| first argument  | The folder of recorded steps                                                                                    |
-| `dictionaries=` | The folder of the project's dictionaries                                                                        |
-| `merge=`        | The dictionaries to merge, in order. For an AVP name that two of them define, the first keeps the name           |
-| `out=`          | Where to write the scenarios                                                                                    |
-| `timeout=`      | How long Seagull waits for each answer, in milliseconds. Default 5000                                           |
-| `dest=`         | The address and port of the OCS. Default `127.0.0.1:3868`, which is the stub OCS                                |
-| `host-ip=`      | The IP address that the capabilities exchange announces as the client's. Default is a placeholder               |
+| Argument        | Meaning                                                                                                |
+| --------------- | ------------------------------------------------------------------------------------------------------ |
+| first argument  | The folder of recorded steps                                                                           |
+| `dictionaries=` | The folder of the project's dictionaries                                                               |
+| `merge=`        | The dictionaries to merge, in order. For an AVP name that two of them define, the first keeps the name |
+| `out=`          | Where to write the scenarios                                                                           |
+| `timeout=`      | How long Seagull waits for each answer, in milliseconds. Default 5000                                  |
+| `dest=`         | The address and port of the OCS. Default `127.0.0.1:3868`, which is the stub OCS                       |
+| `host-ip=`      | The IP address that the capabilities exchange announces as the client's. Default is a placeholder      |
 
 When the dictionaries are missing from the command, the agent lists the files and asks which to merge. If the generator
 says that an AVP is in none of the dictionaries, add the dictionary that has it to `merge=`.
@@ -109,13 +109,13 @@ The agent then reports:
 
 The output folder holds:
 
-| Folder or file                   | Content                                                                        |
-|----------------------------------|--------------------------------------------------------------------------------|
-| `scenario/`                      | A client scenario and a stub OCS scenario for each session                     |
-| `config/conf.client.xml`         | The configuration for the OCS under test: `dest` and the response timeout      |
-| `config/conf.dry-run.client.xml` | The same, pointing at the stub OCS                                             |
-| `dictionary/`                    | The merged Seagull dictionary and the conversion report                        |
-| `generation-report.txt`          | What the generator did                                                         |
+| Folder or file                   | Content                                                                   |
+| -------------------------------- | ------------------------------------------------------------------------- |
+| `scenario/`                      | A client scenario and a stub OCS scenario for each session                |
+| `config/conf.client.xml`         | The configuration for the OCS under test: `dest` and the response timeout |
+| `config/conf.dry-run.client.xml` | The same, pointing at the stub OCS                                        |
+| `dictionary/`                    | The merged Seagull dictionary and the conversion report                   |
+| `generation-report.txt`          | What the generator did                                                    |
 
 The generated files hold subscriber data from the recording and are not for a repository. They use line feed as the line
 ending, which Seagull needs: its configuration parser fails on a carriage return, so do not let an editor or Git convert
@@ -166,12 +166,12 @@ line first.
 
 ## When something goes wrong
 
-| Symptom                                               | Cause and fix                                                                                  |
-|-------------------------------------------------------|------------------------------------------------------------------------------------------------|
-| The agent does not know the command                   | The skills are not loaded. Check that `apm install` finished, then restart the session         |
-| `AVP <name> is in none of the project dictionaries`   | Add the dictionary that defines the AVP to `merge=`                                            |
-| `the command <X> is not in ...`                       | The merged dictionary has no definition of that command; add the dictionary of its application |
-| `PROBLEM ... not well-formed XML`                     | A recorded message is not XML even after the repairs. Fix the source and extract again         |
-| `no statistics file` in the dry run                   | Seagull did not start. Look for a carriage return in a generated file, and for a missing image |
-| A scenario fails with `Refused (new) call`            | A CCA arrived with a Session-Id that the call had not used. Check the recorded answers         |
-| A scenario fails by timeout                           | The OCS did not answer in `timeout=` milliseconds. Raise it, or check the OCS                  |
+| Symptom                                             | Cause and fix                                                                                  |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| The agent does not know the command                 | The skills are not loaded. Check that `apm install` finished, then restart the session         |
+| `AVP <name> is in none of the project dictionaries` | Add the dictionary that defines the AVP to `merge=`                                            |
+| `the command <X> is not in ...`                     | The merged dictionary has no definition of that command; add the dictionary of its application |
+| `PROBLEM ... not well-formed XML`                   | A recorded message is not XML even after the repairs. Fix the source and extract again         |
+| `no statistics file` in the dry run                 | Seagull did not start. Look for a carriage return in a generated file, and for a missing image |
+| A scenario fails with `Refused (new) call`          | A CCA arrived with a Session-Id that the call had not used. Check the recorded answers         |
+| A scenario fails by timeout                         | The OCS did not answer in `timeout=` milliseconds. Raise it, or check the OCS                  |
