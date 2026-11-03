@@ -1,0 +1,56 @@
+# seagull-diameter-scenarios
+
+Skills that turn the Diameter requests and responses of a recorded test run into
+[Seagull](https://gull.sourceforge.net/)
+scenarios. The scenarios send the recorded requests again, check each answer, give up when an answer is late, and can be
+tried first against a stub OCS, so no real charging system is needed to see that they work.
+
+To install the package and run the skills, follow the [user guide](docs/user-guide.md).
+
+## Skills
+
+Both skills are commands: the agent runs them only when you type their name.
+
+| Skill                                                                                           | Purpose                                                                                     |
+|-------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| [/seagull-diameter-steps-extract](.apm/skills/seagull-diameter-steps-extract/SKILL.md)          | Turns a recorded run (an `xlsx` export, for example) into a folder of request and response files |
+| [/seagull-diameter-scenario-generate](.apm/skills/seagull-diameter-scenario-generate/SKILL.md)  | Turns that folder into Seagull scenarios, configuration, and a merged dictionary, then runs a dry run |
+| [seagull-diameter-common](.apm/skills/seagull-diameter-common/SKILL.md)                         | Shared scripts and the format of the folder. Not a task; the agent never invokes it         |
+
+```mermaid
+flowchart LR
+    Source["Recorded run<br/>(xlsx, csv, log)"] -->|"/seagull-diameter-steps-extract<br/>+ your description of the file"| Folder["Folder of<br/>Step-NNN-request/response.txt"]
+    Folder -->|"/seagull-diameter-scenario-generate<br/>+ the project dictionaries"| Output["Scenarios, configuration,<br/>merged dictionary"]
+    Output -->|"dry-run.sh"| Stub["Stub OCS in the Seagull image"]
+    Output -->|"seagull -scen ..."| OCS["The OCS under test"]
+```
+
+A folder of request and response files that you already have goes straight into the second skill.
+
+## What the generated scenarios do
+
+- One scenario for each Diameter session. Seagull refuses an answer whose Session-Id the call has not used, so steps
+  with
+  the same Session-Id are one scenario, and a new Session-Id starts another.
+- Each request carries the recorded AVPs in the recorded order with fixed values. Only the Hop-by-Hop and End-to-End
+  identifiers come from counters. Times and IP addresses are converted to the form Seagull sends.
+- After each answer the scenario compares `Result-Code`, `Session-Id`, `Auth-Application-Id`, `CC-Request-Type`, and
+  `CC-Request-Number` with the recorded answer, and fails the call on any difference.
+- Seagull waits for each answer as long as `call-timeout-ms` in the configuration says (5000 ms by default).
+
+## Requirements
+
+- Python 3.9 or later, with no other package, to run the scripts.
+- Docker and the Seagull image of this repository (`seagull:local`) for the dry run.
+- The project's Diameter dictionaries in the project format, to find the vendor, the code, and the type of each AVP.
+
+## Tests
+
+```bash
+python tests/selftest.py
+```
+
+The self-test generates scenarios from the invented dictionaries and steps in `tests/fixtures`. It also runs the dry run
+in
+the Seagull image when `SEAGULL_IMAGE` names the image (for example `SEAGULL_IMAGE=seagull:local`) and `sh` and `docker`
+work.

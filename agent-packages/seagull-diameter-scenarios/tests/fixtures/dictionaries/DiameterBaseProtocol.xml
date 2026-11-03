@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Invented test data for selftest.py: not a real dictionary. -->
+<dictionary>
+  <vendor id="0" name="base">
+    <avp name="Host-IP-Address" code="257" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="no">
+      <type type-name="Address"/>
+    </avp>
+    <avp name="Auth-Application-Id" code="258" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="no">
+      <type type-name="Unsigned32"/>
+    </avp>
+    <avp name="Session-Id" code="263" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="no">
+      <type type-name="UTF8String"/>
+    </avp>
+    <avp name="Origin-Host" code="264" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="no">
+      <type type-name="DiameterIdentity"/>
+    </avp>
+    <avp name="Vendor-Id" code="266" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="no">
+      <type type-name="Unsigned32"/>
+    </avp>
+    <avp name="Result-Code" code="268" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="no">
+      <type type-name="Unsigned32"/>
+    </avp>
+    <avp name="Product-Name" code="269" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="no">
+      <type type-name="UTF8String"/>
+    </avp>
+    <avp name="Origin-Realm" code="296" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="no">
+      <type type-name="DiameterIdentity"/>
+    </avp>
+    <avp name="Destination-Realm" code="283" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="no">
+      <type type-name="DiameterIdentity"/>
+    </avp>
+    <avp name="Destination-Host" code="293" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="no">
+      <type type-name="DiameterIdentity"/>
+    </avp>
+    <avp name="Event-Timestamp" code="55" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="no">
+      <type type-name="Time"/>
+    </avp>
+    <avp name="User-Name" code="1" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="no">
+      <type type-name="UTF8String"/>
+    </avp>
+  </vendor>
+  <base uri="http://www.ietf.org/rfc/rfc3588.txt">
+    <command name="Capabilities-Exchange" code="257"/>
+  </base>
+</dictionary>

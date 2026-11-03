@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Invented test data for selftest.py: not a real dictionary. -->
+<dictionary>
+  <vendor id="0" name="base">
+    <avp name="CC-Request-Type" code="416" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="no">
+      <type type-name="Enumerated"/>
+      <enum name="INITIAL_REQUEST" code="1"/>
+      <enum name="UPDATE_REQUEST" code="2"/>
+      <enum name="TERMINATION_REQUEST" code="3"/>
+      <enum name="EVENT_REQUEST" code="4"/>
+    </avp>
+    <avp name="CC-Request-Number" code="415" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="no">
+      <type type-name="Unsigned32"/>
+    </avp>
+    <avp name="Service-Context-Id" code="461" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="no">
+      <type type-name="UTF8String"/>
+    </avp>
+    <avp name="Subscription-Id-Type" code="450" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="no">
+      <type type-name="Enumerated"/>
+      <enum name="END_USER_E164" code="0"/>
+      <enum name="END_USER_IMSI" code="1"/>
+    </avp>
+    <avp name="Subscription-Id-Data" code="444" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="no">
+      <type type-name="UTF8String"/>
+    </avp>
+    <avp name="Subscription-Id" code="443" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="no">
+      <grouped>
+        <gavp name="Subscription-Id-Type"/>
+        <gavp name="Subscription-Id-Data"/>
+      </grouped>
+    </avp>
+  </vendor>
+  <vendor id="10415" name="TGPP">
+    <avp name="TGPP-Charging-Id" code="2" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="yes">
+      <type type-name="OctetString"/>
+    </avp>
+    <avp name="SGSN-Address" code="1228" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="yes">
+      <type type-name="Address"/>
+    </avp>
+    <avp name="Node-Id" code="2064" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="yes">
+      <type type-name="UTF8String"/>
+    </avp>
+    <avp name="PS-Information" code="874" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="yes">
+      <grouped>
+        <gavp name="TGPP-Charging-Id"/>
+        <gavp name="SGSN-Address"/>
+        <gavp name="Node-Id"/>
+      </grouped>
+    </avp>
+    <avp name="Service-Information" code="873" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="yes">
+      <grouped>
+        <gavp name="PS-Information"/>
+      </grouped>
+    </avp>
+  </vendor>
+  <vendor id="99999" name="EXAMPLE">
+    <avp name="Node-Id" code="5" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="yes">
+      <type type-name="UTF8String"/>
+    </avp>
+    <avp name="Example-Info" code="1" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="yes">
+      <grouped>
+        <gavp name="Node-Id"/>
+      </grouped>
+    </avp>
+  </vendor>
+  <application id="4" name="Ro" vendor="TGPP" service-type="Auth">
+    <command name="Credit-Control" code="272"/>
+  </application>
+</dictionary>
