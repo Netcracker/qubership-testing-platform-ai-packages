@@ -20,6 +20,8 @@ because APM deploys the files of a skill folder next to each other, so the scrip
 | `scripts/steps_format.py`    | Reads a folder of recorded steps; repairs and reports the faults of hand-edited text         |
 | `scripts/check_steps.py`     | Checks a folder of recorded steps; run it before generating                                  |
 | `scripts/dict2seagull.py`    | Converts the project's AVP dictionaries into one Seagull dictionary                          |
+| `scripts/scenario_options.py`| Reads and writes the options file; matches AVPs to placeholders; fills templates in          |
+| `scripts/apply_placeholders.py` | Replaces the `@@NAME@@` placeholders of a template with values                            |
 
 ## The folder of recorded steps
 
@@ -67,6 +69,54 @@ that
 ends in `--` without `>`) is removed together with the AVPs inside it, and a closing tag without `>` is completed.
 Anything
 else that is not XML is an error: send the folder back to the person who made it.
+
+## The options file
+
+`scenario-options.ini` holds what the user decided about the shape of the generated scenarios. The generator reads it,
+applies the `--option` and `--placeholder` flags of the run, and writes it back. Edit it by running the generator with a
+flag, not by hand, unless the user asks.
+
+```ini
+[output]
+mode = template
+substitution = text
+
+[tags]
+default-dwr = true
+generated-session-id = false
+generated-timestamp = false
+log = false
+check-presence = false
+wait-ms = 0
+time-method =
+
+[placeholders]
+Subscription-Id/Subscription-Id-Data = SUBSCRIBER_ID
+3GPP-Charging-Id = CHARGING_ID_HEX
+wait-ms = WAIT_MS
+```
+
+| Key                    | Values                      | Effect                                                                                  |
+| ---------------------- | --------------------------- | --------------------------------------------------------------------------------------- |
+| `mode`                 | `scenario`, `template`      | `scenario` writes fixed values and ignores `[placeholders]`; `template` applies them    |
+| `substitution`         | `text`, `native`            | `text` writes `@@NAME@@`; `native` keeps the value in the scenario as a Seagull variable |
+| `default-dwr`          | `true`, `false`             | A `<default>` section that answers DWR with DWA. Default `true`                         |
+| `generated-session-id` | `true`, `false`             | A Session-Id built from a counter in the first step and restored in the later ones      |
+| `generated-timestamp`  | `true`, `false`             | An Event-Timestamp set at run time; needs `time-method`                                 |
+| `log`                  | `true`, `false`             | A `<log>` line in each send and receive block                                           |
+| `check-presence`       | `true`, `false`             | A `<check-presence>` before each `<check-value>`                                        |
+| `wait-ms`              | milliseconds, `0` for none  | A `<wait-ms>` pause between two steps                                                   |
+| `time-method`          | a Seagull method name       | The method that returns the time, for `generated-timestamp` and a timed Session-Id     |
+
+In `[placeholders]` the key is the AVP name as the scenario file spells it, and the value is the placeholder name
+(letters, digits, and `_`, starting with a letter). A bare name matches that AVP at any depth, a path such as
+`Subscription-Id/Subscription-Id-Data` matches only inside that group, and `GGSN-Address[2]` matches the second sibling
+of that name. The most specific key wins. The key `wait-ms` names the placeholder for the pause. An empty value removes
+the pair.
+
+One placeholder stands for one value in a scenario file: the first AVP that uses it sets the value, and the generator
+reports a different value of a later one. A hexadecimal value keeps its `0x` outside the marker
+(`0x@@CHARGING_ID_HEX@@`), and the values file holds the digits only.
 
 ## Python
 

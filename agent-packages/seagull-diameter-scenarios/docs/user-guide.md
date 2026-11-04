@@ -121,6 +121,72 @@ The generated files hold subscriber data from the recording and are not for a re
 ending, which Seagull needs: its configuration parser fails on a carriage return, so do not let an editor or Git convert
 them.
 
+## Make templates, and add dynamic tags
+
+By default the scenarios hold the recorded values. Three things change that. Each is a decision that you state in a
+prompt once; the generator writes it to `scenario-options.ini` in the output folder and reads it on every later run
+until you state another.
+
+### Placeholders
+
+To get a template, add `mode=template` and name the AVPs whose values should be placeholders:
+
+```text
+/seagull-diameter-scenario-generate C:\work\Diameter-Steps dictionaries=C:\work\dictionaries merge=RoSCP,Gy out=C:\work\Seagull-Scenario mode=template placeholder=Subscription-Id/Subscription-Id-Data=SUBSCRIBER_ID placeholder=3GPP-Charging-Id=CHARGING_ID_HEX
+```
+
+Each `placeholder=` is `<AVP name>=<placeholder name>`. The AVP name is the one that the scenario file spells. A bare name
+matches the AVP at any depth, a path such as `Multiple-Services-Credit-Control/Rating-Group` matches only inside that
+group, and `GGSN-Address[2]` matches the second AVP of that name among its siblings. To drop a pair, name the AVP with an
+empty placeholder name (`placeholder=Rating-Group=`).
+
+For each session the scenario folder then holds three files:
+
+| File                       | Content                                                                          |
+| -------------------------- | -------------------------------------------------------------------------------- |
+| `<name>.client.xml.tpl`    | The template, for example `value="0x@@CHARGING_ID_HEX@@"`                        |
+| `<name>.client.xml.values` | `NAME=value` lines with the recorded values; hexadecimal values do not hold `0x` |
+| `<name>.client.xml`        | The template filled in with the values file, which the dry run uses              |
+
+A placeholder stands for one value in a file. When two AVPs that share a name had different values, the generator uses
+the first and says so in the report.
+
+To fill the template in with your own values, run the script that the package ships:
+
+```bash
+python .apm/skills/seagull-diameter-common/scripts/apply_placeholders.py <name>.client.xml.tpl --out <name>.client.xml \
+    --values <name>.client.xml.values --env --set SUBSCRIBER_ID=966581105391
+```
+
+A value comes from `--set`, then from the environment (only with `--env`), then from the values file. The script stops and
+names every placeholder that has no value.
+
+If you want Seagull to hold the values instead, add `option=substitution=native`: each placeholder becomes a variable
+that the scenario sets in its first step and restores in the later ones. It works for top-level AVPs that do not repeat.
+
+### Scenarios you already have
+
+`/seagull-diameter-scenario-templatize C:\work\Seagull-Scenario\scenario placeholder=Subscription-Id-Data=SUBSCRIBER_ID`
+turns every `*.client.xml` in the folder into a template with a values file, without reading the steps again. It uses
+the pairs of the options file when you name none.
+
+### Tags
+
+| Option                         | Adds                                                                                               |
+| ------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `default-dwr` (on by default)  | A `<default>` section that answers a Device-Watchdog request of the OCS with a DWA                  |
+| `generated-session-id=true`    | A Session-Id built from a counter in the first step and reused in the later steps of the session   |
+| `generated-timestamp=true`     | An Event-Timestamp set when the request is sent; needs `time-method`                               |
+| `log=true`                     | A `<log>` line in each send and receive block                                                      |
+| `check-presence=true`          | A `<check-presence>` before each `<check-value>`                                                   |
+| `wait-ms=<ms>`                 | A pause between two steps. Map `wait-ms` in the placeholders to make the pause a placeholder       |
+| `time-method=<name>`           | The Seagull method that returns the time                                                           |
+
+Give each one as `option=<key>=<value>`. The Seagull in this repository's image has no time method: it rejects both
+`sys_date_time_secs` and `sys_time_secs` with `No method extern found`. Use `generated-timestamp` and a timed Session-Id
+only with a Seagull that defines the method, and name it in `time-method`. Without it, a generated Session-Id is the
+Origin-Host and a counter, and the dry run in the image checks everything except the time.
+
 ## Try the scenarios without an OCS
 
 The agent runs this for you after generating. To run it yourself, from the folder of the package:

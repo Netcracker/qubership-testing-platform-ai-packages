@@ -9,12 +9,13 @@ To install the package and run the skills, follow the [user guide](docs/user-gui
 
 ## Skills
 
-Both skills are commands: the agent runs them only when you type their name.
+The first three skills are commands: the agent runs them only when you type their name.
 
 | Skill                                                                                          | Purpose                                                                                               |
 | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | [/seagull-diameter-steps-extract](.apm/skills/seagull-diameter-steps-extract/SKILL.md)         | Turns a recorded run (an `xlsx` export, for example) into a folder of request and response files      |
-| [/seagull-diameter-scenario-generate](.apm/skills/seagull-diameter-scenario-generate/SKILL.md) | Turns that folder into Seagull scenarios, configuration, and a merged dictionary, then runs a dry run |
+| [/seagull-diameter-scenario-generate](.apm/skills/seagull-diameter-scenario-generate/SKILL.md) | Turns that folder into Seagull scenarios or templates, configuration, and a merged dictionary, then runs a dry run |
+| [/seagull-diameter-scenario-templatize](.apm/skills/seagull-diameter-scenario-templatize/SKILL.md) | Replaces the values of chosen AVPs in generated scenarios with `@@NAME@@` placeholders                |
 | [seagull-diameter-common](.apm/skills/seagull-diameter-common/SKILL.md)                        | Shared scripts and the format of the folder. Not a task; the agent never invokes it                   |
 
 ```mermaid
@@ -37,6 +38,25 @@ A folder of request and response files that you already have goes straight into 
 - After each answer the scenario compares `Result-Code`, `Session-Id`, `Auth-Application-Id`, `CC-Request-Type`, and
   `CC-Request-Number` with the recorded answer, and fails the call on any difference.
 - Seagull waits for each answer as long as `call-timeout-ms` in the configuration says (5000 ms by default).
+- A `<default>` section answers a Device-Watchdog request from the OCS with a DWA.
+
+## Options, tags, and templates
+
+An options file, `scenario-options.ini`, next to the generated scenarios keeps what you decided: whether to write ready
+scenarios or templates, which optional tags to add, and which AVP values become placeholders. You state each decision
+once in a prompt; the file keeps it for the next run until you state another.
+
+- **Ready scenario or template.** `mode=scenario` writes fixed values. `mode=template` writes `@@NAME@@` where you named
+  an AVP, plus a values file with the recorded values. `apply_placeholders.py` fills a template in from `--set`
+  arguments, the environment (`--env`), and the values file. `substitution=native` keeps the value inside the scenario
+  as a Seagull variable instead.
+- **Placeholders** are `AVP = NAME` pairs, with an optional path (`Subscription-Id/Subscription-Id-Data`) or index
+  (`GGSN-Address[2]`).
+- **Tags** that you can switch on: a Session-Id and Event-Timestamp made at run time, a `<log>` line for each step,
+  `<check-presence>`, and a `<wait-ms>` pause between steps. The `<default>` section for DWR is on by default.
+- **Existing scenarios** become templates with `/seagull-diameter-scenario-templatize`.
+
+The format of the file is in [the common skill](.apm/skills/seagull-diameter-common/SKILL.md#the-options-file).
 
 ## Requirements
 

@@ -1,8 +1,8 @@
 ---
 name: seagull-diameter-scenario-generate
-description: Use only when the user types /seagull-diameter-scenario-generate. Generates Seagull client scenarios, a merged Seagull dictionary, configuration, and a stub OCS from a folder of recorded Diameter requests and responses, and runs them in a dry run.
+description: Use only when the user types /seagull-diameter-scenario-generate. Generates Seagull client scenarios or templates with placeholders, a merged Seagull dictionary, configuration, and a stub OCS from a folder of recorded Diameter requests and responses, and runs them in a dry run.
 disable-model-invocation: true
-argument-hint: "<steps folder> dictionaries=<folder> merge=<A,B,C> [out=<folder>] [timeout=<ms>] [dest=<host:port>] [host-ip=<ip>]"
+argument-hint: "<steps folder> dictionaries=<folder> merge=<A,B,C> [out=<folder>] [timeout=<ms>] [dest=<host:port>] [host-ip=<ip>] [mode=scenario|template] [placeholder=<AVP>=<NAME> ...] [option=<key>=<value> ...]"
 metadata:
   opencode/slash: "true"
   opencode/autoinvoke: "false"
@@ -20,7 +20,7 @@ the agent runs it, reads its report, and tells the user what to review.
 ## Arguments
 
 ```text
-/seagull-diameter-scenario-generate <steps folder> dictionaries=<folder> merge=<A,B,C> [out=<folder>] [timeout=<ms>] [dest=<host:port>] [host-ip=<ip>]
+/seagull-diameter-scenario-generate <steps folder> dictionaries=<folder> merge=<A,B,C> [out=<folder>] [timeout=<ms>] [dest=<host:port>] [host-ip=<ip>] [mode=scenario|template] [placeholder=<AVP>=<NAME> ...] [option=<key>=<value> ...] [options=<file>]
 ```
 
 | Argument         | Meaning                                                                                                 | Default                                     |
@@ -32,6 +32,15 @@ the agent runs it, reads its report, and tells the user what to review.
 | `timeout=`       | How long Seagull waits for each answer, in milliseconds                                                 | 5000                                        |
 | `dest=`          | Address and port of the OCS, written into `config/conf.client.xml`                                      | `127.0.0.1:3868`                            |
 | `host-ip=`       | The IP address that the CER announces as the client's own                                               | `192.0.2.10`                                |
+| `mode=`          | `scenario` writes ready scenarios with fixed values; `template` puts placeholders where values were     | the options file, else `scenario`           |
+| `placeholder=`   | One `<AVP>=<NAME>` pair; repeat it for more. An empty `<NAME>` removes the pair                         | the pairs in the options file               |
+| `option=`        | One `<key>=<value>` option of [the options file](../seagull-diameter-common/SKILL.md#the-options-file)  | the options file                            |
+| `options=`       | The options file                                                                                        | `scenario-options.ini` in the output folder |
+
+`mode=`, `placeholder=`, and `option=` change the options file, and the generator writes the result back. Pass them only
+when the user states them in the prompt. A later run without them uses what the file holds, so the user states a
+placeholder once and changes it only by naming it again. When the user asks for placeholders but names none, ask which
+AVP values should become placeholders; never pick them.
 
 When `dictionaries=` or `merge=` is missing, list the `.xml` files of the dictionary folder and ask the user which to
 merge. Never guess. Start with the dictionary of the interface the messages use, and add another only when the
@@ -62,6 +71,8 @@ of the merged dictionaries, the first one in `merge=` keeps the name.
        --dictionaries <A,B,C> --out <out folder> [--timeout-ms <ms>] [--dest <host:port>] [--host-ip <ip>]
    ```
 
+   The arguments `mode=`, `placeholder=`, `option=`, and `options=` become `--option mode=<value>`,
+   `--placeholder <AVP>=<NAME>`, `--option <key>=<value>`, and `--options <file>`; repeat a flag for each pair.
    Options that the arguments table does not list: `--check-avps <A,B,...>` sets the AVPs that the scenario compares in
    each answer (default `Result-Code,Session-Id,Auth-Application-Id,CC-Request-Type,CC-Request-Number`; an AVP that the
    recorded answer lacks is skipped and named in the report), `--rename OLD=NEW` renames an AVP for the converter, and
@@ -76,6 +87,9 @@ of the merged dictionaries, the first one in `merge=` keeps the name.
    - The repairs of the recorded messages, and the checks that were skipped.
    - The conversion warnings in `dictionary/conversion-report.txt`: names defined twice, a command replaced by the
      application's. They matter only when a scenario uses the name.
+   - The lines about the options: `default-dwr is off` (the dictionary has no DWR and DWA), `<NAME>: values 'a' and
+     'b'; used the first` (one placeholder stands for one value, so two AVPs with different values lose the
+     difference), and `placeholder <AVP>: matched no AVP` (a misspelled name or an AVP that is not in the steps).
 4. **Dry run.**
 
    ```bash
@@ -100,6 +114,9 @@ of the merged dictionaries, the first one in `merge=` keeps the name.
 | Path                                        | Content                                                                                |
 | ------------------------------------------- | -------------------------------------------------------------------------------------- |
 | `scenario/NN-<kind>-steps-<...>.client.xml` | The client scenario of one Diameter session: CER/CEA, then each request and its checks |
+| `scenario/*.client.xml.tpl`                 | With `mode=template` and text placeholders: the template, with `@@NAME@@` in place of values |
+| `scenario/*.client.xml.values`              | The values of the placeholders of that template. The `.client.xml` next to it is the template filled in with them |
+| `scenario-options.ini`                      | The options of this generation: mode, tags, and placeholder pairs. The next run reads it |
 | `scenario/*.stub-server.xml`                | A stub OCS for the dry run: answers with the AVPs of the recorded answers              |
 | `config/conf.client.xml`                    | The client configuration with `dest` and the response timeout                          |
 | `config/conf.dry-run.client.xml`            | The same, pointing at the stub OCS                                                     |
@@ -117,8 +134,19 @@ of the merged dictionaries, the first one in `merge=` keeps the name.
   identifiers come from counters. The attributes of the recorded root element are not sent, and commented-out AVPs are
   left out.
 - A time such as `2026-10-27 14:00:52 +0000 UTC` becomes 4 bytes of NTP time in hex, and an IP address in an AVP of type
-  Address becomes the address family followed by the address bytes. The time is a fixed value for now; a later change
-  makes it come from the run configuration.
+  Address becomes the address family followed by the address bytes. The time is a fixed value unless the
+  `generated-timestamp` option is on.
+- The `<default>` section answers a Device-Watchdog request from the OCS with a DWA, so a long run is not dropped. It is
+  on unless `default-dwr=false`.
+- The other tags are off until the options file turns them on: a Session-Id and an Event-Timestamp made at run time, a
+  `<log>` line for each step, `<check-presence>` before each `<check-value>`, and a `<wait-ms>` pause between steps.
+  [The options file](../seagull-diameter-common/SKILL.md#the-options-file) lists the keys.
+- In `mode=template`, the AVPs that a `[placeholders]` pair names carry `@@NAME@@` (`text` substitution) or a Seagull
+  variable (`native` substitution). With `text`, the generator also fills the template in from the values it wrote, so
+  the dry run runs the template. Fill a template in for real with
+  `seagull-diameter-common/scripts/apply_placeholders.py`; it takes values from `--set`, from the environment with
+  `--env`, and from a values file. With `native`, the scenario sets each variable once, in its first step, and restores
+  it in the later steps; only top-level, non-repeated AVPs can be native.
 - `TGPP-` at the start of an AVP name is written `3GPP-`, as the converted dictionary names it; the bytes are the same.
 - After each answer the scenario checks the AVPs of `--check-avps` against the recorded answer, and any difference
   fails the call with `check failed in [CCA] command, value of avp [Result-Code]. Expected [2001] but got [5012]`.
@@ -130,8 +158,16 @@ of the merged dictionaries, the first one in `merge=` keeps the name.
 
 - The check compares top-level AVPs only. An AVP inside a group that has the name of a top-level one, such as the
   `Result-Code` of a Multiple-Services-Credit-Control, cannot be told apart by name.
-- The CER carries a placeholder `Host-IP-Address`, and the scenarios do not answer a Device-Watchdog request from the
-  OCS.
+- The CER carries a placeholder `Host-IP-Address`.
+- `generated-timestamp`, and the time part of a generated Session-Id, need `time-method=<name>`: the name of a Seagull
+  method that returns the time. The Seagull 1.8.3 of this repository's image does not know the `sys_date_time_secs`
+  that another project's scenario uses, and it does not know `sys_time_secs` either (`No method extern found for ...`).
+  Without `time-method`, a generated Session-Id is `<Origin-Host>;<counter>` and `generated-timestamp=true` is an error.
+  Set `time-method` only when the Seagull that runs the scenario defines the method, and say that the dry run in this
+  image cannot check it.
+- The generated Session-Id replaces the recorded one, so the scenario no longer compares the Session-Id of the answer.
+- The check of an answer uses the recorded value, or the placeholder when the checked AVP has one in `text`
+  substitution. In `native` substitution it keeps the recorded value.
 - A stub OCS that runs the Seagull decoder may log `Current Size: ... is greater than expecting one: ...` for a vendor
   AVP
   whose code is also a base AVP code. It is a log line of the receiver; the bytes that the client sends are correct.

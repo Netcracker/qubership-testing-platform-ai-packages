@@ -41,5 +41,6 @@
   </vendor>
   <base uri="http://www.ietf.org/rfc/rfc3588.txt">
     <command name="Capabilities-Exchange" code="257"/>
+    <command name="Device-Watchdog" code="280"/>
   </base>
 </dictionary>

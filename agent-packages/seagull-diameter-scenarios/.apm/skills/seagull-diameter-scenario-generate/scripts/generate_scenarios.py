@@ -4,6 +4,7 @@ Usage:
   python generate_scenarios.py --steps STEPS_DIR --dictionaries-dir DIR
       --dictionaries A,B,C --out OUT_DIR [--timeout-ms 5000] [--dest HOST:PORT]
       [--host-ip IP] [--check-avps LIST] [--seagull-dictionary FILE]
+      [--options FILE] [--option KEY=VALUE ...] [--placeholder AVP=NAME ...]
 
 STEPS_DIR holds Step-NNN-request.txt and Step-NNN-response.txt (see the
 seagull-diameter-common skill). DIR holds the project's AVP dictionaries:
@@ -15,6 +16,11 @@ Every session becomes one client scenario and one stub-OCS scenario for a dry ru
 OUT_DIR also gets the client and stub configuration and the merged Seagull
 dictionary.
 
+The options file (default OUT_DIR/scenario-options.ini) says whether to write ready
+scenarios or templates, which dynamic tags to add, and which AVP values become
+placeholders; see scenario_options.py. --option and --placeholder change it, and
+the generator writes the result back, so the next run starts from it.
+
 Requires Python 3.9 or later.
 """
 
@@ -23,6 +29,7 @@ from __future__ import annotations
 import argparse
 import calendar
 import contextlib
+import copy
 import importlib
 import io
 import ipaddress
@@ -41,6 +48,7 @@ COMMON = Path(__file__).resolve().parents[2] / "seagull-diameter-common" / "scri
 sys.path.insert(0, str(COMMON))
 steps_format = importlib.import_module("steps_format")
 dict2seagull = importlib.import_module("dict2seagull")
+scenario_options = importlib.import_module("scenario_options")
 
 NTP_OFFSET = 2208988800
 BASE = "DiameterBaseProtocol"
@@ -50,10 +58,63 @@ STUB_ADDRESS = "127.0.0.1:3868"  # where the stub OCS of the dry run listens
 XML_HEAD = '<?xml version="1.0" encoding="ISO-8859-1" ?>\n'
 AVP_LINE = "      <avp name={} value={}></avp>\n"
 CHECK_LINE = '      <check-value name={} behaviour="error"></check-value>\n'
+PRESENCE_LINE = '      <check-presence name={} behaviour="error"></check-presence>\n'
+OPTIONS_NAME = "scenario-options.ini"
+WAIT_KEY = "wait-ms"
 
 
 class GenerationError(Exception):
     """The input cannot be turned into a scenario."""
+
+
+@dataclass
+class Substitution:
+    """The placeholders of one scenario file and the values they stand for."""
+
+    rules: dict[str, str]
+    native: bool
+    used: set[str]
+    values: dict[str, str] = field(default_factory=dict)
+    hits: list[tuple[str, str, str]] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+
+    def holder(self, path: list[tuple[str, str, int]]) -> str | None:
+        """Return the placeholder for an AVP path, or None; remember the rule used."""
+        found = scenario_options.lookup(self.rules, path)
+        if found is None:
+            return None
+        self.used.add(found[0])
+        return found[1]
+
+    def record(self, holder: str, value: str) -> None:
+        """Remember the value that a placeholder stands for; the first one wins."""
+        plain = scenario_options.unwrapped(value)
+        known = self.values.setdefault(holder, plain)
+        if known != plain:
+            self.notes.append(
+                f"{holder}: values {known!r} and {plain!r}; used the first"
+            )
+
+    def apply(self, path: list[tuple[str, str, int]], value: str) -> str:
+        """Return the text to write for a value; a native hit is queued instead."""
+        holder = self.holder(path)
+        if holder is None:
+            return value
+        if self.native:
+            if len(path) > 1 or path[-1][2] > 1:
+                where = "/".join(entry[0] for entry in path)
+                message = f"native substitution cannot address {where}: use text"
+                raise GenerationError(message)
+            self.hits.append((path[-1][0], holder, value))
+            return value
+        self.record(holder, value)
+        return scenario_options.wrap(value, holder)
+
+    def text(self, name: str, value: str) -> str:
+        """Return a top-level value as text; a native placeholder keeps the value."""
+        if self.native:
+            return value
+        return self.apply([(name, name, 1)], value)
 
 
 @dataclass
@@ -174,41 +235,76 @@ def encode_value(avp: Any, text: str, counters: Counter) -> str:
     return text
 
 
+@dataclass
+class Layout:
+    """Where an <avp> is written.
+
+    It holds the indent, the path of the enclosing AVPs, the vendor of the
+    enclosing group, and the placeholders to apply, if any.
+    """
+
+    indent: int
+    path: tuple = ()
+    substitution: Substitution | None = None
+    vendor: int | None = None
+
+    def inside(self, step: tuple[str, str, int], vendor: int) -> Layout:
+        """Return the layout of the members of the AVP at the end of the path."""
+        return Layout(self.indent + 1, (*self.path, step), self.substitution, vendor)
+
+
+def members_xml(
+    elements: list[ElementTree.Element],
+    resolver: Resolver,
+    layout: Layout,
+) -> str:
+    """Return the <avp> elements for sibling AVPs, counting repeats of a name."""
+    seen: Counter = Counter()
+    parts = []
+    for element in elements:
+        seen[element.tag] += 1
+        parts.append(avp_xml(element, resolver, layout, seen[element.tag]))
+    return "".join(parts)
+
+
 def avp_xml(
     element: ElementTree.Element,
-    parent_vendor: int | None,
     resolver: Resolver,
-    indent: int,
+    layout: Layout,
+    position: int = 1,
 ) -> str:
     """Return the Seagull <avp> element for an AVP of a message and its members."""
-    name, avp = resolver.resolve(element.tag, parent_vendor)
-    pad = "  " * indent
+    name, avp = resolver.resolve(element.tag, layout.vendor)
+    pad = "  " * layout.indent
+    step = (name, element.tag, position)
     members = list(element)
     if members:
-        parts = [avp_xml(m, avp.vendor_id, resolver, indent + 1) for m in members]
-        return f"{pad}<avp name={quoteattr(name)}>\n{''.join(parts)}{pad}</avp>\n"
+        parts = members_xml(members, resolver, layout.inside(step, avp.vendor_id))
+        return f"{pad}<avp name={quoteattr(name)}>\n{parts}{pad}</avp>\n"
     text = element.text or ""
     if not text.strip():
         raise GenerationError(f"AVP {element.tag} has no value")
     value = encode_value(avp, text, resolver.counters)
+    if layout.substitution:
+        value = layout.substitution.apply([*layout.path, step], value)
     return f"{pad}<avp name={quoteattr(name)} value={quoteattr(value)}></avp>\n"
 
 
 def body_xml(
     root: ElementTree.Element,
     resolver: Resolver,
-    indent: int,
+    layout: Layout,
     skip: tuple = (),
 ) -> str:
     """Return the <avp> elements for the children of a message."""
-    parts = [avp_xml(c, None, resolver, indent) for c in root if c.tag not in skip]
-    return "".join(parts)
+    return members_xml([c for c in root if c.tag not in skip], resolver, layout)
 
 
-def command_xml(message: Any, resolver: Resolver, indent: int) -> str:
+def command_xml(message: Any, resolver: Resolver, layout: Layout) -> str:
     """Return the <command> element for a recorded message."""
-    pad = "  " * indent
-    body = body_xml(message.root, resolver, indent + 1)
+    pad = "  " * layout.indent
+    inner = Layout(layout.indent + 1, (), layout.substitution)
+    body = body_xml(message.root, resolver, inner)
     return f'{pad}<command name="{message.command}">\n{body}{pad}</command>\n'
 
 
@@ -216,6 +312,7 @@ def expected_checks(
     step: Any,
     resolver: Resolver,
     names: list[str],
+    substitution: Substitution,
 ) -> tuple[list[tuple[str, str]], list[str]]:
     """Return the (Seagull name, expected value) pairs of an answer and notes."""
     pairs: list[tuple[str, str]] = []
@@ -226,62 +323,79 @@ def expected_checks(
             notes.append(f"step {step.number}: no {name} in the answer, not checked")
             continue
         seagull_name, avp = resolver.resolve(name, None)
-        pairs.append((seagull_name, encode_value(avp, text, resolver.counters)))
+        value = encode_value(avp, text, resolver.counters)
+        pairs.append((seagull_name, substitution.text(seagull_name, value)))
     return pairs, notes
 
 
-def receive_block(step: Any, resolver: Resolver, names: list[str], notes: list[str]):
-    """Return the <receive> block that waits for the answer and checks it."""
-    pairs, skipped = expected_checks(step, resolver, names)
-    notes += skipped
-    avps, checks = "", ""
-    for name, value in pairs:
-        avps += AVP_LINE.format(quoteattr(name), quoteattr(value))
-        checks += CHECK_LINE.format(quoteattr(name))
-    return f"""  <receive channel="channel-1">
-    <command name="{step.response.command}">
-{avps}    </command>
-    <action>
-      <stop-timer></stop-timer>
-{checks}    </action>
-  </receive>
-"""
+@dataclass
+class Context:
+    """What the scenarios of one generation share."""
+
+    resolver: Resolver
+    options: Any
+    check_avps: list[str]
+    host_ip: str
+    notes: list[str]
+    used: set[str]
 
 
-def step_block(step: Any, resolver: Resolver, names: list[str], notes: list[str]):
-    """Return the send and receive blocks of one step."""
-    number = step.request.avp_text("CC-Request-Number")
-    where = "" if number is None else f", CC-Request-Number {number}"
-    title = f"Step {step.number}: {step.label}, session {step.session_id}{where}"
-    return f"""  <!-- ===== {title} ===== -->
-  <send channel="channel-1">
-    <action>
-      <inc-counter name="HbH-counter"> </inc-counter>
-      <inc-counter name="EtE-counter"> </inc-counter>
-      <set-value name="HbH-id" format="$(HbH-counter)"></set-value>
-      <set-value name="EtE-id" format="$(EtE-counter)"></set-value>
-      <set-value name="Session-Id" format={quoteattr(step.session_id)}></set-value>
-    </action>
-{command_xml(step.request, resolver, 2)}    <action>
-      <start-timer></start-timer>
-    </action>
-  </send>
-
-{receive_block(step, resolver, names, notes)}
-"""
+def lines_xml(lines: list[str], pad: str = "      ") -> str:
+    """Return the lines indented, each ending in a newline."""
+    return "".join(f"{pad}{line}\n" for line in lines)
 
 
-def cer_block(first: Any, host_ip: str) -> str:
-    """Return the capabilities exchange of a client scenario, from the first step."""
-    request = first.request
-    host = request.avp_text("Origin-Host") or "seagull.example.test"
-    realm = request.avp_text("Origin-Realm") or "example.test"
-    application = request.avp_text("Auth-Application-Id") or "4"
-    return f"""  <send channel="channel-1">
+def set_value(name: str, format_text: str) -> str:
+    """Return a <set-value> element that sets a field to a formatted text."""
+    return f"<set-value name={quoteattr(name)} format={quoteattr(format_text)}></set-value>"
+
+
+def store(name: str, entity: str) -> str:
+    """Return a <store> element."""
+    return f"<store name={quoteattr(name)} entity={quoteattr(entity)}></store>"
+
+
+def restore(name: str, entity: str) -> str:
+    """Return a <restore> element."""
+    return f"<restore name={quoteattr(name)} entity={quoteattr(entity)}></restore>"
+
+
+class ClientScenario:
+    """The client scenario of one Diameter session."""
+
+    def __init__(self, group: list[Any], context: Context) -> None:
+        """Prepare the scenario of the steps of one session."""
+        self.group = group
+        self.context = context
+        self.options = context.options
+        native = self.options.substitution == "native"
+        self.substitution = Substitution(self.options.rules(), native, context.used)
+        self.layout = Layout(2, (), self.substitution)
+        self.defined: set[str] = set()
+
+    @property
+    def values(self) -> dict[str, str]:
+        """The values that the placeholders of this scenario stand for."""
+        return self.substitution.values
+
+    def request_value(self, name: str, fallback: str) -> str:
+        """Return a value of the first request, as a placeholder where one is set."""
+        raw = self.group[0].request.avp_text(name) or fallback
+        return self.substitution.text(name, raw)
+
+    def cer_block(self) -> str:
+        """Return the capabilities exchange of the client, from the first step."""
+        host = self.request_value("Origin-Host", "seagull.example.test")
+        realm = self.request_value("Origin-Realm", "example.test")
+        application = self.request_value("Auth-Application-Id", "4")
+        ip_hex = self.substitution.text(
+            "Host-IP-Address", to_address_hex(self.context.host_ip)
+        )
+        return f"""  <send channel="channel-1">
     <command name="CER">
       <avp name="Origin-Host" value={quoteattr(host)}></avp>
       <avp name="Origin-Realm" value={quoteattr(realm)}></avp>
-      <avp name="Host-IP-Address" value="{to_address_hex(host_ip)}"></avp>
+      <avp name="Host-IP-Address" value={quoteattr(ip_hex)}></avp>
       <avp name="Vendor-Id" value="0"></avp>
       <avp name="Product-Name" value="Seagull"></avp>
       <avp name="Auth-Application-Id" value={quoteattr(application)}></avp>
@@ -297,49 +411,203 @@ def cer_block(first: Any, host_ip: str) -> str:
   </receive>
 """
 
+    def default_block(self) -> str:
+        """Return the <default> section that answers a Device-Watchdog request."""
+        if not self.options.tags.default_dwr:
+            return ""
+        host = self.request_value("Origin-Host", "seagull.example.test")
+        realm = self.request_value("Origin-Realm", "example.test")
+        return f"""
+<default behaviour="ignore">
+  <receive channel="channel-1">
+    <command name="DWR"></command>
+    <action>
+      {store("DWR_HBH", "HbH-id")}
+      {store("DWR_E2E", "EtE-id")}
+    </action>
+  </receive>
+  <send channel="channel-1">
+    <action>
+      {restore("DWR_HBH", "HbH-id")}
+      {restore("DWR_E2E", "EtE-id")}
+    </action>
+    <command name="DWA">
+      <avp name="Origin-Host" value={quoteattr(host)}></avp>
+      <avp name="Origin-Realm" value={quoteattr(realm)}></avp>
+      <avp name="Result-Code" value="2001"></avp>
+    </command>
+  </send>
+</default>
+"""
 
-def client_scenario(
-    group: list[Any],
-    resolver: Resolver,
-    options: argparse.Namespace,
-    notes: list[str],
-) -> str:
-    """Return the client scenario of one session."""
-    first = group[0]
-    numbers = ", ".join(s.number for s in group)
-    labels = ", ".join(s.label for s in group)
-    blocks = "".join(step_block(s, resolver, options.check_avps, notes) for s in group)
-    return f"""{XML_HEAD}<!-- Generated by generate_scenarios.py. Do not edit; generate again.
-     Session {first.session_id}: step file(s) {numbers} ({labels}).
-     The AVPs are sent as they were recorded, with fixed values; only the Hop-by-Hop
-     and End-to-End identifiers come from counters. A time is written as NTP hex and
-     an IP address of an Address AVP as Address hex. The response timeout is the
-     call-timeout-ms parameter of the configuration: Seagull waits that long for
-     each answer. After each answer the scenario checks the fields of its receive
-     block. -->
-<scenario>
+    def session_lines(self, step: Any, first: bool) -> list[str]:
+        """Return the actions that set the Session-Id of a request."""
+        if not self.options.tags.generated_session_id:
+            fixed = self.substitution.text("Session-Id", step.session_id)
+            return [set_value("Session-Id", fixed)]
+        if not first:
+            return [restore("VAR_SESSION_ID", "Session-Id")]
+        host = self.request_value("Origin-Host", "seagull.example.test")
+        stamp = "$(VAR_TS);" if self.options.tags.time_method else ""
+        text = f"{host};{stamp}$(session-counter)"
+        return [set_value("Session-Id", text), store("VAR_SESSION_ID", "Session-Id")]
+
+    def time_lines(self, step: Any, first: bool) -> list[str]:
+        """Return the actions that set the Event-Timestamp of a request."""
+        options = self.options
+        needed = options.tags.generated_session_id and first
+        wanted = (
+            options.tags.generated_timestamp
+            and step.request.avp_text("Event-Timestamp") is not None
+        )
+        if not options.tags.time_method or not (needed or wanted):
+            return []
+        method = f'method={quoteattr(options.tags.time_method)} format="startoffset={NTP_OFFSET}"'
+        lines = [f'<set-value name="Event-Timestamp" {method}></set-value>']
+        if needed:
+            lines.append(store("VAR_TS", "Event-Timestamp"))
+        return lines
+
+    def native_lines(self) -> list[str]:
+        """Return the actions that set or restore the native variables."""
+        lines: list[str] = []
+        generated = (
+            {"Session-Id", "Event-Timestamp"}
+            if self.options.tags.generated_session_id
+            else set()
+        )
+        if self.options.tags.generated_timestamp:
+            generated.add("Event-Timestamp")
+        for name, holder, value in self.substitution.hits:
+            if name in generated:
+                continue
+            if name in self.defined:
+                lines.append(restore(holder, name))
+                continue
+            self.defined.add(name)
+            lines += [set_value(name, value), store(holder, name)]
+        return lines
+
+    def send_lines(self, step: Any, first: bool) -> list[str]:
+        """Return the actions that run before a request is sent."""
+        lines = ['<inc-counter name="HbH-counter"></inc-counter>']
+        lines.append('<inc-counter name="EtE-counter"></inc-counter>')
+        if self.options.tags.generated_session_id and first:
+            lines.append('<inc-counter name="session-counter"></inc-counter>')
+        lines += [set_value("HbH-id", "$(HbH-counter)")]
+        lines += [set_value("EtE-id", "$(EtE-counter)")]
+        lines += self.time_lines(step, first)
+        lines += self.session_lines(step, first)
+        lines += self.native_lines()
+        if self.options.tags.log:
+            suffix = (
+                " $(VAR_SESSION_ID)" if self.options.tags.generated_session_id else ""
+            )
+            text = f"{step.label} step {step.number}{suffix}"
+            lines.append(f"<log format={quoteattr(text)}></log>")
+        return lines
+
+    def wait_block(self) -> str:
+        """Return the pause between two steps, or nothing."""
+        wait = self.options.tags.wait_ms
+        mapped = WAIT_KEY in self.substitution.rules and not self.substitution.native
+        if not wait and not mapped:
+            return ""
+        value = self.substitution.text(WAIT_KEY, str(wait))
+        return f"  <wait-ms value={quoteattr(value)}></wait-ms>\n\n"
+
+    def receive_block(self, step: Any) -> str:
+        """Return the <receive> block that waits for the answer and checks it."""
+        options = self.options
+        names = [
+            n
+            for n in self.context.check_avps
+            if not (n == "Session-Id" and options.tags.generated_session_id)
+        ]
+        pairs, skipped = expected_checks(
+            step, self.context.resolver, names, self.substitution
+        )
+        self.context.notes.extend(skipped)
+        avps, checks = "", ""
+        for name, value in pairs:
+            avps += AVP_LINE.format(quoteattr(name), quoteattr(value))
+            if options.tags.check_presence:
+                checks += PRESENCE_LINE.format(quoteattr(name))
+            checks += CHECK_LINE.format(quoteattr(name))
+        if options.tags.log:
+            text = f"{step.response.command} step {step.number} checked"
+            checks += f"      <log format={quoteattr(text)}></log>\n"
+        return f"""  <receive channel="channel-1">
+    <command name="{step.response.command}">
+{avps}    </command>
+    <action>
+      <stop-timer></stop-timer>
+{checks}    </action>
+  </receive>
+"""
+
+    def step_block(self, index: int, step: Any) -> str:
+        """Return the pause, the send block, and the receive block of one step."""
+        self.substitution.hits.clear()
+        command = command_xml(step.request, self.context.resolver, self.layout)
+        number = step.request.avp_text("CC-Request-Number")
+        where = "" if number is None else f", CC-Request-Number {number}"
+        title = f"Step {step.number}: {step.label}, session {step.session_id}{where}"
+        before = self.wait_block() if index else ""
+        actions = lines_xml(self.send_lines(step, index == 0))
+        return f"""{before}  <!-- ===== {title} ===== -->
+  <send channel="channel-1">
+    <action>
+{actions}    </action>
+{command}    <action>
+      <start-timer></start-timer>
+    </action>
+  </send>
+
+{self.receive_block(step)}
+"""
+
+    def text(self) -> str:
+        """Return the client scenario."""
+        group, options = self.group, self.options
+        first = group[0]
+        numbers = ", ".join(s.number for s in group)
+        labels = ", ".join(s.label for s in group)
+        blocks = "".join(self.step_block(i, s) for i, s in enumerate(group))
+        counters = '  <counterdef name="HbH-counter" init="1000"></counterdef>\n'
+        counters += '  <counterdef name="EtE-counter" init="2000"></counterdef>\n'
+        if options.tags.generated_session_id:
+            counters += '  <counterdef name="session-counter" init="0"></counterdef>\n'
+        body = f"""<scenario>
 
 <counter>
-  <counterdef name="HbH-counter" init="1000"> </counterdef>
-  <counterdef name="EtE-counter" init="2000"> </counterdef>
-</counter>
+{counters}</counter>
 
 <init>
-{cer_block(first, options.host_ip)}</init>
-
+{self.cer_block()}</init>
+{self.default_block()}
 <traffic>
 {blocks}</traffic>
 
 </scenario>
 """
+        return f"""{XML_HEAD}<!-- Generated by generate_scenarios.py. Do not edit; generate again.
+     Session {first.session_id}: step file(s) {numbers} ({labels}).
+     Mode: {options.mode}, substitution: {options.substitution}. The AVPs are sent as
+     recorded unless the options file names a placeholder for them. The Hop-by-Hop and
+     End-to-End identifiers come from counters. A time is written as NTP hex and an IP
+     address of an Address AVP as Address hex. The response timeout is the
+     call-timeout-ms parameter of the configuration: Seagull waits that long for each
+     answer. After each answer the scenario checks the fields of its receive block. -->
+{body}"""
 
 
 def stub_step_block(step: Any, resolver: Resolver) -> str:
     """Return the receive and send blocks of the stub OCS for one step."""
-    answer = body_xml(step.response.root, resolver, 4, skip=("Session-Id",))
+    answer = body_xml(step.response.root, resolver, Layout(4), skip=("Session-Id",))
     return f"""  <receive channel="channel-1">
     <command name="{step.request.command}">
-      <avp name="Session-Id" value="dont_care"> </avp>
+      <avp name="Session-Id" value="dont_care"></avp>
     </command>
     <action>
       <store name="HbH" entity="HbH-id"></store>
@@ -349,9 +617,9 @@ def stub_step_block(step: Any, resolver: Resolver) -> str:
   </receive>
   <send channel="channel-1">
     <action>
-      <restore name="HbH" entity="HbH-id"> </restore>
-      <restore name="E2E" entity="EtE-id"> </restore>
-      <restore name="sid" entity="Session-Id"> </restore>
+      <restore name="HbH" entity="HbH-id"></restore>
+      <restore name="E2E" entity="EtE-id"></restore>
+      <restore name="sid" entity="Session-Id"></restore>
     </action>
     <command name="{step.response.command}">
       <avp name="Session-Id" value="will_be_erased"></avp>
@@ -371,18 +639,17 @@ def stub_scenario(group: list[Any], resolver: Resolver) -> str:
 
 <init>
   <receive channel="channel-1">
-    <command name="CER">
-    </command>
+    <command name="CER"></command>
   </receive>
   <send channel="channel-1">
     <command name="CEA">
-      <avp name="Result-Code" value="2001"> </avp>
-      <avp name="Origin-Host" value="ocs.example.test"> </avp>
-      <avp name="Origin-Realm" value="example.test"> </avp>
-      <avp name="Host-IP-Address" value="0x0001c000020b"> </avp>
-      <avp name="Vendor-Id" value="0"> </avp>
-      <avp name="Product-Name" value="Seagull stub OCS"> </avp>
-      <avp name="Auth-Application-Id" value="4"> </avp>
+      <avp name="Result-Code" value="2001"></avp>
+      <avp name="Origin-Host" value="ocs.example.test"></avp>
+      <avp name="Origin-Realm" value="example.test"></avp>
+      <avp name="Host-IP-Address" value="0x0001c000020b"></avp>
+      <avp name="Vendor-Id" value="0"></avp>
+      <avp name="Product-Name" value="Seagull stub OCS"></avp>
+      <avp name="Auth-Application-Id" value="4"></avp>
     </command>
   </send>
 </init>
@@ -519,29 +786,62 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--host-ip", default="192.0.2.10", help="the CER announces it")
     parser.add_argument("--check-avps", default=CHECKS, type=lambda s: s.split(","))
     parser.add_argument("--rename", action="append", default=[], metavar="OLD=NEW")
+    parser.add_argument("--options", type=Path, help=f"default OUT_DIR/{OPTIONS_NAME}")
+    parser.add_argument("--option", action="append", default=[], metavar="KEY=VALUE")
+    parser.add_argument(
+        "--placeholder", action="append", default=[], metavar="AVP=NAME"
+    )
     return parser.parse_args(argv)
 
 
+def resolve_options(args: argparse.Namespace) -> tuple[Path, Any]:
+    """Read the options file, apply the command line to it, and validate."""
+    path = args.options or args.out / OPTIONS_NAME
+    try:
+        options = scenario_options.load_options(path)
+        scenario_options.apply_pairs(options, args.option, args.placeholder)
+        options.validate()
+    except scenario_options.OptionsError as error:
+        raise GenerationError(str(error)) from error
+    return path, options
+
+
+def client_files(label: str, scenario: ClientScenario) -> dict[str, str]:
+    """Return the files of a client scenario: ready, or template and its render."""
+    text = scenario.text()
+    options = scenario.options
+    if options.mode != "template" or options.substitution != "text":
+        return {f"{label}.client.xml": text}
+    try:
+        rendered = scenario_options.render(text, scenario.values)
+    except scenario_options.OptionsError as error:
+        raise GenerationError(f"{label}: {error}") from error
+    return {f"{label}.client.xml.tpl": text, f"{label}.client.xml": rendered}
+
+
 def write_scenarios(
-    options: argparse.Namespace,
+    args: argparse.Namespace,
     groups: list[list[Any]],
-    resolver: Resolver,
+    context: Context,
 ) -> list[str]:
     """Write the scenarios of every session; return notes about them."""
-    folder = options.out / "scenario"
+    folder = args.out / "scenario"
     folder.mkdir(parents=True, exist_ok=True)
     notes: list[str] = []
     for number, group in enumerate(groups, 1):
         kind = session_kind(group[0].session_id)
         steps = "-".join(step.number for step in group)
         label = f"{number:02d}-{kind}-steps-{steps}"
-        files = {
-            f"{label}.client.xml": client_scenario(group, resolver, options, notes),
-            f"{label}.stub-server.xml": stub_scenario(group, resolver),
-        }
+        scenario = ClientScenario(group, context)
+        files = client_files(label, scenario)
+        files[f"{label}.stub-server.xml"] = stub_scenario(group, context.resolver)
         for name, text in files.items():
             (folder / name).write_text(text, encoding="iso-8859-1", newline="\n")
+        if f"{label}.client.xml.tpl" in files:
+            values = folder / f"{label}.client.xml.values"
+            scenario_options.write_values(values, scenario.values)
         notes.append(f"scenario {label}: {len(group)} step(s)")
+        notes += [f"{label}: {note}" for note in scenario.substitution.notes]
     return notes
 
 
@@ -567,8 +867,14 @@ def repair_notes(steps: list[Any]) -> list[str]:
     return notes
 
 
-def prepare(options: argparse.Namespace) -> tuple[list[Any], Resolver, list[str]]:
-    """Read the steps and the dictionaries; return the steps, resolver, and notes."""
+def prepare(
+    options: argparse.Namespace,
+    scenario_settings: Any,
+) -> tuple[list[Any], Resolver, list[str]]:
+    """Read the steps and the dictionaries; return the steps, resolver, and notes.
+
+    A default-dwr tag is switched off, with a note, when the dictionary lacks DWR.
+    """
     steps, problems = steps_format.load_steps(options.steps)
     if problems or not steps:
         raise GenerationError("the steps folder has problems: " + "; ".join(problems))
@@ -587,6 +893,9 @@ def prepare(options: argparse.Namespace) -> tuple[list[Any], Resolver, list[str]
         for command in (step.request.command, step.response.command):
             if command not in defined:
                 raise GenerationError(f"the command {command} is not in {final}")
+    if scenario_settings.tags.default_dwr and not {"DWR", "DWA"} <= defined:
+        scenario_settings.tags.default_dwr = False
+        notes.append("default-dwr is off: the dictionary has no DWR and DWA")
     return steps, Resolver(project, avp_names_of(root)), notes
 
 
@@ -594,12 +903,22 @@ def main(argv: list[str]) -> int:
     """Generate everything; return the exit status."""
     options = parse_arguments(argv)
     try:
-        steps, resolver, notes = prepare(options)
-        notes += write_scenarios(options, group_by_session(steps), resolver)
+        path, settings = resolve_options(options)
+        effective = copy.deepcopy(settings)
+        steps, resolver, notes = prepare(options, effective)
+        used: set[str] = set()
+        context = Context(
+            resolver, effective, options.check_avps, options.host_ip, notes, used
+        )
+        notes += write_scenarios(options, group_by_session(steps), context)
         write_config(options)
+        for key in sorted(set(settings.rules()) - used):
+            notes.append(f"placeholder {key}: matched no AVP")
+        scenario_options.save_options(path, settings)
     except GenerationError as error:
         sys.stderr.write(f"error: {error}\n")
         return 1
+    notes.append(f"options: {path}")
     notes += sorted(resolver.notes)
     notes += [f"{what}: {count} time(s)" for what, count in resolver.counters.items()]
     report = "\n".join(notes) + "\n"
