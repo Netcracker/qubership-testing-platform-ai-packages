@@ -16,7 +16,7 @@ one file for each AVP dictionary, merged with `DiameterBaseProtocol.xml`, one mo
 for, and a report of everything that looked inconsistent.
 
 [seagull-diameter-scenario-generate](../seagull-diameter-scenario-generate/SKILL.md) already converts and merges the
-dictionaries it needs. Use this skill when the user wants the converted dictionaries themselves: to run a hand-written
+dictionaries it needs. Use this skill when the user wants the converted dictionaries themselves: to run a handwritten
 scenario with `-dico`, to read the conversion report before generating, or to check a dictionary in the image.
 
 ## Arguments
@@ -26,10 +26,10 @@ scenario with `-dico`, to read the conversion report before generating, or to ch
 ```
 
 | Argument            | Meaning                                                                                                                                                                               | Default                                                                                    |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| ------------------- |---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------| ------------------------------------------------------------------------------------------ |
 | first argument      | The folder with the project's AVP dictionaries. `DiameterBaseProtocol.xml` must be among them                                                                                         | required                                                                                   |
 | `out=`              | The folder to write to. It must be new or empty                                                                                                                                       | a new folder, `Seagull-Dictionary` or `Seagull-Dictionary-2`, ... next to the input folder |
-| `combine=`          | File names without `.xml`, separated by commas and without spaces; repeat for more combinations. Writes one merged file for each, named after its parts joined with `+`               | none                                                                                       |
+| `combine=`          | Filenames without `.xml`, separated by commas and without spaces; repeat for more combinations. Writes one merged file for each, named after its parts joined with `+`                | none                                                                                       |
 | `rename=`           | `OLD=NEW`: renames an AVP in every output, for example to match the name a scenario uses; repeat for more pairs                                                                       | none                                                                                       |
 | `command-flags=`    | `<KEY>=<N>`: the flags byte, 0 to 255, of every request (`request=`), of every answer (`answer=`), or of one request or answer by its Seagull name (`CCR=192`); repeat for more pairs | requests 128, answers 0                                                                    |
 | `avp-flags=`        | `<AVP>=<N>`: the flags byte of one AVP, by its name in the output (after `rename=` and the `3GPP-` prefix); repeat for more pairs                                                     | what the source gives                                                                      |
@@ -41,7 +41,8 @@ scenario with `-dico`, to read the conversion report before generating, or to ch
 | `check=`            | `yes` then loads each result in the Seagull image and runs one Credit-Control exchange with it                                                                                        | no                                                                                         |
 
 Seagull loads one dictionary for each run, so a run that sends messages of several applications needs them in one file.
-When the user names the dictionaries they use together, pass them in `combine=`; never pick the combination yourself.
+When the user specifies the dictionaries they use together, pass them in `combine=`; never pick the combination
+yourself.
 
 ## Run
 
