@@ -16,7 +16,7 @@ one file for each AVP dictionary, merged with `DiameterBaseProtocol.xml`, one mo
 for, and a report of everything that looked inconsistent.
 
 [seagull-diameter-scenario-generate](../seagull-diameter-scenario-generate/SKILL.md) already converts and merges the
-dictionaries it needs. Use this skill when the user wants the converted dictionaries themselves: to run a hand-written
+dictionaries it needs. Use this skill when the user wants the converted dictionaries themselves: to run a handwritten
 scenario with `-dico`, to read the conversion report before generating, or to check a dictionary in the image.
 
 ## Arguments
@@ -25,19 +25,20 @@ scenario with `-dico`, to read the conversion report before generating, or to ch
 /seagull-diameter-dictionary-convert <dictionaries folder> [out=<folder>] [combine=<A,B> ...] [rename=<OLD>=<NEW> ...] [keep-tgpp=yes] [no-comments=yes] [validate=yes] [check=yes]
 ```
 
-| Argument        | Meaning                                                                                                                                                                 | Default                                                                                    |
-| --------------- |-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|
-| first argument  | The folder with the project's AVP dictionaries. `DiameterBaseProtocol.xml` must be among them                                                                           | required                                                                                   |
-| `out=`          | The folder to write to. It must be new or empty                                                                                                                         | a new folder, `Seagull-Dictionary` or `Seagull-Dictionary-2`, ... next to the input folder |
-| `combine=`      | File names without `.xml`, separated by commas and without spaces; repeat for more combinations. Writes one merged file for each, named after its parts joined with `+` | none                                                                                       |
-| `rename=`       | `OLD=NEW`: renames an AVP in every output, for example to match the name a scenario uses; repeat for more pairs                                                         | none                                                                                       |
-| `keep-tgpp=`    | `yes` keeps the `TGPP-` prefix of AVP names instead of writing `3GPP-`                                                                                                  | no                                                                                         |
-| `no-comments=`  | `yes` leaves the enumeration values and the group members out of the output                                                                                             | no                                                                                         |
-| `validate=`     | `yes` first checks the sources against the XSD files in the input folder's `xsd` subfolder                                                                              | no                                                                                         |
-| `check=`        | `yes` then loads each result in the Seagull image and runs one Credit-Control exchange with it                                                                          | no                                                                                         |
+| Argument        | Meaning                                                                                                                                                                | Default                                                                                    |
+| --------------- |------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|
+| first argument  | The folder with the project's AVP dictionaries. `DiameterBaseProtocol.xml` must be among them                                                                          | required                                                                                   |
+| `out=`          | The folder to write to. It must be new or empty                                                                                                                        | a new folder, `Seagull-Dictionary` or `Seagull-Dictionary-2`, ... next to the input folder |
+| `combine=`      | Filenames without `.xml`, separated by commas and without spaces; repeat for more combinations. Writes one merged file for each, named after its parts joined with `+` | none                                                                                       |
+| `rename=`       | `OLD=NEW`: renames an AVP in every output, for example to match the name a scenario uses; repeat for more pairs                                                        | none                                                                                       |
+| `keep-tgpp=`    | `yes` keeps the `TGPP-` prefix of AVP names instead of writing `3GPP-`                                                                                                 | no                                                                                         |
+| `no-comments=`  | `yes` leaves the enumeration values and the group members out of the output                                                                                            | no                                                                                         |
+| `validate=`     | `yes` first checks the sources against the XSD files in the input folder's `xsd` subfolder                                                                             | no                                                                                         |
+| `check=`        | `yes` then loads each result in the Seagull image and runs one Credit-Control exchange with it                                                                         | no                                                                                         |
 
 Seagull loads one dictionary for each run, so a run that sends messages of several applications needs them in one file.
-When the user names the dictionaries they use together, pass them in `combine=`; never pick the combination yourself.
+When the user specifies the dictionaries they use together, pass them in `combine=`; never pick the combination
+yourself.
 
 ## Run
 
