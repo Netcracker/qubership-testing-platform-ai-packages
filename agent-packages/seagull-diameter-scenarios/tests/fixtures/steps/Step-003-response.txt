@@ -1,0 +1,1 @@
+<CCA><Session-Id>TEST-B-1</Session-Id><Auth-Application-Id>4</Auth-Application-Id><Result-Code>2001</Result-Code><CC-Request-Type>EVENT_REQUEST</CC-Request-Type><CC-Request-Number>0</CC-Request-Number><Origin-Host>ocs.example.test</Origin-Host><Origin-Realm>example.test</Origin-Realm></CCA>

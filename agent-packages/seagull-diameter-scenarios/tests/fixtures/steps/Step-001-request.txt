@@ -1,0 +1,26 @@
+<CCR Description="CCR-I" Service="peer-1">
+	<Session-Id>TEST-A-1</Session-Id>
+	<Origin-Host>client.example.test</Origin-Host>
+	<Origin-Realm>example.test</Origin-Realm>
+	<Destination-Realm>example.test</Destination-Realm>
+	<Auth-Application-Id>4</Auth-Application-Id>
+	<Event-Timestamp>2026-10-27 14:00:52 +0000 UTC</Event-Timestamp>
+	<CC-Request-Type>1</CC-Request-Type>
+	<CC-Request-Number>0</CC-Request-Number>
+	<Service-Context-Id>32251@3gpp.org</Service-Context-Id>
+	<Subscription-Id>
+		<Subscription-Id-Type>0</Subscription-Id-Type>
+		<Subscription-Id-Data>491700000001</Subscription-Id-Data>
+	</Subscription-Id>
+	<!-- <User-Name>left out</User-Name> -->
+	<Service-Information>
+		<PS-Information>
+			<TGPP-Charging-Id>0x000000a1</TGPP-Charging-Id>
+			<SGSN-Address>10.1.2.3</SGSN-Address>
+			<Node-Id>first-node</Node-Id>
+		</PS-Information>
+	</Service-Information>
+	<Example-Info>
+		<Node-Id>example-node</Node-Id>
+	</Example-Info>
+</CCR>

@@ -1,0 +1,4 @@
+name: seagull-diameter-scenarios
+version: 0.1.0
+description: Skills that turn recorded Diameter requests and responses into Seagull scenarios with a merged dictionary, response checks, a response timeout, and a dry run against a stub OCS.
+author: Qubership
