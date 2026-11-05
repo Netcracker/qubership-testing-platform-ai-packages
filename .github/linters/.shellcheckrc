@@ -1,0 +1,3 @@
+# SC2016: dry-run.sh passes a single-quoted program to "docker run ... sh -c"; the expansions in it are meant
+# to run inside the container, not in the calling shell.
+disable=SC2016
