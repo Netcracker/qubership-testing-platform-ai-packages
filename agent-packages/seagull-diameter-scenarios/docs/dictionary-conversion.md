@@ -20,21 +20,63 @@ is the whole update.
 
 ## What the conversion does
 
-| In the project dictionary                                           | In the Seagull dictionary                                                                                                                                                                                                                                                 |
-|---------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `<avp name code>` inside `<vendor id>`                              | `<define name type>` with `avp-code`, `flags`, and for a vendor AVP `Vendor-ID`                                                                                                                                                                                           |
-| `vendor-specific="yes"`, `mandatory="must"`, `protected="must"`     | The flag bits V (128), M (64), and P (32), added up. `mandatory="may"` and `"mustnot"` leave M unset                                                                                                                                                                      |
-| `<type type-name>`                                                  | One of the six Seagull types: `Integer32`, `Integer64`, `Unsigned32`, `Unsigned64`, `OctetString`, `Grouped`. `Enumerated` becomes `Unsigned32`; `UTF8String`, `Address`, `Time`, `DiameterIdentity`, `IPFilterRule` and the other string-like types become `OctetString` |
-| `<grouped>` with `<gavp>`                                           | `type="Grouped"`. The member list is kept as a comment                                                                                                                                                                                                                    |
-| `<enum name code>`                                                  | A comment above the definition, for example `values: INITIAL_REQUEST=1, ...`                                                                                                                                                                                              |
-| `<command name code>` in `<base>` and `<application>`               | A request and an answer: the initials of the name plus `R` and `A` (`Credit-Control` gives `CCR` and `CCA`). Requests have flags 128, answers 0; `cmd-code`, `protocol-version` 1, and `application-id` for a command of an application                                   |
-| `TGPP-` at the start of an AVP name                                 | `3GPP-`, as in the specifications and in Seagull scenarios. `keep-tgpp=yes` keeps `TGPP-`                                                                                                                                                                                 |
-| Two AVPs with one name and different vendor or code                 | The first keeps the name. The second is written as `<name>-v<vendor>c<code>`, for example `MSC-Address-v13421c281`, and the report says so                                                                                                                                |
-| An application command with the same abbreviation as a base command | The application command replaces the base command                                                                                                                                                                                                                         |
+| In the project dictionary                                           | In the Seagull dictionary                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `<avp name code>` inside `<vendor id>`                              | `<define name type>` with `avp-code`, `flags`, and for a vendor AVP `Vendor-ID`                                                                                                                                                                                                                  |
+| `vendor-specific="yes"`, `mandatory="must"`, `protected="must"`     | The flag bits V (128), M (64), and P (32), added up. `mandatory="may"` and `"mustnot"` leave M unset                                                                                                                                                                                             |
+| `<type type-name>`                                                  | One of the six Seagull types: `Integer32`, `Integer64`, `Unsigned32`, `Unsigned64`, `OctetString`, `Grouped`. `Enumerated` becomes `Unsigned32`; `UTF8String`, `Address`, `Time`, `DiameterIdentity`, `IPFilterRule` and the other string-like types become `OctetString`                        |
+| `<grouped>` with `<gavp>`                                           | `type="Grouped"`. The member list is kept as a comment                                                                                                                                                                                                                                           |
+| `<enum name code>`                                                  | A comment above the definition, for example `values: INITIAL_REQUEST=1, ...`                                                                                                                                                                                                                     |
+| `<command name code>` in `<base>` and `<application>`               | A request and an answer: the initials of the name plus `R` and `A` (`Credit-Control` gives `CCR` and `CCA`). By default requests have flags 128 and answers 0 (see [Flags](#flags-of-commands-and-avps)); `cmd-code`, `protocol-version` 1, and `application-id` for a command of an application |
+| `TGPP-` at the start of an AVP name                                 | `3GPP-`, as in the specifications and in Seagull scenarios. `keep-tgpp=yes` keeps `TGPP-`                                                                                                                                                                                                        |
+| Two AVPs with one name and different vendor or code                 | The first keeps the name. The second is written as `<name>-v<vendor>c<code>`, for example `MSC-Address-v13421c281`, and the report says so                                                                                                                                                       |
+| An application command with the same abbreviation as a base command | The application command replaces the base command                                                                                                                                                                                                                                                |
 
 Each result is merged with `DiameterBaseProtocol.xml`, so that `CER`, `DWR`, and the other base commands are always
 defined. The script reports what looks inconsistent and corrects nothing, because it cannot tell which of two names for
 an AVP is the intended one.
+
+## Flags of commands and AVPs
+
+The project dictionaries give the V, M, and P bits of an AVP and no flags for a command. Without options, the converter
+writes 128 (R) for every request and 0 for every answer, and each AVP gets the bits that its source gives. These
+defaults are the converter's own choice, not a fact about the project:
+
+- RFC 4006 describes `CCR` and `CCA` with the P bit, which makes their flags 192 and 64. An OCS rarely depends on it,
+  but a Diameter agent on the path may.
+- A dictionary made by other tooling may set the M bit on vendor AVPs where the source says `mandatory="may"` or
+  `"mustnot"`. The M bit matters mostly for an AVP that the receiver does not know.
+
+Neither choice is known to be right for your OCS, so the defaults stay and you change them when you know the value that
+you need. An options file or the prompt does it:
+
+```ini
+[command-flags]
+request = 128
+answer = 0
+CCR = 192
+CCA = 64
+
+[avp-flags]
+vendor-mandatory = source
+PDP-Address = 128
+```
+
+| Key                                | Effect                                                                                                      |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `request`, `answer`                | The flags byte of every request or answer that no command key names. Default 128 and 0                      |
+| `CCR`, `CCA`, ...                  | The flags byte of one request or answer, by its Seagull name                                                |
+| `vendor-mandatory`                 | The M bit of every vendor AVP: `source` keeps what the source says (default), `yes` sets it, `no` clears it |
+| An AVP name, such as `PDP-Address` | The flags byte of that AVP, by its name in the output. It wins over `vendor-mandatory`                      |
+
+In the prompt the same keys are `command-flags=CCR=192`, `avp-flags=PDP-Address=128`, and `vendor-mandatory=yes`;
+`options=` names a file to start from, and the prompt wins over it. Every run writes the options in effect to
+`dictionary-options.ini` in the output folder.
+
+A flags byte is a number from 0 to 255. One that contradicts the V bit of the AVP, such as a vendor AVP without 128, is
+refused, and a name that matches no AVP or command is a warning. The report lists each change as a `NOTE` line: a
+command whose flags differ from the default, an AVP whose flags differ from its source, and how many vendor AVPs the
+`vendor-mandatory` policy changed.
 
 ## What the conversion drops
 

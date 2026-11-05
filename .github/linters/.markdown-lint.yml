@@ -5,7 +5,7 @@ MD004:
 MD007:
   indent: 2
 MD013:
-  line_length: 120
+  line_length: 150
   code_blocks: false
   tables: false
 MD024:

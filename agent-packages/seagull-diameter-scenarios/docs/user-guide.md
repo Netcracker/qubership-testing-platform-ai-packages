@@ -405,19 +405,23 @@ scenario with `-dico`, to read the conversion report before you generate, or to 
 What the conversion does is in [the dictionary conversion page](dictionary-conversion.md).
 
 ```text
-/seagull-diameter-dictionary-convert <dictionaries folder> [out=<folder>] [combine=<A,B> ...] [rename=<OLD>=<NEW> ...] [keep-tgpp=yes] [no-comments=yes] [validate=yes] [check=yes]
+/seagull-diameter-dictionary-convert <dictionaries folder> [out=<folder>] [combine=<A,B> ...] [rename=<OLD>=<NEW> ...] [command-flags=<KEY>=<N> ...] [avp-flags=<AVP>=<N> ...] [vendor-mandatory=source|yes|no] [options=<file>] [keep-tgpp=yes] [no-comments=yes] [validate=yes] [check=yes]
 ```
 
-| Argument       | Meaning                                                                                                                              |
-| -------------- |--------------------------------------------------------------------------------------------------------------------------------------|
-| first argument | The folder with the project's AVP dictionaries. It must hold `DiameterBaseProtocol.xml`                                              |
-| `out=`         | The folder to write to. It must be new or empty. Default: `Seagull-Dictionary`, `Seagull-Dictionary-2`, ... next to the input folder |
-| `combine=`     | Names of dictionaries, without `.xml` and separated by commas, to merge into one file; repeat for more files                         |
-| `rename=`      | `OLD=NEW`: renames an AVP in every result, to match the name a scenario uses; repeat for more pairs                                  |
-| `keep-tgpp=`   | `yes` keeps the `TGPP-` prefix of AVP names instead of writing `3GPP-`                                                               |
-| `no-comments=` | `yes` leaves the enumeration values and the group members out of the results                                                         |
-| `validate=`    | `yes` first checks the sources against the XSD files in the `xsd` folder of the input folder (needs Java 11)                         |
-| `check=`       | `yes` then loads each result in the Seagull image and runs one Credit-Control exchange (needs Docker)                                |
+| Argument            | Meaning                                                                                                                                                                                                           |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| first argument      | The folder with the project's AVP dictionaries. It must hold `DiameterBaseProtocol.xml`                                                                                                                           |
+| `out=`              | The folder to write to. It must be new or empty. Default: `Seagull-Dictionary`, `Seagull-Dictionary-2`, ... next to the input folder                                                                              |
+| `combine=`          | Names of dictionaries, without `.xml` and separated by commas, to merge into one file; repeat for more files                                                                                                      |
+| `rename=`           | `OLD=NEW`: renames an AVP in every result, to match the name a scenario uses; repeat for more pairs                                                                                                               |
+| `command-flags=`    | `<KEY>=<N>`: the flags byte, 0 to 255, of every request (`request=`), every answer (`answer=`), or one request or answer by its Seagull name (`CCR=192`); repeat for more pairs. Default: requests 128, answers 0 |
+| `avp-flags=`        | `<AVP>=<N>`: the flags byte of one AVP, by its name in the result; repeat for more pairs. Default: what the source gives                                                                                          |
+| `vendor-mandatory=` | The M bit of every vendor AVP: `source` keeps what the source says (the default), `yes` sets it, `no` clears it. A named `avp-flags=` pair wins                                                                   |
+| `options=`          | A `dictionary-options.ini` that an earlier run wrote, to start from. The pairs of the prompt win over it                                                                                                          |
+| `keep-tgpp=`        | `yes` keeps the `TGPP-` prefix of AVP names instead of writing `3GPP-`                                                                                                                                            |
+| `no-comments=`      | `yes` leaves the enumeration values and the group members out of the results                                                                                                                                      |
+| `validate=`         | `yes` first checks the sources against the XSD files in the `xsd` folder of the input folder (needs Java 11)                                                                                                      |
+| `check=`            | `yes` then loads each result in the Seagull image and runs one Credit-Control exchange (needs Docker)                                                                                                             |
 
 Example:
 
@@ -449,6 +453,23 @@ and finds the AVP names of the check scenario in it. It does not prove that an O
 
 Pass one result to Seagull with `-dico`. Seagull loads one dictionary for each run, so a run that sends messages of
 several applications needs them in one file: name them in `combine=`.
+
+#### Flags of commands and AVPs
+
+The project dictionaries give no flags for a command, so the converter writes 128 (R) for every request and 0 for
+every answer. It takes the M and P bits of an AVP from its source. Another dictionary, such as one from the project's
+own tooling, may differ: RFC 4006 describes `CCR` and `CCA` with the P bit (192 and 64), and a vendor AVP may carry the
+M bit where the source does not set it. Neither choice is known to be right for your OCS, so the defaults stay as they
+are and you change them when you know the value you need:
+
+```text
+/seagull-diameter-dictionary-convert C:\work\dictionaries command-flags=CCR=192 command-flags=CCA=64 vendor-mandatory=yes avp-flags=PDP-Address=128
+```
+
+Each change is a `NOTE` line in the report, for example `CCR: flags 192 (the converter's default is 128)` and
+`vendor-mandatory=yes: changed the M bit of 45 of 509 vendor AVPs`. The options in effect are written to
+`dictionary-options.ini` in the new folder. Pass that file as `options=` to repeat the run on other dictionaries.
+A flags byte that contradicts the V bit of the AVP (a vendor AVP without 128, or a base AVP with it) is refused.
 
 ## Options and tags
 

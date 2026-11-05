@@ -20,6 +20,7 @@ because APM deploys the files of a skill folder next to each other, so the scrip
 | `scripts/steps_format.py`       | Reads a folder of recorded steps; repairs and reports the faults of hand-edited text                             |
 | `scripts/check_steps.py`        | Checks a folder of recorded steps; run it before generating                                                      |
 | `scripts/dict2seagull.py`       | Converts the project's AVP dictionaries into Seagull dictionaries; the generate and convert skills use it        |
+| `scripts/dictionary_options.py` | Reads and writes the flag options of the dictionary conversion; dict2seagull.py applies them                     |
 | `scripts/scenario_options.py`   | Reads and writes the options file; matches AVPs to placeholders; fills templates in                              |
 | `scripts/apply_placeholders.py` | Replaces the `@@NAME@@` placeholders of a template with values                                                   |
 | `scripts/scenario_text.py`      | Reads the `<avp>` lines of a generated scenario, with their paths; the templatize and externalize scripts use it |

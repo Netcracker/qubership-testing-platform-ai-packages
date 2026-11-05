@@ -25,20 +25,32 @@ AVP names: the project writes the vendor prefix of 3GPP AVPs as TGPP-, while the
 specifications and Seagull write 3GPP-. The script writes 3GPP- unless --keep-tgpp is
 given.
 
+Flags: the project dictionaries give no flags for a command, so a request gets 128 (R) and an
+answer 0, and an AVP gets the M and P bits that its source gives. --command-flags,
+--avp-flags, --vendor-mandatory, and --options change that; see dictionary_options.py. The
+options in effect are written to dictionary-options.ini in the output folder.
+
 Requires Python 3.9 or later and nothing outside the standard library.
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib
 import re
 import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Any
 from xml.etree import ElementTree
 from xml.sax.saxutils import quoteattr
 
+sys.dont_write_bytecode = True  # keep __pycache__ out of the skill folder
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+dictionary_options = importlib.import_module("dictionary_options")
+
 BASE_NAME = "DiameterBaseProtocol"
+OPTIONS_NAME = "dictionary-options.ini"
 
 # The six types that the dictionaries shipped with Seagull define. The string-like
 # types differ in meaning only, not in how they are encoded.
@@ -334,22 +346,31 @@ def comment(text: str) -> str:
     return "<!-- " + re.sub(r"-{2,}", "-", text) + " -->"
 
 
-def render_avp(avp: Avp, with_comments: bool) -> str:
+@dataclass
+class Render:
+    """How the output is written: with comments or without, and with which flags."""
+
+    with_comments: bool
+    flags: Any
+
+
+def render_avp(avp: Avp, render: Render) -> str:
     """Return the Seagull <define> of an AVP."""
     if avp.members is not None:
         seagull_type = "Grouped"
     else:
         seagull_type = TYPE_MAP.get(avp.type_name or "", "OctetString")
     lines = []
-    if with_comments and avp.enums:
+    if render.with_comments and avp.enums:
         values = ", ".join(f"{name}={code}" for name, code in avp.enums)
         lines.append("      " + comment("values: " + values))
-    if with_comments and avp.members:
+    if render.with_comments and avp.members:
         lines.append("      " + comment("members: " + ", ".join(avp.members)))
+    flags = render.flags.avp_flags(avp.name, avp.flags, avp.vendor_specific)
     lines += [
         f"      <define name={quoteattr(avp.name)} type={quoteattr(seagull_type)}>",
         f'        <setfield name="avp-code" value="{avp.code}"></setfield>',
-        f'        <setfield name="flags" value="{avp.flags}"></setfield>',
+        f'        <setfield name="flags" value="{flags}"></setfield>',
     ]
     if avp.vendor_specific:
         vendor = f'value="{avp.vendor_id}"'
@@ -358,12 +379,13 @@ def render_avp(avp: Avp, with_comments: bool) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_command(command: Command, answer: bool) -> str:
+def render_command(command: Command, answer: bool, render: Render) -> str:
     """Return the Seagull <define> of a request or an answer."""
-    suffix = "A" if answer else "R"
+    name = command.short + ("A" if answer else "R")
+    flags = render.flags.command_flags(name, answer)
     lines = [
-        f'      <define name="{command.short}{suffix}">',
-        f'        <setfield name="flags" value="{0 if answer else 128}"></setfield>',
+        f'      <define name="{name}">',
+        f'        <setfield name="flags" value="{flags}"></setfield>',
         f'        <setfield name="cmd-code" value="{command.code}"></setfield>',
     ]
     if command.application_id:
@@ -381,14 +403,14 @@ def write_dictionary(
     source_names: list[str],
     avps: list[Avp],
     commands: list[Command],
-    with_comments: bool,
+    render: Render,
 ) -> None:
     """Write one Seagull dictionary file."""
     text = HEADER.format(sources=", ".join(source_names))
-    text += "".join(render_avp(avp, with_comments) for avp in avps)
+    text += "".join(render_avp(avp, render) for avp in avps)
     text += MIDDLE
     for command in commands:
-        text += render_command(command, False) + render_command(command, True)
+        text += render_command(command, False, render) + render_command(command, True, render)
     text += FOOTER
     path.write_text(text, encoding="iso-8859-1", newline="\n", errors="replace")
 
@@ -416,13 +438,38 @@ def check_command_files(
             )
 
 
+def flag_notes(avps: list[Avp], commands: list[Command], options: Any) -> list[str]:
+    """List where the flags of the output differ from what the converter writes without options."""
+    notes = []
+    for command in commands:
+        for answer in (False, True):
+            name = command.short + ("A" if answer else "R")
+            flags, default = options.command_flags(name, answer), 0 if answer else 128
+            if flags != default:
+                notes.append(f"{name}: flags {flags} (the converter's default is {default})")
+    for avp in avps:
+        flags = options.avps.get(avp.name, avp.flags)
+        if flags != avp.flags:
+            notes.append(f"{avp.name}: flags {flags} (the source gives {avp.flags})")
+    vendor = [avp for avp in avps if avp.vendor_specific and avp.name not in options.avps]
+    changed = [avp for avp in vendor if options.avp_flags(avp.name, avp.flags, True) != avp.flags]
+    if changed:
+        policy = f"vendor-mandatory={options.vendor_mandatory}"
+        notes.append(f"{policy}: changed the M bit of {len(changed)} of {len(vendor)} vendor AVPs")
+    return notes
+
+
 def convert(
     names: list[str],
     loaded: dict[str, tuple[list[Avp], list[Command]]],
     directories: tuple[Path, Path],
-    with_comments: bool,
-) -> tuple[str, int, int, list[str]]:
-    """Write one dictionary built from the named sources plus the base protocol."""
+    render: Render,
+) -> tuple[str, int, int, list[str], list[str]]:
+    """Write one dictionary built from the named sources plus the base protocol.
+
+    Returns the name of the output, the number of AVPs and of command pairs, the warnings
+    about the sources, and the notes about flags that differ from the defaults.
+    """
     input_dir, output_dir = directories
     warnings: list[str] = []
     sources = [BASE_NAME] + [name for name in names if name != BASE_NAME]
@@ -432,14 +479,10 @@ def convert(
         check_avp(avp, warnings)
     check_command_files(sources, input_dir, commands, warnings)
     out_name = "+".join(names)
-    write_dictionary(
-        output_dir / f"{out_name}.xml",
-        [name + ".xml" for name in sources],
-        avps,
-        commands,
-        with_comments,
-    )
-    return out_name, len(avps), len(commands), warnings
+    files = [name + ".xml" for name in sources]
+    write_dictionary(output_dir / f"{out_name}.xml", files, avps, commands, render)
+    notes = flag_notes(avps, commands, render.flags)
+    return out_name, len(avps), len(commands), warnings, notes
 
 
 def parse_arguments(argv: list[str]) -> argparse.Namespace:
@@ -471,40 +514,111 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="leave enumeration values and group members out",
     )
+    parser.add_argument(
+        "--options",
+        type=Path,
+        metavar="FILE",
+        help=f"read the flag options of a {OPTIONS_NAME} file, such as an earlier run wrote",
+    )
+    parser.add_argument(
+        "--command-flags",
+        action="append",
+        default=[],
+        metavar="KEY=FLAGS",
+        help="flags of requests (request=N), answers (answer=N), or one command (CCR=192)",
+    )
+    parser.add_argument(
+        "--avp-flags",
+        action="append",
+        default=[],
+        metavar="NAME=FLAGS",
+        help="flags of one AVP by its name in the output, for example PDP-Address=128",
+    )
+    parser.add_argument(
+        "--vendor-mandatory",
+        choices=dictionary_options.POLICIES,
+        help="the M bit of every vendor AVP: as the source says (default), always set, or clear",
+    )
     return parser.parse_args(argv)
+
+
+def load_dictionaries(input_dir: Path) -> dict[str, tuple[list[Avp], list[Command]]]:
+    """Read every AVP dictionary of a folder, by file name without the extension."""
+    loaded = {}
+    for path in sorted(input_dir.glob("*.xml")):
+        if ElementTree.parse(path).getroot().tag == "dictionary":
+            loaded[path.stem] = load_avp_dictionary(path)
+    return loaded
+
+
+def check_flag_names(
+    loaded: dict[str, tuple[list[Avp], list[Command]]],
+    options: Any,
+    report: list[str],
+) -> None:
+    """Report options that name nothing; refuse flags that contradict the V bit of an AVP."""
+    avps = {avp.name: avp for avp_list, _ in loaded.values() for avp in avp_list}
+    commands = [command for _, command_list in loaded.values() for command in command_list]
+    messages = {command.short + suffix for command in commands for suffix in "RA"}
+    for name in sorted(set(options.commands) - messages):
+        report.append(f"WARNING --command-flags {name}: no command has that name")
+    for name, flags in sorted(options.avps.items()):
+        avp = avps.get(name)
+        if avp is None:
+            report.append(f"WARNING --avp-flags {name}: no AVP has that name")
+        elif bool(flags & dictionary_options.VENDOR_BIT) != avp.vendor_specific:
+            state = "a vendor" if avp.vendor_specific else "not a vendor"
+            raise dictionary_options.DictionaryOptionsError(
+                f"avp-flags {name}: flags {flags} contradict the V bit; the AVP is {state} AVP"
+            )
+
+
+def convert_all(
+    args: argparse.Namespace,
+    loaded: dict[str, tuple[list[Avp], list[Command]]],
+    render: Render,
+) -> int:
+    """Write every output and the report; return the exit status."""
+    report: list[str] = []
+    renames = dict(pair.split("=", 1) for pair in args.rename)
+    apply_renames(loaded, renames, args.keep_tgpp, report)
+    check_flag_names(loaded, render.flags, report)
+    jobs = [[name] for name in loaded] + [c.split(",") for c in args.combine]
+    unknown = [name for names in jobs for name in names if name not in loaded]
+    if unknown:
+        sys.stderr.write(f"unknown dictionary in --combine: {unknown}\n")
+        return 2
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    for names in jobs:
+        out_name, avp_count, command_count, warnings, notes = convert(
+            names, loaded, (args.input_dir, args.output_dir), render
+        )
+        counts = f"{avp_count} AVPs, {command_count} command pairs"
+        report.append(f"{out_name}.xml: {counts}, {len(warnings)} warnings")
+        report += [f"    WARNING {warning}" for warning in warnings]
+        report += [f"    NOTE {note}" for note in notes]
+    text = "\n".join(report) + "\n"
+    (args.output_dir / "conversion-report.txt").write_text(text, encoding="utf-8")
+    dictionary_options.save_options(args.output_dir / OPTIONS_NAME, render.flags)
+    sys.stdout.write(text)
+    return 0
 
 
 def main(argv: list[str]) -> int:
     """Convert every AVP dictionary of the input folder; return the exit status."""
     args = parse_arguments(argv)
-    loaded = {}
-    for path in sorted(args.input_dir.glob("*.xml")):
-        if ElementTree.parse(path).getroot().tag == "dictionary":
-            loaded[path.stem] = load_avp_dictionary(path)
+    loaded = load_dictionaries(args.input_dir)
     if BASE_NAME not in loaded:
         sys.stderr.write(f"{BASE_NAME}.xml is required: it holds the base protocol\n")
         return 2
-    args.output_dir.mkdir(parents=True, exist_ok=True)
-
-    report: list[str] = []
-    renames = dict(pair.split("=", 1) for pair in args.rename)
-    apply_renames(loaded, renames, args.keep_tgpp, report)
-    jobs = [[name] for name in loaded] + [c.split(",") for c in args.combine]
-    for names in jobs:
-        unknown = [name for name in names if name not in loaded]
-        if unknown:
-            sys.stderr.write(f"unknown dictionary in --combine: {unknown}\n")
-            return 2
-        out_name, avp_count, command_count, warnings = convert(
-            names, loaded, (args.input_dir, args.output_dir), not args.no_comments
-        )
-        counts = f"{avp_count} AVPs, {command_count} command pairs"
-        report.append(f"{out_name}.xml: {counts}, {len(warnings)} warnings")
-        report += [f"    WARNING {warning}" for warning in warnings]
-    text = "\n".join(report) + "\n"
-    (args.output_dir / "conversion-report.txt").write_text(text, encoding="utf-8")
-    sys.stdout.write(text)
-    return 0
+    try:
+        flags = dictionary_options.load_options(args.options)
+        pairs = (args.command_flags, args.avp_flags)
+        dictionary_options.apply_pairs(flags, *pairs, args.vendor_mandatory)
+        return convert_all(args, loaded, Render(not args.no_comments, flags))
+    except dictionary_options.DictionaryOptionsError as error:
+        sys.stderr.write(f"error: {error}\n")
+        return 2
 
 
 if __name__ == "__main__":
