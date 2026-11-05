@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!-- A minimal Gy client: CER, then one initial CCR for a data session.
+     All values are invented: the MCC-MNC 001-01 is the ITU test network, the
+     addresses are from 192.0.2.0/24 (RFC 5737), and the numbers do not exist.
+     The AVP names are those of the converted dictionaries, including the 3GPP- prefix
+     that the converter writes in place of the TGPP- prefix of the source dictionaries. -->
+<scenario>
+
+<counter>
+  <counterdef name="HbH-counter" init="1000"> </counterdef>
+  <counterdef name="EtE-counter" init="2000"> </counterdef>
+  <counterdef name="session-counter" init="0"> </counterdef>
+</counter>
+
+<init>
+  <send channel="channel-1">
+    <command name="CER">
+      <avp name="Origin-Host" value="client.example.test"> </avp>
+      <avp name="Origin-Realm" value="example.test"> </avp>
+      <avp name="Host-IP-Address" value="0x0001c000020a"> </avp>
+      <avp name="Vendor-Id" value="0"> </avp>
+      <avp name="Product-Name" value="Seagull converter check"> </avp>
+      <avp name="Auth-Application-Id" value="4"> </avp>
+    </command>
+  </send>
+
+  <receive channel="channel-1">
+    <command name="CEA">
+    </command>
+  </receive>
+</init>
+
+<traffic>
+  <send channel="channel-1">
+    <action>
+      <inc-counter name="HbH-counter"> </inc-counter>
+      <inc-counter name="EtE-counter"> </inc-counter>
+      <inc-counter name="session-counter"> </inc-counter>
+      <set-value name="HbH-id" format="$(HbH-counter)"></set-value>
+      <set-value name="EtE-id" format="$(EtE-counter)"></set-value>
+      <set-value name="Session-Id" format="client.example.test;check;$(session-counter)"></set-value>
+    </action>
+    <command name="CCR">
+      <avp name="Session-Id" value="value_is_replaced"> </avp>
+      <avp name="Auth-Application-Id" value="4"></avp>
+      <avp name="Origin-Host" value="client.example.test"> </avp>
+      <avp name="Origin-Realm" value="example.test"></avp>
+      <avp name="Destination-Realm" value="example.test"></avp>
+      <avp name="Event-Timestamp" value="0xEDFA1789"> </avp>
+      <avp name="Service-Context-Id" value="32251@3gpp.org"> </avp>
+      <avp name="CC-Request-Type" value="1"> </avp>
+      <avp name="CC-Request-Number" value="0"> </avp>
+      <avp name="Subscription-Id">
+        <avp name="Subscription-Id-Type" value="0"></avp>
+        <avp name="Subscription-Id-Data" value="447700900001"></avp>
+      </avp>
+      <avp name="Subscription-Id">
+        <avp name="Subscription-Id-Type" value="1"></avp>
+        <avp name="Subscription-Id-Data" value="001010000000001"></avp>
+      </avp>
+      <avp name="Multiple-Services-Credit-Control">
+        <avp name="Rating-Group" value="100"> </avp>
+      </avp>
+      <avp name="Service-Information">
+        <avp name="PS-Information">
+          <avp name="3GPP-Charging-Id" value="00000001"> </avp>
+          <avp name="Dynamic-Address-Flag" value="1"> </avp>
+          <avp name="Serving-Node-Type" value="2"> </avp>
+          <avp name="3GPP-PDP-Type" value="0"> </avp>
+          <avp name="PDP-Address" value="0x0001c0000201"> </avp>
+          <avp name="GGSN-Address" value="0x0001c0000202"> </avp>
+          <avp name="SGSN-Address" value="0x0001c0000203"> </avp>
+          <avp name="3GPP-IMSI-MCC-MNC" value="00101"> </avp>
+          <avp name="3GPP-GGSN-MCC-MNC" value="00101"> </avp>
+          <avp name="3GPP-SGSN-MCC-MNC" value="00101"> </avp>
+          <avp name="3GPP-NSAPI" value="5"> </avp>
+          <avp name="Called-Station-Id" value="internet.example.test"> </avp>
+          <avp name="3GPP-Selection-Mode" value="0"> </avp>
+          <avp name="3GPP-RAT-Type" value="0x06"> </avp>
+        </avp>
+      </avp>
+    </command>
+    <action>
+      <start-timer></start-timer>
+    </action>
+  </send>
+
+  <receive channel="channel-1">
+    <command name="CCA">
+      <avp name="Result-Code" value="2001"> </avp>
+    </command>
+    <action>
+      <stop-timer></stop-timer>
+      <check-value name="Result-Code" behaviour="error"> </check-value>
+    </action>
+  </receive>
+
+  <wait-ms value="500"></wait-ms>
+</traffic>
+
+</scenario>

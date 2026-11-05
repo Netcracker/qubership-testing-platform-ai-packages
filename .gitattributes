@@ -1,0 +1,3 @@
+# Check out text files with line feeds on every platform. The shell scripts and the Seagull
+# scenarios and configurations stop on a carriage return.
+* text=auto eol=lf

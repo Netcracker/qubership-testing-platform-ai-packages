@@ -1,6 +1,6 @@
 # Seagull Diameter scenarios user guide
 
-The `seagull-diameter-scenarios` package gives your coding agent four commands. They turn a recorded test run into
+The `seagull-diameter-scenarios` package gives your coding agent five commands. They turn a recorded test run into
 [Seagull](https://gull.sourceforge.net/) scenarios that send the recorded Diameter requests again, check the answers,
 and give up when an answer is late. You can write the scenarios with fixed values or as templates with placeholders, and
 you can try them against a stand-in OCS before they meet the real one.
@@ -66,6 +66,7 @@ package. After an upgrade, generate once with the same arguments and compare the
 | `/seagull-diameter-scenario-generate`    | command | Turn that folder into scenarios or templates, configuration, and a dictionary, and run a dry run |
 | `/seagull-diameter-scenario-templatize`  | command | Turn generated scenarios into templates, without reading the steps again                         |
 | `/seagull-diameter-scenario-externalize` | command | Make chosen AVPs read their values from a CSV data file, one row for each call                   |
+| `/seagull-diameter-dictionary-convert`   | command | Convert the project's dictionaries into Seagull dictionaries, and check them                     |
 | `seagull-diameter-common`                | support | Hold the shared scripts and the formats. You never invoke it                                     |
 
 The commands run only when you type their name; the agent never starts them on its own.
@@ -396,6 +397,59 @@ reads the file and sends the values. The line shows the number of calls (`succes
 sh .apm/skills/seagull-diameter-scenario-generate/scripts/dry-run.sh C:\work\Seagull-Scenario-external
 ```
 
+### /seagull-diameter-dictionary-convert
+
+Converts the project's Diameter dictionaries into dictionaries that Seagull reads. The generate skill already does this
+for the dictionaries it merges. Use this command when you want the dictionaries themselves: to run a hand-written
+scenario with `-dico`, to read the conversion report before you generate, or to check that Seagull loads a result.
+What the conversion does is in [the dictionary conversion page](dictionary-conversion.md).
+
+```text
+/seagull-diameter-dictionary-convert <dictionaries folder> [out=<folder>] [combine=<A,B> ...] [rename=<OLD>=<NEW> ...] [keep-tgpp=yes] [no-comments=yes] [validate=yes] [check=yes]
+```
+
+| Argument       | Meaning                                                                                                                              |
+| -------------- |--------------------------------------------------------------------------------------------------------------------------------------|
+| first argument | The folder with the project's AVP dictionaries. It must hold `DiameterBaseProtocol.xml`                                              |
+| `out=`         | The folder to write to. It must be new or empty. Default: `Seagull-Dictionary`, `Seagull-Dictionary-2`, ... next to the input folder |
+| `combine=`     | Names of dictionaries, without `.xml` and separated by commas, to merge into one file; repeat for more files                         |
+| `rename=`      | `OLD=NEW`: renames an AVP in every result, to match the name a scenario uses; repeat for more pairs                                  |
+| `keep-tgpp=`   | `yes` keeps the `TGPP-` prefix of AVP names instead of writing `3GPP-`                                                               |
+| `no-comments=` | `yes` leaves the enumeration values and the group members out of the results                                                         |
+| `validate=`    | `yes` first checks the sources against the XSD files in the `xsd` folder of the input folder (needs Java 11)                         |
+| `check=`       | `yes` then loads each result in the Seagull image and runs one Credit-Control exchange (needs Docker)                                |
+
+Example:
+
+```text
+/seagull-diameter-dictionary-convert C:\work\dictionaries combine=Gy,Sy check=yes
+```
+
+Expected: a new folder next to `C:\work\dictionaries` with one file for each AVP dictionary, `Gy+Sy.xml`, and
+`conversion-report.txt`. The agent tells you the number of AVPs and commands in each file and every warning:
+
+```text
+Gy.xml: 25 AVPs, 3 command pairs, 1 warnings
+    WARNING AVP name Node-Id is defined twice with different identity: vendor 10415 code 2064 (Gy.xml) and vendor 99999 code 5 (Gy.xml); the second is written as Node-Id-v99999c5
+```
+
+The numbers and the name above come from the invented dictionaries of the self-test; yours differ.
+
+A warning is a finding about the sources, not an error of the conversion. The script reports what looks inconsistent
+and corrects nothing; the owners of the dictionary decide which definition is intended.
+
+With `check=yes`, the agent adds one line for each result that defines `CCR`:
+
+```text
+Gy+Sy: successful calls: 1, failed calls: 0
+```
+
+A result without `CCR`, such as the base protocol alone, is skipped. The check proves that Seagull loads the dictionary
+and finds the AVP names of the check scenario in it. It does not prove that an OCS accepts the messages.
+
+Pass one result to Seagull with `-dico`. Seagull loads one dictionary for each run, so a run that sends messages of
+several applications needs them in one file: name them in `combine=`.
+
 ## Options and tags
 
 `scenario-options.ini` in the output folder keeps what you decided about the shape of the scenarios. Each run reads it,
@@ -520,21 +574,23 @@ files of this run. Keep your own edits out of the generated files: they say `Do 
 
 ## When something goes wrong
 
-| Symptom                                                 | Cause and fix                                                                                  |
-|---------------------------------------------------------|------------------------------------------------------------------------------------------------|
-| `the output folder is not empty: ...`                   | The folder holds files. Use another folder, or `replace=yes` to move its contents aside        |
-| The agent does not know the command                     | The skills are not loaded. Check that `apm install` finished, then restart the session         |
-| `AVP <name> is in none of the project dictionaries`     | Add the dictionary that defines the AVP to `merge=`                                            |
-| `the command <X> is not in ...`                         | The merged dictionary has no definition of that command; add the dictionary of its application |
-| `PROBLEM ... not well-formed XML`                       | A recorded message is not XML even after the repairs. Fix the source and extract again         |
-| `default-dwr is off: the dictionary has no DWR and DWA` | The merged dictionary lacks the Device-Watchdog commands; add the dictionary that defines them |
-| `placeholder <AVP>: matched no AVP`                     | The AVP name is misspelled, or the scenarios do not carry it. Check the spelling in a scenario |
-| `generated-timestamp needs time-method`                 | Name a Seagull time method with `option=time-method=<name>`, or leave the option off           |
-| `native substitution cannot address ...`                | Native variables take only top-level AVPs that do not repeat; use `substitution=text`          |
-| `no value for placeholder(s) NAME`                      | Give the value in the values file, with `--set`, or with `--env`                               |
-| `no statistics file` in the dry run                     | Seagull did not start. Look for a carriage return in a generated file, and for a missing image |
-| A scenario fails with `Refused (new) call`              | A CCA arrived with a Session-Id that the call had not used. Check the recorded answers         |
-| A scenario fails by timeout                             | The OCS did not answer in `timeout=` milliseconds. Raise it, or check the OCS                  |
+| Symptom                                                 | Cause and fix                                                                                   |
+|---------------------------------------------------------|-------------------------------------------------------------------------------------------------|
+| `the output folder is not empty: ...`                   | The folder holds files. Use another folder, or `replace=yes` to move its contents aside         |
+| The agent does not know the command                     | The skills are not loaded. Check that `apm install` finished, then restart the session          |
+| `AVP <name> is in none of the project dictionaries`     | Add the dictionary that defines the AVP to `merge=`                                             |
+| `the command <X> is not in ...`                         | The merged dictionary has no definition of that command; add the dictionary of its application  |
+| `PROBLEM ... not well-formed XML`                       | A recorded message is not XML even after the repairs. Fix the source and extract again          |
+| `default-dwr is off: the dictionary has no DWR and DWA` | The merged dictionary lacks the Device-Watchdog commands; add the dictionary that defines them  |
+| `placeholder <AVP>: matched no AVP`                     | The AVP name is misspelled, or the scenarios do not carry it. Check the spelling in a scenario  |
+| `generated-timestamp needs time-method`                 | Name a Seagull time method with `option=time-method=<name>`, or leave the option off            |
+| `native substitution cannot address ...`                | Native variables take only top-level AVPs that do not repeat; use `substitution=text`           |
+| `no value for placeholder(s) NAME`                      | Give the value in the values file, with `--set`, or with `--env`                                |
+| `no statistics file` in the dry run                     | Seagull did not start. Look for a carriage return in a generated file, and for a missing image  |
+| A scenario fails with `Refused (new) call`              | A CCA arrived with a Session-Id that the call had not used. Check the recorded answers          |
+| A scenario fails by timeout                             | The OCS did not answer in `timeout=` milliseconds. Raise it, or check the OCS                   |
+| `DiameterBaseProtocol.xml is required`                  | The dictionaries folder lacks the base protocol; add it, as the conversion merges it in         |
+| A dictionary fails `check=yes`                          | Seagull could not load it, or it lacks an AVP that the check scenario sends; read the `E` lines |
 
 ## Limits
 
