@@ -62,9 +62,7 @@ class Conversion:
         plain = scenario_options.unwrapped(unescape(leaf.value, {"&quot;": '"'}))
         known = self.values.setdefault(holder, plain)
         if known != plain:
-            self.notes.append(
-                f"{holder}: values {known!r} and {plain!r}; used the first"
-            )
+            self.notes.append(f"{holder}: values {known!r} and {plain!r}; used the first")
         wrapped = scenario_options.wrap(leaf.value, holder)
         return f'{leaf.indent}<avp name="{leaf.name}" value="{wrapped}"></avp>'
 
@@ -75,9 +73,7 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("scenarios", type=Path, nargs="+")
     parser.add_argument("--options", type=Path)
     parser.add_argument("--option", action="append", default=[], metavar="KEY=VALUE")
-    parser.add_argument(
-        "--placeholder", action="append", default=[], metavar="AVP=NAME"
-    )
+    parser.add_argument("--placeholder", action="append", default=[], metavar="AVP=NAME")
     parser.add_argument("--out", type=Path)
     args = parser.parse_args(argv)
     args.scenarios = scenario_text.client_files(args.scenarios)

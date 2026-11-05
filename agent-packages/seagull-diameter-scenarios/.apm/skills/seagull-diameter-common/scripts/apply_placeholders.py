@@ -31,9 +31,7 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("template", type=Path)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--values", type=Path, action="append", default=[])
-    parser.add_argument(
-        "--env", action="store_true", help="read values from the environment"
-    )
+    parser.add_argument("--env", action="store_true", help="read values from the environment")
     parser.add_argument("--set", action="append", default=[], metavar="NAME=VALUE")
     return parser.parse_args(argv)
 

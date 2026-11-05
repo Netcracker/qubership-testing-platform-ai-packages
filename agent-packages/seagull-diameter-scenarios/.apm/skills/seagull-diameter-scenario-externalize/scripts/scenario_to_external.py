@@ -71,9 +71,7 @@ class External:
         plain = unescape(value, {"&quot;": '"'})
         known = self.first.setdefault(holder, plain)
         if known != plain:
-            self.notes.append(
-                f"{holder}: values {known!r} and {plain!r}; used the first"
-            )
+            self.notes.append(f"{holder}: values {known!r} and {plain!r}; used the first")
         return self.columns.index(holder)
 
 
@@ -116,9 +114,7 @@ def send_changes(
         if names.count(leaf.name) > 1:
             where = "/".join(entry[0] for entry in leaf.path)
             message = f"{where} occurs more than once in a request; Seagull reads"
-            raise ExternalError(
-                f"{message} an AVP by name, so it cannot tell them apart"
-            )
+            raise ExternalError(f"{message} an AVP by name, so it cannot tell them apart")
         external.used.add(match[0])
         reads.append((external.column(match[1], leaf.value), leaf.name))
     if not reads:
@@ -136,18 +132,14 @@ def place_reads(
     names = {name for _, name in reads}
     action = [n for n in range(first, command_line) if lines[n].strip() == "<action>"]
     if not action:
-        indent = lines[command_line][
-            : len(lines[command_line]) - len(lines[command_line].lstrip())
-        ]
+        indent = lines[command_line][: len(lines[command_line]) - len(lines[command_line].lstrip())]
         body = [f"{indent}  {restore_line(c, n)}" for c, n in reads]
         return (
             set(),
             [(command_line, [f"{indent}<action>", *body, f"{indent}</action>"])],
             names,
         )
-    close = next(
-        n for n in range(action[0], command_line) if lines[n].strip() == "</action>"
-    )
+    close = next(n for n in range(action[0], command_line) if lines[n].strip() == "</action>")
     indent = lines[close][: len(lines[close]) - len(lines[close].lstrip())]
     deleted = set()
     for number in range(action[0] + 1, close):
@@ -271,9 +263,7 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--out", type=Path)
     parser.add_argument("--out-auto", action="store_true")
     parser.add_argument("--options", type=Path)
-    parser.add_argument(
-        "--placeholder", action="append", default=[], metavar="AVP=COLUMN"
-    )
+    parser.add_argument("--placeholder", action="append", default=[], metavar="AVP=COLUMN")
     parser.add_argument("--select", choices=SELECTIONS, default="sequential")
     parser.add_argument("--calls", type=int)
     parser.add_argument("--data-path", default=DEFAULT_DATA_PATH)
@@ -349,9 +339,8 @@ def run(args: argparse.Namespace) -> list[str]:
         *write_output(out, source, converted, data),
         *report,
     ]
-    report.append(
-        f"data file: {out / 'scenario' / DATA_NAME} with the columns {', '.join(external.columns)}"
-    )
+    columns = ", ".join(external.columns)
+    report.append(f"data file: {out / 'scenario' / DATA_NAME} with the columns {columns}")
     report += [f"config {line}" for line in write_configs(out, args)]
     unused = sorted(set(options.placeholders) - external.used)
     report += external.notes + [f"placeholder {key}: matched no AVP" for key in unused]

@@ -386,12 +386,8 @@ class TemplateTest(unittest.TestCase):
             status, _, error = run_generator(Path(folder), extra=extra)
             text = (Path(folder) / "scenario" / CLIENT).read_text("iso-8859-1")
             self.assertEqual(status, 0, error)
-            self.assertEqual(
-                text.count('<store name="REALM" entity="Origin-Realm">'), 1
-            )
-            self.assertEqual(
-                text.count('<restore name="REALM" entity="Origin-Realm">'), 1
-            )
+            self.assertEqual(text.count('<store name="REALM" entity="Origin-Realm">'), 1)
+            self.assertEqual(text.count('<restore name="REALM" entity="Origin-Realm">'), 1)
             self.assertFalse((Path(folder) / "scenario" / (CLIENT + ".tpl")).exists())
             nested = ("--placeholder", "Subscription-Id-Data=X")
             status, _, error = run_generator(Path(folder) / "n", extra=(*args, *nested))
@@ -411,9 +407,7 @@ class TemplateTest(unittest.TestCase):
             text = made.read_text("iso-8859-1")
             values = options_module.read_values(made_values)
             expected = self.scenario(CLIENT + ".tpl").read_text("iso-8859-1")
-            expected_values = options_module.read_values(
-                self.scenario(CLIENT + ".values")
-            )
+            expected_values = options_module.read_values(self.scenario(CLIENT + ".values"))
             out = Path(folder) / "again.xml"
             argv = [str(made), "--out", str(out), "--values", str(made_values)]
             with redirect_stdout(io.StringIO()):
@@ -572,9 +566,7 @@ class ExternalizeTest(unittest.TestCase):
         client = (out / "config" / "conf.client.xml").read_text("iso-8859-1")
         dry_run = (out / "config" / "conf.dry-run.client.xml").read_text("iso-8859-1")
         stub = (out / "config" / "conf.stub-server.xml").read_text("iso-8859-1")
-        self.assertIn(
-            'name="external-data-file" value="../scenario/external-data.csv"', client
-        )
+        self.assertIn('name="external-data-file" value="../scenario/external-data.csv"', client)
         self.assertIn(
             'name="external-data-file" value="/work/scenario/external-data.csv"',
             dry_run,
@@ -771,9 +763,7 @@ class DryRunTest(unittest.TestCase):
             ]
             data.write_text(data.read_text("ascii") + "\n".join(rows) + "\n", "ascii")
             command = ["sh", str(script), str(out), IMAGE]
-            result = subprocess.run(
-                command, capture_output=True, text=True, check=False
-            )
+            result = subprocess.run(command, capture_output=True, text=True, check=False)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         line = "successful calls: 3, failed calls: 0"
         self.assertEqual(result.stdout.count(line), 2, result.stdout)

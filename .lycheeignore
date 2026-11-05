@@ -1,0 +1,3 @@
+# Read by lychee from the repository root. One regular expression per line.
+# SourceForge answers automated requests with 403 Forbidden (a bot check that a browser passes).
+^https://gull\.sourceforge\.net/

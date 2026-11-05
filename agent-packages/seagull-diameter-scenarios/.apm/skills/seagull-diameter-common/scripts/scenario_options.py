@@ -108,9 +108,7 @@ class Options:
     def set_option(self, key: str, text: str) -> None:
         """Set one option from its INI key and text."""
         if key not in OPTION_KEYS:
-            raise OptionsError(
-                f"unknown option {key!r}; known: {', '.join(OPTION_KEYS)}"
-            )
+            raise OptionsError(f"unknown option {key!r}; known: {', '.join(OPTION_KEYS)}")
         attribute = key.replace("-", "_")
         if key in TAGS:
             if text.strip().lower() not in BOOLEANS:
@@ -118,9 +116,7 @@ class Options:
             setattr(self.tags, attribute, BOOLEANS[text.strip().lower()])
         elif key == "wait-ms":
             if not text.strip().isdigit():
-                raise OptionsError(
-                    f"wait-ms must be a number of milliseconds: {text!r}"
-                )
+                raise OptionsError(f"wait-ms must be a number of milliseconds: {text!r}")
             self.tags.wait_ms = int(text)
         elif key == "time-method":
             self.tags.time_method = text.strip()

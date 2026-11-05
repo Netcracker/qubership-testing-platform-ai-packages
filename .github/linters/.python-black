@@ -1,0 +1,4 @@
+# Black and ruff format must agree. The common super-linter configuration sets 120 columns for ruff and flake8,
+# and Black would otherwise use its default of 88.
+[tool.black]
+line-length = 120

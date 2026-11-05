@@ -86,7 +86,5 @@ def leaves(lines: list[str], start: int, end: int) -> list[Leaf]:
             indent, name, value = leaf.groups()
             position = frames[-1].next_position(name)
             path = [(f.name, f.name, f.position) for f in frames[1:]]
-            found.append(
-                Leaf(number, indent, name, value, [*path, (name, name, position)])
-            )
+            found.append(Leaf(number, indent, name, value, [*path, (name, name, position)]))
     return found

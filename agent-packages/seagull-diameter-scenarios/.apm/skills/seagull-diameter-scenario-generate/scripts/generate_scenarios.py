@@ -100,9 +100,7 @@ class Substitution:
         plain = scenario_options.unwrapped(value)
         known = self.values.setdefault(holder, plain)
         if known != plain:
-            self.notes.append(
-                f"{holder}: values {known!r} and {plain!r}; used the first"
-            )
+            self.notes.append(f"{holder}: values {known!r} and {plain!r}; used the first")
 
     def apply(self, path: list[tuple[str, str, int]], value: str) -> str:
         """Return the text to write for a value; a native hit is queued instead."""
@@ -397,9 +395,7 @@ class ClientScenario:
         host = self.request_value("Origin-Host", "seagull.example.test")
         realm = self.request_value("Origin-Realm", "example.test")
         application = self.request_value("Auth-Application-Id", "4")
-        ip_hex = self.substitution.text(
-            "Host-IP-Address", to_address_hex(self.context.host_ip)
-        )
+        ip_hex = self.substitution.text("Host-IP-Address", to_address_hex(self.context.host_ip))
         return f"""  <send channel="channel-1">
     <command name="CER">
       <avp name="Origin-Host" value={quoteattr(host)}></avp>
@@ -465,10 +461,8 @@ class ClientScenario:
         """Return the actions that set the Event-Timestamp of a request."""
         options = self.options
         needed = options.tags.generated_session_id and first
-        wanted = (
-            options.tags.generated_timestamp
-            and step.request.avp_text("Event-Timestamp") is not None
-        )
+        has_time = step.request.avp_text("Event-Timestamp") is not None
+        wanted = options.tags.generated_timestamp and has_time
         if not options.tags.time_method or not (needed or wanted):
             return []
         method = f'method={quoteattr(options.tags.time_method)} format="startoffset={NTP_OFFSET}"'
@@ -480,11 +474,9 @@ class ClientScenario:
     def native_lines(self) -> list[str]:
         """Return the actions that set or restore the native variables."""
         lines: list[str] = []
-        generated = (
-            {"Session-Id", "Event-Timestamp"}
-            if self.options.tags.generated_session_id
-            else set()
-        )
+        generated: set[str] = set()
+        if self.options.tags.generated_session_id:
+            generated.update(("Session-Id", "Event-Timestamp"))
         if self.options.tags.generated_timestamp:
             generated.add("Event-Timestamp")
         for name, holder, value in self.substitution.hits:
@@ -509,9 +501,7 @@ class ClientScenario:
         lines += self.session_lines(step, first)
         lines += self.native_lines()
         if self.options.tags.log:
-            suffix = (
-                " $(VAR_SESSION_ID)" if self.options.tags.generated_session_id else ""
-            )
+            suffix = " $(VAR_SESSION_ID)" if self.options.tags.generated_session_id else ""
             text = f"{step.label} step {step.number}{suffix}"
             lines.append(f"<log format={quoteattr(text)}></log>")
         return lines
@@ -528,14 +518,9 @@ class ClientScenario:
     def receive_block(self, step: Any) -> str:
         """Return the <receive> block that waits for the answer and checks it."""
         options = self.options
-        names = [
-            n
-            for n in self.context.check_avps
-            if not (n == "Session-Id" and options.tags.generated_session_id)
-        ]
-        pairs, skipped = expected_checks(
-            step, self.context.resolver, names, self.substitution
-        )
+        skip_session = options.tags.generated_session_id
+        names = [n for n in self.context.check_avps if not (n == "Session-Id" and skip_session)]
+        pairs, skipped = expected_checks(step, self.context.resolver, names, self.substitution)
         self.context.notes.extend(skipped)
         avps, checks = "", ""
         for name, value in pairs:
@@ -813,9 +798,7 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
         f"the result is written to OUT_DIR/{OPTIONS_NAME}",
     )
     parser.add_argument("--option", action="append", default=[], metavar="KEY=VALUE")
-    parser.add_argument(
-        "--placeholder", action="append", default=[], metavar="AVP=NAME"
-    )
+    parser.add_argument("--placeholder", action="append", default=[], metavar="AVP=NAME")
     return parser.parse_args(argv)
 
 
@@ -966,9 +949,7 @@ def main(argv: list[str]) -> int:
         steps, resolver, notes = prepare(options, effective)
         notes = early + notes
         used: set[str] = set()
-        context = Context(
-            resolver, effective, options.check_avps, options.host_ip, notes, used
-        )
+        context = Context(resolver, effective, options.check_avps, options.host_ip, notes, used)
         notes += write_scenarios(options, group_by_session(steps), context)
         write_config(options)
         for key in sorted(set(settings.rules()) - used):
