@@ -28,10 +28,10 @@ wrote. To write a template straight from recorded steps, give that skill `mode=t
 | `options=`       | The options file                                                                                        | `scenario-options.ini` next to the scenarios  |
 | `out=`           | The folder for the templates and values files                                                           | next to each scenario                         |
 
-The pairs are the memory of the work. When the user specifies placeholders in the prompt, pass each as `--placeholder`; the
-script writes them to the options file, and the next run reads them from there until the user changes them in a prompt.
-When there is no options file and the user specifies no placeholder, ask which AVP values should become placeholders; never
-pick them.
+The pairs are the memory of the work. When the user specifies placeholders in the prompt, pass each as `--placeholder`;
+the script writes them to the options file, and the next run reads them from there until the user changes them in a
+prompt. When there is no options file and the user specifies no placeholder, ask which AVP values should become
+placeholders; never pick them.
 
 `<AVP>` is the AVP name as the scenario file spells it. A name alone matches that AVP at any depth. Use a path such as
 `Multiple-Services-Credit-Control/Rating-Group` to match it inside one group only, and an index such as
