@@ -1,6 +1,6 @@
 #!/bin/sh
 # Dry run of generated scenarios: each client scenario against its stub OCS, in the Seagull image.
-# Usage: sh dry-run.sh OUTPUT_DIR [IMAGE]   (default IMAGE: seagull:local, built from the Dockerfile of this project)
+# Usage: sh dry-run.sh OUTPUT_DIR [IMAGE]   (default IMAGE: seagull:local)
 # OUTPUT_DIR is the folder that generate_scenarios.py wrote. The script exits with a non-zero status unless every
 # scenario ends with at least 1 successful call and 0 failed calls.
 set -eu

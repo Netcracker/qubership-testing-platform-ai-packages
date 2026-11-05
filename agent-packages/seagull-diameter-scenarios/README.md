@@ -65,7 +65,7 @@ The format of the file is in [the common skill](.apm/skills/seagull-diameter-com
 ## Requirements
 
 - Python 3.9 or later, with no other package, to run the scripts.
-- Docker and the Seagull image of this repository (`seagull:local`) for the dry run.
+- Docker and a Seagull 1.8.3 image tagged `seagull:local` for the dry run. This repository does not build the image.
 - The project's Diameter dictionaries in the project format, to find the vendor, the code, and the type of each AVP.
 
 ## Tests

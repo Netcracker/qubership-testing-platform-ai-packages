@@ -64,8 +64,8 @@ of the merged dictionaries, the first one in `merge=` keeps the name.
 ## Prerequisites
 
 - Python 3.9 or later, started as `python`, `python3`, or `py -3`.
-- For the dry run: Docker, and the Seagull image of this project (`seagull:local`, built from its `Dockerfile`). On
-  Windows without Docker in PowerShell, run the shell scripts through `wsl`.
+- For the dry run: Docker, and a Seagull 1.8.3 image tagged `seagull:local`. On Windows without Docker in PowerShell,
+  run the shell scripts through `wsl`.
 
 ## Run
 
@@ -177,7 +177,7 @@ of the merged dictionaries, the first one in `merge=` keeps the name.
   `Result-Code` of a Multiple-Services-Credit-Control, cannot be told apart by name.
 - The CER carries a placeholder `Host-IP-Address`.
 - `generated-timestamp`, and the time part of a generated Session-Id, need `time-method=<name>`: the name of a Seagull
-  method that returns the time. The Seagull 1.8.3 of this repository's image does not know the `sys_date_time_secs`
+  method that returns the time. The Seagull 1.8.3 image does not know the `sys_date_time_secs`
   that another project's scenario uses, and it does not know `sys_time_secs` either (`No method extern found for ...`).
   Without `time-method`, a generated Session-Id is `<Origin-Host>;<counter>` and `generated-timestamp=true` is an error.
   Set `time-method` only when the Seagull that runs the scenario defines the method, and say that the dry run in this

@@ -17,11 +17,11 @@ You need:
   one of `tdm-test-data-assistant`, which was checked with APM 0.29.1.
 - Python 3.9 or later, available as `python`, `python3`, or `py -3`. The scripts use nothing outside the standard
   library.
-- For the dry run: Docker, and the Seagull image of this repository, built with `docker build -t seagull:local .`. On
-  Windows, Docker works in WSL; run the shell scripts as `wsl sh <script> ...`.
+- For the dry run: Docker, and a Seagull 1.8.3 image tagged `seagull:local`. This repository does not build the image;
+  build it with `docker build -t seagull:local .` in the repository that holds the Seagull `Dockerfile`. On Windows,
+  Docker works in WSL; run the shell scripts as `wsl sh <script> ...`.
 - The project's Diameter dictionaries in the project format, in one folder, with `DiameterBaseProtocol.xml` among them.
-  Seagull reads its own format, so the generator converts them; see
-  [the dictionary folder](../../../dictionary/README.md) of this repository for what the conversion does.
+  Seagull reads its own format, so the generator converts them.
 - The recorded run: either a file you can describe (an `xlsx` export of a test database, for example) or a folder that
   already has the `Step-NNN-request.txt` and `Step-NNN-response.txt` files.
 
@@ -30,7 +30,7 @@ You need:
 Run `apm install` in the folder in which you start your agent, with the agent that you use:
 
 ```bash
-apm install --target claude kagw95/seagull-docker/agent-packages/seagull-diameter-scenarios#main
+apm install --target claude Netcracker/qubership-testing-platform-ai-packages/agent-packages/seagull-diameter-scenarios#main
 ```
 
 The part after `#` is the branch or tag to follow; use a tag to stay on one version. `--target` names the agent:
@@ -421,7 +421,7 @@ The full format is in [the common skill](../.apm/skills/seagull-diameter-common/
 
 Two limits matter in practice:
 
-- The Seagull in this repository's image has no time method. It rejects both `sys_date_time_secs` and `sys_time_secs`
+- The Seagull 1.8.3 image has no time method. It rejects both `sys_date_time_secs` and `sys_time_secs`
   with `No method extern found`. Use `generated-timestamp` and a timed Session-Id only with a Seagull that defines the
   method, and name it in `time-method`. Without it, a generated Session-Id is the Origin-Host and a counter, and the dry
   run in the image checks everything except the time.
@@ -435,12 +435,13 @@ The sequence below is the one to follow the first time. Each step names its prom
 ### 1. Install and check the package
 
 ```bash
-apm install --target claude kagw95/seagull-docker/agent-packages/seagull-diameter-scenarios#main
-docker build -t seagull:local .
+apm install --target claude Netcracker/qubership-testing-platform-ai-packages/agent-packages/seagull-diameter-scenarios#main
+docker image inspect seagull:local
 ```
 
 Expected: `apm install` ends without an error, and the agent answers `/seagull-diameter-scenario-generate` by asking for
-the arguments. The second command runs in the root of this repository and takes about four minutes.
+the arguments. The second command prints the data of the Seagull image; if the image is missing, build it first, as the
+prerequisites say.
 
 ### 2. Get the steps into a folder
 
