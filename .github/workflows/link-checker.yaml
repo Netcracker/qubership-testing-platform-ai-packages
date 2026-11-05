@@ -45,3 +45,4 @@ jobs:
             --max-cache-age 1d
           format: markdown
           fail: true
+          failIfEmpty: false
