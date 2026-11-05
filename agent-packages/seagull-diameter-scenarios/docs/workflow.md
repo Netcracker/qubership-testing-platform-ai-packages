@@ -59,6 +59,32 @@ dry run, so the dry run always sees a filled-in scenario.
 | Ready scenarios to Proven        | `dry-run.sh`                             | Docker and the image `seagull:local`                                   | One line for each scenario: `successful calls: 1, failed calls: 0`                                                              |
 | Proven to Run                    | `seagull` command                        | The address of the OCS in `config/conf.client.xml`                     | Seagull logs and statistics CSV files                                                                                           |
 
+## Dictionaries on their own
+
+`/seagull-diameter-dictionary-convert` works apart from the scenarios. It takes the folder of the project's dictionaries
+and writes a new folder of Seagull dictionaries. The generate skill does not need it, because it converts the
+dictionaries it merges itself.
+
+```mermaid
+stateDiagram-v2
+    direction LR
+
+    state "Project dictionaries<br/>folder with DiameterBaseProtocol.xml" as Project
+    state "Converted dictionaries<br/>new folder, conversion-report.txt" as Converted
+    state "Dictionaries that Seagull loads" as Loaded
+
+    [*] --> Project
+    Project --> Project: validate=yes, validate.sh reports errors,<br/>tell the owners; the conversion goes on
+    Project --> Converted: /seagull-diameter-dictionary-convert<br/>+ combine, rename
+    Converted --> Loaded: check=yes, check-converted.sh
+    Loaded --> [*]: seagull -dico ...
+```
+
+| Transition                        | Moved by                  | Needs                                        | Produces                                                             |
+|-----------------------------------|---------------------------|----------------------------------------------|----------------------------------------------------------------------|
+| Project to Converted dictionaries | `convert_dictionaries.py` | The folder, and a new or empty output folder | One Seagull file for each AVP dictionary, the combinations, a report |
+| Converted to Loaded               | `check-converted.sh`      | Docker and the image `seagull:local`         | One line for each file: `successful calls: 1, failed calls: 0`       |
+
 ## Where the options file fits
 
 `scenario-options.ini` is the memory of the generator. Each run reads it, applies the options and placeholder pairs that
@@ -84,5 +110,8 @@ A prompt wins over the file for the keys it names. A key that the prompt does no
 | Generation                      | `the command <X> is not in ...`                     | Add the dictionary of the application that defines the command                                         |
 | Generation                      | `generated-timestamp needs time-method`             | Name a time method, or leave the option off                                                            |
 | Generation, template            | `no value for placeholder(s) NAME`                  | Give the value in the values file, with `--set`, or with `--env`                                       |
+| Conversion                      | `DiameterBaseProtocol.xml is required`              | Add the base protocol dictionary to the input folder                                                   |
+| Conversion, before any file     | `the output folder is not empty: ...`               | Use another folder; the skill never empties one                                                        |
+| Dictionary check                | `successful calls: 0, failed calls: 1`              | Read the `E` lines: Seagull could not load the dictionary, or it lacks an AVP that the check sends     |
 | Dry run                         | `no statistics file`                                | Seagull did not start: check the image and the line endings                                            |
 | Dry run                         | `successful calls: 0, failed calls: 1`              | Read the `E` error line that the script prints next to it; the cause is in the input or the dictionary |

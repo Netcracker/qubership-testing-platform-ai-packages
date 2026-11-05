@@ -9,7 +9,7 @@ To install the package and run the skills, follow the [user guide](docs/user-gui
 
 ## Skills
 
-The first four skills are commands: the agent runs them only when you type their name.
+The first five skills are commands: the agent runs them only when you type their name.
 
 | Skill                                                                                                | Purpose                                                                                                            |
 |------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
@@ -17,6 +17,7 @@ The first four skills are commands: the agent runs them only when you type their
 | [/seagull-diameter-scenario-generate](.apm/skills/seagull-diameter-scenario-generate/SKILL.md)       | Turns that folder into Seagull scenarios or templates, configuration, and a merged dictionary, then runs a dry run |
 | [/seagull-diameter-scenario-templatize](.apm/skills/seagull-diameter-scenario-templatize/SKILL.md)   | Replaces the values of chosen AVPs in generated scenarios with `@@NAME@@` placeholders                             |
 | [/seagull-diameter-scenario-externalize](.apm/skills/seagull-diameter-scenario-externalize/SKILL.md) | Makes chosen AVPs read their values from an external CSV data file, one row for each call                          |
+| [/seagull-diameter-dictionary-convert](.apm/skills/seagull-diameter-dictionary-convert/SKILL.md)     | Converts the project's Diameter dictionaries into Seagull dictionaries, and can check them in the image            |
 | [seagull-diameter-common](.apm/skills/seagull-diameter-common/SKILL.md)                              | Shared scripts and the format of the folder. Not a task; the agent never invokes it                                |
 
 ```mermaid
@@ -62,10 +63,19 @@ once in a prompt; the file keeps it for the next run until you state another.
 
 The format of the file is in [the common skill](.apm/skills/seagull-diameter-common/SKILL.md#the-options-file).
 
+## Dictionaries
+
+Seagull cannot read the project's dictionary format. The generate skill converts what it needs.
+`/seagull-diameter-dictionary-convert` converts a whole folder of dictionaries into a new folder, merges the ones you
+name into one file, reports what looks inconsistent, and can validate the sources and check each result in the Seagull
+image. What the conversion does and drops is in [the dictionary conversion page](docs/dictionary-conversion.md).
+
 ## Requirements
 
 - Python 3.9 or later, with no other package, to run the scripts.
-- Docker and a Seagull 1.8.3 image tagged `seagull:local` for the dry run. This repository does not build the image.
+- Docker and a Seagull 1.8.3 image tagged `seagull:local` for the dry run and for checking converted dictionaries. This
+  repository does not build the image.
+- Java 11 or later, only to validate dictionaries against their XSD files.
 - The project's Diameter dictionaries in the project format, to find the vendor, the code, and the type of each AVP.
 
 ## Tests
