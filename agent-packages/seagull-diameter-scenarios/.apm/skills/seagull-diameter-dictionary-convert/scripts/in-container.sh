@@ -36,7 +36,13 @@ for dictionary in /dictionaries/*.xml; do
 
     errors=$(cat ../logs/chk.* 2> /dev/null | grep -a '|E|' | head -n 2 | tr '\n' ' ')
     result="no statistics file"
-    stat=$(ls -t ../logs/client-stat.* 2> /dev/null | head -n 1)
+    stat=""
+    for candidate in ../logs/client-stat.*; do
+        [ -e "${candidate}" ] || continue
+        if [ -z "${stat}" ] || [ "${candidate}" -nt "${stat}" ]; then
+            stat="${candidate}"
+        fi
+    done
     if [ -n "${stat}" ]; then
         result=$(awk -F";" '
             NR == 1 { for (i = 1; i <= NF; i++) col[$i] = i; next }
