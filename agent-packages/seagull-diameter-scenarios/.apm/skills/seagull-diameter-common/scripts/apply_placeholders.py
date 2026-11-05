@@ -60,14 +60,15 @@ def main(argv: list[str]) -> int:
         text = options.template.read_text(encoding="iso-8859-1")
         names = options_module.placeholder_names(text)
         rendered = options_module.render(text, collect_values(options, names))
+        replaced = options.out.exists()
         options.out.parent.mkdir(parents=True, exist_ok=True)
         options.out.write_text(rendered, encoding="iso-8859-1", newline="\n")
     except (options_module.OptionsError, OSError, UnicodeEncodeError) as error:
         sys.stderr.write(f"error: {error}\n")
         return 1
-    sys.stdout.write(
-        f"{len(names)} placeholder(s) replaced, written to {options.out}\n"
-    )
+    note = " (an existing file was replaced)" if replaced else ""
+    count = f"{len(names)} placeholder(s) replaced"
+    sys.stdout.write(f"{count}, written to {options.out}{note}\n")
     return 0
 
 

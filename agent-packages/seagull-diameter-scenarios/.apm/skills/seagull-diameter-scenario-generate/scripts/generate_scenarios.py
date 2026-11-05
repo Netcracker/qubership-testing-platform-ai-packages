@@ -2,7 +2,8 @@
 
 Usage:
   python generate_scenarios.py --steps STEPS_DIR --dictionaries-dir DIR
-      --dictionaries A,B,C --out OUT_DIR [--timeout-ms 5000] [--dest HOST:PORT]
+      --dictionaries A,B,C (--out OUT_DIR | --out-auto PARENT) [--replace]
+      [--timeout-ms 5000] [--dest HOST:PORT]
       [--host-ip IP] [--check-avps LIST] [--seagull-dictionary FILE]
       [--options FILE] [--option KEY=VALUE ...] [--placeholder AVP=NAME ...]
 
@@ -16,10 +17,17 @@ Every session becomes one client scenario and one stub-OCS scenario for a dry ru
 OUT_DIR also gets the client and stub configuration and the merged Seagull
 dictionary.
 
+OUT_DIR must be new or empty. --out-auto PARENT picks the first free
+PARENT/Seagull-Scenario[-N] instead. A non-empty OUT_DIR is an error, because new
+files would mix with old ones; --replace moves its old contents to a sibling folder
+named OUT_DIR.previous-<time> first, and keeps the options file.
+
 The options file (default OUT_DIR/scenario-options.ini) says whether to write ready
 scenarios or templates, which dynamic tags to add, and which AVP values become
 placeholders; see scenario_options.py. --option and --placeholder change it, and
-the generator writes the result back, so the next run starts from it.
+the generator writes the result to OUT_DIR/scenario-options.ini. A new folder starts
+from the options file of an older run when --options names it; the older file is
+only read.
 
 Requires Python 3.9 or later.
 """
@@ -49,6 +57,7 @@ sys.path.insert(0, str(COMMON))
 steps_format = importlib.import_module("steps_format")
 dict2seagull = importlib.import_module("dict2seagull")
 scenario_options = importlib.import_module("scenario_options")
+output_folder = importlib.import_module("output_folder")
 
 NTP_OFFSET = 2208988800
 BASE = "DiameterBaseProtocol"
@@ -779,14 +788,30 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--steps", type=Path, required=True)
     parser.add_argument("--dictionaries-dir", type=Path, required=True)
     parser.add_argument("--dictionaries", required=True, help="names, in merge order")
-    parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--out", type=Path, help="a folder that is new or empty")
+    parser.add_argument(
+        "--out-auto",
+        type=Path,
+        metavar="PARENT",
+        help="write to the first free PARENT/Seagull-Scenario[-N]",
+    )
+    parser.add_argument(
+        "--replace",
+        action="store_true",
+        help="move the old contents of a non-empty --out aside, then generate",
+    )
     parser.add_argument("--seagull-dictionary", type=Path, help="already converted")
     parser.add_argument("--timeout-ms", type=int, default=5000)
     parser.add_argument("--dest", default="127.0.0.1:3868", help="address of the OCS")
     parser.add_argument("--host-ip", default="192.0.2.10", help="the CER announces it")
     parser.add_argument("--check-avps", default=CHECKS, type=lambda s: s.split(","))
     parser.add_argument("--rename", action="append", default=[], metavar="OLD=NEW")
-    parser.add_argument("--options", type=Path, help=f"default OUT_DIR/{OPTIONS_NAME}")
+    parser.add_argument(
+        "--options",
+        type=Path,
+        help=f"options file to start from (default OUT_DIR/{OPTIONS_NAME}); "
+        f"the result is written to OUT_DIR/{OPTIONS_NAME}",
+    )
     parser.add_argument("--option", action="append", default=[], metavar="KEY=VALUE")
     parser.add_argument(
         "--placeholder", action="append", default=[], metavar="AVP=NAME"
@@ -899,13 +924,47 @@ def prepare(
     return steps, Resolver(project, avp_names_of(root)), notes
 
 
+def choose_output(options: argparse.Namespace) -> list[str]:
+    """Settle the output folder; refuse a non-empty one unless --replace is given.
+
+    A folder that was not named is the first free Seagull-Scenario[-N], so it is
+    always new. Returns notes for the report.
+    """
+    if bool(options.out) == bool(options.out_auto):
+        raise GenerationError("give exactly one of --out and --out-auto")
+    if options.out_auto:
+        options.out = output_folder.next_free(options.out_auto, "Seagull-Scenario")
+        return [f"output folder: {options.out} (new)"]
+    if output_folder.is_empty(options.out) or options.replace:
+        return []
+    summary = output_folder.describe(options.out)
+    raise GenerationError(
+        f"the output folder is not empty: {summary}. Generating into it would mix "
+        "the new files with the old ones. Use another folder, or pass --replace to "
+        "move the old contents aside first"
+    )
+
+
+def archive_old(options: argparse.Namespace) -> list[str]:
+    """Move the old contents of the output folder aside when --replace is given."""
+    if not options.replace or output_folder.is_empty(options.out):
+        return []
+    summary = output_folder.describe(options.out)
+    target = output_folder.archive_name(options.out)
+    options.out.rename(target)
+    return [f"replaced the old output: {summary}; moved to {target}"]
+
+
 def main(argv: list[str]) -> int:
     """Generate everything; return the exit status."""
     options = parse_arguments(argv)
     try:
+        early = choose_output(options)
         path, settings = resolve_options(options)
+        early += archive_old(options)
         effective = copy.deepcopy(settings)
         steps, resolver, notes = prepare(options, effective)
+        notes = early + notes
         used: set[str] = set()
         context = Context(
             resolver, effective, options.check_avps, options.host_ip, notes, used
@@ -914,6 +973,7 @@ def main(argv: list[str]) -> int:
         write_config(options)
         for key in sorted(set(settings.rules()) - used):
             notes.append(f"placeholder {key}: matched no AVP")
+        path = options.out / OPTIONS_NAME
         scenario_options.save_options(path, settings)
     except GenerationError as error:
         sys.stderr.write(f"error: {error}\n")

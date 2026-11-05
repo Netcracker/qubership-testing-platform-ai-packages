@@ -148,11 +148,16 @@ def write_one(scenario: Path, out: Path | None, conversion: Conversion) -> list[
     folder = out or scenario.parent
     folder.mkdir(parents=True, exist_ok=True)
     target = folder / f"{scenario.name}.tpl"
+    values_file = folder / f"{scenario.name}.values"
+    replaced = [p.name for p in (target, values_file) if p.exists()]
     target.write_text(template, encoding="iso-8859-1", newline="\n")
-    scenario_options.write_values(folder / f"{scenario.name}.values", conversion.values)
+    scenario_options.write_values(values_file, conversion.values)
     count = len(conversion.values)
     summary = f"{scenario.name}: {count} placeholder(s) written to {target.name}"
-    return [summary, *[f"{scenario.name}: {note}" for note in conversion.notes]]
+    notes = list(conversion.notes)
+    if replaced:
+        notes.append(f"replaced existing {' and '.join(replaced)}")
+    return [summary, *[f"{scenario.name}: {note}" for note in notes]]
 
 
 def main(argv: list[str]) -> int:

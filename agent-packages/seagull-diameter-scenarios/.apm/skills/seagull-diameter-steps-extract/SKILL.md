@@ -25,7 +25,7 @@ source, and the skill does what was said.
 |-------------------|-------------------------------------------------------------------------------------------------------------|
 | `<source>`        | An `xlsx`, `csv`, JSON, or log file, or a folder that already has the `Step-NNN-...` files                  |
 | `<how to read it>`| Free text. It must say what is needed to answer the questions in the next section                           |
-| output folder     | Optional, in the text: where to write. Default: a new folder next to the source, named `Diameter-Steps`     |
+| output folder     | Optional, in the text: where to write; it must be new or empty. Default: a new folder next to the source, `Diameter-Steps`, or `Diameter-Steps-2` and so on when that exists |
 
 If the source is a folder that already follows the format, skip the extraction: run the check in the last section and
 report.
@@ -55,7 +55,16 @@ message, and wait. Never guess the structure of a file.
    formatting applied.
 3. **Select the Diameter steps** by the rule from the description. A step is kept only if both its request and its
    response are found; any other case is listed in the report.
-4. **Write the files** to the output folder, which must be new or empty. Number the kept steps one by one from `001` in
+4. **Choose the output folder, then write the files.** The folder must be new or empty; a folder with files is never
+   written into. When the user named none, take the first free `Diameter-Steps[-N]` next to the source:
+
+   ```bash
+   python <skill folder>/../seagull-diameter-common/scripts/output_folder.py next-free <folder of the source> Diameter-Steps
+   ```
+
+   When the user named a folder, check it with `output_folder.py describe <folder>`. If it prints that the folder holds
+   files (exit status 1), stop and tell the user what it printed, then ask for another folder or for permission to use
+   a new one; never clear a folder or write beside its files, because the step files of two runs mix. Number the kept steps one by one from `001` in
    the order they ran, as `Step-001-request.txt` and `Step-001-response.txt`. Write the message text exactly as it is in
    the
    source, in UTF-8, with no trimming and no change of line breaks. Do not repair or reformat it here: the generator

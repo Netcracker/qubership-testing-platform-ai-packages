@@ -74,6 +74,7 @@ A prompt wins over the file for the keys it names. A key that the prompt does no
 | State where it stops            | Signal                                              | What to do                                                                                             |
 |---------------------------------|-----------------------------------------------------|--------------------------------------------------------------------------------------------------------|
 | Steps folder, before generation | A `PROBLEM` line from `check_steps.py`              | Fix the extraction, or the source text, and extract again                                              |
+| Generation, before any file     | `the output folder is not empty: ...`               | Use another folder, or `replace=yes` to move the old contents to a `.previous-<time>` folder           |
 | Generation                      | `AVP <name> is in none of the project dictionaries` | Add the dictionary that defines the AVP to `merge=`                                                    |
 | Generation                      | `the command <X> is not in ...`                     | Add the dictionary of the application that defines the command                                         |
 | Generation                      | `generated-timestamp needs time-method`             | Name a time method, or leave the option off                                                            |

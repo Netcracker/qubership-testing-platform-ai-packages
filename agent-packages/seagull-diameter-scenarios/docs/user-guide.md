@@ -90,7 +90,9 @@ free. It must say:
 4. where the text of a message is;
 5. how to tell a Diameter step from any other step, for example that the text starts with `<CCR` or `<CCA`;
 6. which other steps to skip, if any;
-7. optionally, the output folder. Default: a folder named `Diameter-Steps` next to the source.
+7. optionally, the output folder, which must be new or empty. Default: a new folder named `Diameter-Steps` next to the
+   source, or `Diameter-Steps-2` and so on when that name is taken. The agent never writes into a folder that holds
+   files; it tells you what the folder holds and asks.
 
 If the text leaves a point open, the agent asks one message with all its questions and waits. It never guesses the
 structure.
@@ -137,7 +139,7 @@ a Seagull dictionary merged from your project dictionaries. Then it runs the dry
 **Arguments.**
 
 ```text
-/seagull-diameter-scenario-generate <steps folder> dictionaries=<folder> merge=<A,B,C> [out=<folder>] [timeout=<ms>] [dest=<host:port>] [host-ip=<ip>] [mode=scenario|template] [placeholder=<AVP>=<NAME> ...] [option=<key>=<value> ...] [options=<file>]
+/seagull-diameter-scenario-generate <steps folder> dictionaries=<folder> merge=<A,B,C> [out=<folder>] [replace=yes] [timeout=<ms>] [dest=<host:port>] [host-ip=<ip>] [mode=scenario|template] [placeholder=<AVP>=<NAME> ...] [option=<key>=<value> ...] [options=<file>]
 ```
 
 | Argument         | Meaning                                                                                                   | Default                                      |
@@ -145,17 +147,35 @@ a Seagull dictionary merged from your project dictionaries. Then it runs the dry
 | first argument   | The folder of recorded steps                                                                              | required                                     |
 | `dictionaries=`  | The folder of the project's dictionaries                                                                  | required                                     |
 | `merge=`         | The dictionaries to merge, without `.xml`, in order. For an AVP that two of them define, the first wins   | required                                     |
-| `out=`           | Where to write                                                                                            | `Seagull-Scenario` next to the steps folder  |
+| `out=`           | Where to write. A folder with files is refused, see [the output folder](#the-output-folder)               | a new `Seagull-Scenario`, `-2`, ... next to the steps folder |
+| `replace=`       | `yes` moves the old contents of a non-empty `out=` aside and generates anew                               | no                                           |
 | `timeout=`       | How long Seagull waits for each answer, in milliseconds                                                   | 5000                                         |
 | `dest=`          | Address and port of the OCS                                                                               | `127.0.0.1:3868`, the stub OCS               |
 | `host-ip=`       | The IP address that the capabilities exchange announces as the client's                                   | a placeholder address                        |
 | `mode=`          | `scenario` for fixed values, `template` for placeholders                                                  | the options file, else `scenario`            |
 | `placeholder=`   | One `<AVP>=<NAME>` pair; repeat it. An empty `<NAME>` removes the pair                                    | the pairs in the options file                |
 | `option=`        | One `<key>=<value>` option, see [Options and tags](#options-and-tags)                                     | the options file                             |
-| `options=`       | The options file                                                                                          | `scenario-options.ini` in the output folder  |
+| `options=`       | An older options file to start from; it is only read. The result goes to the output folder                | `scenario-options.ini` in the output folder  |
 
 When you leave out `dictionaries=` or `merge=`, the agent lists the files of the dictionary folder and asks which to
 merge. If the generator says an AVP is in none of the dictionaries, add the one that has it to `merge=`.
+
+#### The output folder
+
+A run never writes into a folder that already holds files, because new scenarios would mix with the old ones. If the old
+ones came from another sequence of messages, the folder would hold scenarios of both, and the dry run would run them
+all.
+
+- Without `out=`, the agent uses a new folder next to the steps folder: `Seagull-Scenario`, or `Seagull-Scenario-2` and
+  so on when that name is taken. The report names the folder. Earlier outputs stay as they were.
+- With `out=` that names an empty or missing folder, the agent writes there.
+- With `out=` that names a folder with files, the agent stops, tells you what the folder holds (the number of files and
+  their dates), and asks: another folder, or `replace=yes`.
+- With `replace=yes`, the old contents move to a sibling folder named `<out>.previous-<date>-<time>`. Nothing is
+  deleted. The options file is read before the move, so the new run starts from it.
+
+A new folder starts without an options file. To keep your mode, tags, and placeholders, name the older file with
+`options=<old folder>\scenario-options.ini`; the generator only reads it and writes the result to the new folder.
 
 **Example prompt, ready scenarios.**
 
@@ -360,8 +380,12 @@ apart from the parameters.
 Decide which values should vary and which tags help. Either regenerate with the new options:
 
 ```text
-/seagull-diameter-scenario-generate C:\work\Diameter-Steps dictionaries=C:\work\dictionaries merge=RoSCP,Gy,Integration out=C:\work\Seagull-Scenario mode=template placeholder=Subscription-Id/Subscription-Id-Data=SUBSCRIBER_ID option=log=true option=check-presence=true option=wait-ms=500
+/seagull-diameter-scenario-generate C:\work\Diameter-Steps dictionaries=C:\work\dictionaries merge=RoSCP,Gy,Integration out=C:\work\Seagull-Scenario replace=yes mode=template placeholder=Subscription-Id/Subscription-Id-Data=SUBSCRIBER_ID option=log=true option=check-presence=true option=wait-ms=500
 ```
+
+`replace=yes` is needed because the folder already holds the first run; the agent moves that run aside. Leave out `out=`
+to get a new folder next to the old one instead, and add `options=C:\work\Seagull-Scenario\scenario-options.ini` if you
+want its settings.
 
 or template what you already have:
 
@@ -400,16 +424,18 @@ command, value of avp [Result-Code]. Expected [2001] but got [5012]`.
 You change a decision with the same command, and the rest stays. For example, to add a pause and keep every placeholder:
 
 ```text
-/seagull-diameter-scenario-generate C:\work\Diameter-Steps dictionaries=C:\work\dictionaries merge=RoSCP,Gy,Integration out=C:\work\Seagull-Scenario option=wait-ms=1000
+/seagull-diameter-scenario-generate C:\work\Diameter-Steps dictionaries=C:\work\dictionaries merge=RoSCP,Gy,Integration out=C:\work\Seagull-Scenario replace=yes option=wait-ms=1000
 ```
 
-The generator reads `scenario-options.ini`, changes `wait-ms`, and keeps the mode and the pairs. The generated files are
-overwritten, so keep your own edits out of them: the files say `Do not edit; generate again`.
+The generator reads `scenario-options.ini`, changes `wait-ms`, and keeps the mode and the pairs. With `replace=yes` the
+agent moves the previous output to `C:\work\Seagull-Scenario.previous-<date>-<time>` first, so the new folder holds only
+files of this run. Keep your own edits out of the generated files: they say `Do not edit; generate again`.
 
 ## When something goes wrong
 
 | Symptom                                                 | Cause and fix                                                                                  |
 |---------------------------------------------------------|------------------------------------------------------------------------------------------------|
+| `the output folder is not empty: ...`                   | The folder holds files. Use another folder, or `replace=yes` to move its contents aside        |
 | The agent does not know the command                     | The skills are not loaded. Check that `apm install` finished, then restart the session         |
 | `AVP <name> is in none of the project dictionaries`     | Add the dictionary that defines the AVP to `merge=`                                            |
 | `the command <X> is not in ...`                         | The merged dictionary has no definition of that command; add the dictionary of its application |

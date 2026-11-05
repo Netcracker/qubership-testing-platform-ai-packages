@@ -51,6 +51,9 @@ pick them.
    holds one `NAME=value` line for each placeholder, with the value the scenario had. A hexadecimal value keeps its
    `0x` outside the marker (`0x@@CHARGING_ID_HEX@@`), and the values file holds the digits only.
 2. **Read the output** and tell the user:
+   - Every `replaced existing ...` line: the script writes `X.client.xml.tpl` and `X.client.xml.values` over earlier
+     ones of the same name. Say which were replaced, and use `out=` to write to an empty folder when the user wants to
+     keep the old files.
    - How many placeholders each file got.
    - Every `<NAME>: values 'a' and 'b'; used the first` line. One placeholder stands for one value, so two AVPs that
      had different values cannot share a name unless the user accepts that the template loses the difference.

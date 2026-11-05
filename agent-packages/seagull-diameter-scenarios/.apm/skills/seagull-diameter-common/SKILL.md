@@ -22,6 +22,7 @@ because APM deploys the files of a skill folder next to each other, so the scrip
 | `scripts/dict2seagull.py`    | Converts the project's AVP dictionaries into one Seagull dictionary                          |
 | `scripts/scenario_options.py`| Reads and writes the options file; matches AVPs to placeholders; fills templates in          |
 | `scripts/apply_placeholders.py` | Replaces the `@@NAME@@` placeholders of a template with values                            |
+| `scripts/output_folder.py`   | Picks the first free output folder (`next-free`) and describes a folder (`describe`)         |
 
 ## The folder of recorded steps
 
@@ -73,8 +74,9 @@ else that is not XML is an error: send the folder back to the person who made it
 ## The options file
 
 `scenario-options.ini` holds what the user decided about the shape of the generated scenarios. The generator reads it,
-applies the `--option` and `--placeholder` flags of the run, and writes it back. Edit it by running the generator with a
-flag, not by hand, unless the user asks.
+applies the `--option` and `--placeholder` flags of the run, and writes the result to `scenario-options.ini` in the
+output folder. A run in a new folder starts from an older file when `--options` names it, and only reads that file. Edit
+the options by running the generator with a flag, not by hand, unless the user asks.
 
 ```ini
 [output]

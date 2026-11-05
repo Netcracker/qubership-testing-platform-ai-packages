@@ -40,6 +40,7 @@ generate = importlib.import_module("generate_scenarios")
 options_module = importlib.import_module("scenario_options")
 apply_placeholders = importlib.import_module("apply_placeholders")
 to_template = importlib.import_module("scenario_to_template")
+output_folder = importlib.import_module("output_folder")
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 IMAGE = os.environ.get("SEAGULL_IMAGE", "")
 CHECKED = (
@@ -350,7 +351,7 @@ class TemplateTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="seagull-selftest-") as folder:
             out = Path(folder)
             shutil.copy(self.folder / "scenario-options.ini", out)
-            status, _, error = run_generator(out)
+            status, _, error = run_generator(out, extra=("--replace",))
             text = (out / "scenario" / (CLIENT + ".tpl")).read_text("iso-8859-1")
         self.assertEqual(status, 0, error)
         self.assertIn("@@SUBSCRIBER_ID@@", text)
@@ -360,7 +361,7 @@ class TemplateTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="seagull-selftest-") as folder:
             out = Path(folder)
             shutil.copy(self.folder / "scenario-options.ini", out)
-            extra = ("--placeholder", "Auth-Application-Id=")
+            extra = ("--replace", "--placeholder", "Auth-Application-Id=")
             status, _, error = run_generator(out, extra=extra)
             text = (out / "scenario" / (CLIENT + ".tpl")).read_text("iso-8859-1")
             options = (out / "scenario-options.ini").read_text("utf-8")
@@ -421,6 +422,76 @@ class TemplateTest(unittest.TestCase):
         self.assertEqual(values, expected_values)
         self.assertEqual(status, 0)
         self.assertEqual(again, original)
+
+
+class OutputFolderTest(unittest.TestCase):
+    """The generator never mixes new files with the contents of an old folder."""
+
+    def test_next_free_skips_existing_folders(self) -> None:
+        """next_free returns NAME, then NAME-2, then NAME-3."""
+        with tempfile.TemporaryDirectory(prefix="seagull-selftest-") as folder:
+            parent = Path(folder)
+            self.assertEqual(output_folder.next_free(parent, "S").name, "S")
+            (parent / "S").mkdir()
+            self.assertEqual(output_folder.next_free(parent, "S").name, "S-2")
+            (parent / "S-2").mkdir()
+            self.assertEqual(output_folder.next_free(parent, "S").name, "S-3")
+
+    def test_out_auto_never_reuses_a_folder(self) -> None:
+        """Without a named folder, the second run goes to Seagull-Scenario-2."""
+        base = ["--steps", str(FIXTURES / "steps")]
+        base += ["--dictionaries-dir", str(FIXTURES / "dictionaries")]
+        base += ["--dictionaries", "Gy"]
+        with tempfile.TemporaryDirectory(prefix="seagull-selftest-") as folder:
+            for _ in range(2):
+                with redirect_stdout(io.StringIO()):
+                    status = generate.main([*base, "--out-auto", folder])
+                self.assertEqual(status, 0)
+            names = sorted(p.name for p in Path(folder).iterdir())
+        self.assertEqual(names, ["Seagull-Scenario", "Seagull-Scenario-2"])
+
+    def test_non_empty_folder_is_refused(self) -> None:
+        """A named folder that holds files stops the run and keeps the files."""
+        with tempfile.TemporaryDirectory(prefix="seagull-selftest-") as folder:
+            out = Path(folder)
+            (out / "old.txt").write_text("keep me", encoding="utf-8")
+            status, _, error = run_generator(out)
+            kept = (out / "old.txt").read_text(encoding="utf-8")
+            names = sorted(p.name for p in out.iterdir())
+        self.assertEqual(status, 1)
+        self.assertIn("the output folder is not empty", error)
+        self.assertIn("1 file(s)", error)
+        self.assertEqual((kept, names), ("keep me", ["old.txt"]))
+
+    def test_replace_moves_the_old_contents_aside(self) -> None:
+        """--replace keeps the old files in a sibling folder and the placeholders."""
+        with tempfile.TemporaryDirectory(prefix="seagull-selftest-") as folder:
+            out = Path(folder) / "out"
+            run_generator(out, extra=TEMPLATE_ARGS)
+            (out / "scenario" / "stale.client.xml").write_text("old", encoding="utf-8")
+            status, report, error = run_generator(out, extra=("--replace",))
+            aside = [p for p in Path(folder).iterdir() if ".previous-" in p.name]
+            stale_kept = (aside[0] / "scenario" / "stale.client.xml").exists()
+            stale_new = (out / "scenario" / "stale.client.xml").exists()
+            options = (out / "scenario-options.ini").read_text(encoding="utf-8")
+        self.assertEqual(status, 0, error)
+        self.assertEqual((len(aside), stale_kept, stale_new), (1, True, False))
+        self.assertIn("replaced the old output", report)
+        self.assertIn("Subscription-Id/Subscription-Id-Data = SUBSCRIBER_ID", options)
+
+    def test_options_carry_into_a_new_folder(self) -> None:
+        """--options reads an older file; the old folder is not written to."""
+        with tempfile.TemporaryDirectory(prefix="seagull-selftest-") as folder:
+            first, second = Path(folder) / "first", Path(folder) / "second"
+            run_generator(first, extra=TEMPLATE_ARGS)
+            old = first / "scenario-options.ini"
+            before = old.read_text(encoding="utf-8")
+            status, _, error = run_generator(second, extra=("--options", str(old)))
+            carried = (second / "scenario-options.ini").read_text(encoding="utf-8")
+            after = old.read_text(encoding="utf-8")
+        self.assertEqual(status, 0, error)
+        self.assertIn("SUBSCRIBER_ID", carried)
+        self.assertEqual(before, after)
 
 
 class ApplyPlaceholdersTest(unittest.TestCase):
