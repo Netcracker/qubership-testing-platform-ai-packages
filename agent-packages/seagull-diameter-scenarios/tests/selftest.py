@@ -35,12 +35,14 @@ TEMPLATIZE_DIR = SKILLS / "seagull-diameter-scenario-templatize" / "scripts"
 sys.path.insert(0, str(SKILLS / "seagull-diameter-common" / "scripts"))
 sys.path.insert(0, str(GENERATE_DIR))
 sys.path.insert(0, str(TEMPLATIZE_DIR))
+sys.path.insert(0, str(SKILLS / "seagull-diameter-scenario-externalize" / "scripts"))
 check_steps = importlib.import_module("check_steps")
 generate = importlib.import_module("generate_scenarios")
 options_module = importlib.import_module("scenario_options")
 apply_placeholders = importlib.import_module("apply_placeholders")
 to_template = importlib.import_module("scenario_to_template")
 output_folder = importlib.import_module("output_folder")
+to_external = importlib.import_module("scenario_to_external")
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 IMAGE = os.environ.get("SEAGULL_IMAGE", "")
 CHECKED = (
@@ -494,6 +496,152 @@ class OutputFolderTest(unittest.TestCase):
         self.assertEqual(before, after)
 
 
+EXTERNAL_ARGS = (
+    "--placeholder",
+    "Session-Id=SID",
+    "--placeholder",
+    "Subscription-Id-Data=MSISDN",
+    "--placeholder",
+    "3GPP-Charging-Id=CHARGING",
+)
+
+
+def run_external(source: Path, out: Path, *extra: str) -> tuple[int, str, str]:
+    """Run the externalize script on a generation; return status, output, error."""
+    argv = [str(source / "scenario"), "--out", str(out), *extra]
+    stdout, stderr = io.StringIO(), io.StringIO()
+    with redirect_stdout(stdout), redirect_stderr(stderr):
+        status = to_external.main(argv)
+    return status, stdout.getvalue(), stderr.getvalue()
+
+
+class ExternalizeTest(unittest.TestCase):
+    """Scenarios that read AVP values from an external data file."""
+
+    root: Path
+    source: Path
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        """Generate a ready run to convert."""
+        cls.root = Path(tempfile.mkdtemp(prefix="seagull-selftest-"))
+        cls.source = cls.root / "gen"
+        status, _, error = run_generator(cls.source)
+        assert status == 0, error
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        """Remove the temporary folder."""
+        shutil.rmtree(cls.root, ignore_errors=True)
+
+    def convert(self, name: str, *extra: str) -> Path:
+        """Convert into a new folder named name; fail the test on an error."""
+        out = self.root / name
+        status, _, error = run_external(self.source, out, *EXTERNAL_ARGS, *extra)
+        self.assertEqual(status, 0, error)
+        return out
+
+    def test_requests_read_the_data_file(self) -> None:
+        """Each matched AVP is read by field number in the action before the command."""
+        out = self.convert("plain")
+        text = (out / "scenario" / CLIENT).read_text("iso-8859-1")
+        names = ("Session-Id", "Subscription-Id-Data", "3GPP-Charging-Id")
+        for field, (name, steps) in enumerate(zip(names, (2, 2, 1))):
+            line = f'<restore-from-external field="{field}" entity="{name}">'
+            self.assertEqual(text.count(line), steps, line)  # the steps that carry it
+        self.assertNotIn('<set-value name="Session-Id"', text)
+
+    def test_check_of_a_varied_avp_is_removed(self) -> None:
+        """The answer check of the Session-Id goes, because its value now varies."""
+        out = self.convert("checks")
+        text = (out / "scenario" / CLIENT).read_text("iso-8859-1")
+        self.assertNotIn('<check-value name="Session-Id"', text)
+        self.assertIn('<check-value name="Result-Code"', text)
+
+    def test_data_file_holds_the_recorded_row(self) -> None:
+        """The data file has the columns, the field definition, and the recorded values."""
+        out = self.convert("data")
+        lines = (out / "scenario" / "external-data.csv").read_text("ascii").splitlines()
+        self.assertEqual(lines[0], "# SID; MSISDN; CHARGING")
+        self.assertEqual(lines[1], '"string";"string";"string";')
+        self.assertEqual(lines[2], '"TEST-A-1";"491700000001";"0x000000a1";')
+
+    def test_configurations_name_the_data_file(self) -> None:
+        """The client configurations get the file, the selection, and the call count."""
+        out = self.convert("config", "--select", "random", "--calls", "7")
+        client = (out / "config" / "conf.client.xml").read_text("iso-8859-1")
+        dry_run = (out / "config" / "conf.dry-run.client.xml").read_text("iso-8859-1")
+        stub = (out / "config" / "conf.stub-server.xml").read_text("iso-8859-1")
+        self.assertIn(
+            'name="external-data-file" value="../scenario/external-data.csv"', client
+        )
+        self.assertIn(
+            'name="external-data-file" value="/work/scenario/external-data.csv"',
+            dry_run,
+        )
+        self.assertIn('name="external-data-select" value="random"', client)
+        self.assertIn('name="number-calls" value="7"', client)
+        self.assertNotIn("external-data", stub)
+
+    def test_random_file_ends_with_a_spare_row(self) -> None:
+        """Seagull never picks the last row of a random file, so a copy is appended."""
+        out = self.convert("random", "--select", "random")
+        lines = (out / "scenario" / "external-data.csv").read_text("ascii").splitlines()
+        self.assertEqual((len(lines), lines[2]), (5, lines[4]))
+        self.assertTrue(lines[3].startswith("# spare row"))
+
+    def test_stub_scenarios_are_copied_unchanged(self) -> None:
+        """The dry run needs the stub scenarios, and they hold no data-file reads."""
+        out = self.convert("stubs")
+        stub = out / "scenario" / "01-test-steps-001-002.stub-server.xml"
+        original = self.source / "scenario" / stub.name
+        self.assertEqual(stub.read_bytes(), original.read_bytes())
+
+    def test_old_output_is_never_touched(self) -> None:
+        """A folder with files is refused, and the source scenarios stay as they were."""
+        before = (self.source / "scenario" / CLIENT).read_bytes()
+        out = self.root / "busy"
+        out.mkdir()
+        (out / "old.txt").write_text("keep", encoding="utf-8")
+        status, _, error = run_external(self.source, out, *EXTERNAL_ARGS)
+        self.assertEqual(status, 1)
+        self.assertIn("the output folder is not empty", error)
+        self.assertEqual((self.source / "scenario" / CLIENT).read_bytes(), before)
+
+    def test_repeated_avp_is_refused(self) -> None:
+        """Seagull reads an AVP by name, so a name twice in one request is an error."""
+        copy = self.root / "twice"
+        shutil.copytree(self.source, copy)
+        path = copy / "scenario" / CLIENT
+        text = path.read_text("iso-8859-1")
+        line = '        <avp name="Subscription-Id-Data" value="491700000001"></avp>\n'
+        path.write_text(text.replace(line, line + line, 1), encoding="iso-8859-1")
+        status, _, error = run_external(copy, self.root / "twice-out", *EXTERNAL_ARGS)
+        self.assertEqual(status, 1)
+        self.assertIn("occurs more than once in a request", error)
+
+    def test_scenario_is_not_converted_twice(self) -> None:
+        """A scenario that already reads the data file is refused."""
+        out = self.convert("first")
+        status, _, error = run_external(out, self.root / "second", *EXTERNAL_ARGS)
+        self.assertEqual(status, 1)
+        self.assertIn("already reads from an external data file", error)
+
+    def test_no_avp_named_is_an_error(self) -> None:
+        """Without pairs there is nothing to read from the file."""
+        status, _, error = run_external(self.source, self.root / "none")
+        self.assertEqual(status, 1)
+        self.assertIn("no AVP is named", error)
+
+    def test_unmatched_pair_is_reported(self) -> None:
+        """A pair that matches no AVP is named in the report."""
+        out = self.root / "unmatched"
+        extra = (*EXTERNAL_ARGS, "--placeholder", "No-Such=NOPE")
+        status, report, error = run_external(self.source, out, *extra)
+        self.assertEqual(status, 0, error)
+        self.assertIn("placeholder No-Such: matched no AVP", report)
+
+
 class ApplyPlaceholdersTest(unittest.TestCase):
     """apply_placeholders.py: sources of values and the failure on a missing one."""
 
@@ -607,6 +755,28 @@ class DryRunTest(unittest.TestCase):
     def test_dry_run_of_a_rendered_template(self) -> None:
         """A template, rendered from its values file, runs like a ready scenario."""
         self.dry_run(TEMPLATE_ARGS)
+
+    def test_dry_run_reading_from_the_data_file(self) -> None:
+        """Three calls take three rows: Session-Id, MSISDN, and a hex value from the file."""
+        script = GENERATE_DIR / "dry-run.sh"
+        with tempfile.TemporaryDirectory(prefix="seagull-selftest-") as folder:
+            source, out = Path(folder) / "gen", Path(folder) / "ext"
+            self.assertEqual(run_generator(source)[0], 0)
+            status, _, error = run_external(source, out, *EXTERNAL_ARGS, "--calls", "3")
+            self.assertEqual(status, 0, error)
+            data = out / "scenario" / "external-data.csv"
+            rows = [
+                '"TEST-A-2";"491700000002";"0x000000a2";',
+                '"TEST-A-3";"491700000003";"0x000000a3";',
+            ]
+            data.write_text(data.read_text("ascii") + "\n".join(rows) + "\n", "ascii")
+            command = ["sh", str(script), str(out), IMAGE]
+            result = subprocess.run(
+                command, capture_output=True, text=True, check=False
+            )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        line = "successful calls: 3, failed calls: 0"
+        self.assertEqual(result.stdout.count(line), 2, result.stdout)
 
     def test_dry_run_with_native_variables(self) -> None:
         """Native variables set once and restored in the next step run."""

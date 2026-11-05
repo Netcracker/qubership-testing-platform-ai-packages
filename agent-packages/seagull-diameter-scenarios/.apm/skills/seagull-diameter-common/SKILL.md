@@ -22,6 +22,7 @@ because APM deploys the files of a skill folder next to each other, so the scrip
 | `scripts/dict2seagull.py`    | Converts the project's AVP dictionaries into one Seagull dictionary                          |
 | `scripts/scenario_options.py`| Reads and writes the options file; matches AVPs to placeholders; fills templates in          |
 | `scripts/apply_placeholders.py` | Replaces the `@@NAME@@` placeholders of a template with values                            |
+| `scripts/scenario_text.py`   | Reads the `<avp>` lines of a generated scenario, with their paths; the templatize and externalize scripts use it |
 | `scripts/output_folder.py`   | Picks the first free output folder (`next-free`) and describes a folder (`describe`)         |
 
 ## The folder of recorded steps

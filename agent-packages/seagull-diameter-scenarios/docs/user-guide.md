@@ -1,6 +1,6 @@
 # Seagull Diameter scenarios user guide
 
-The `seagull-diameter-scenarios` package gives your coding agent three commands. They turn a recorded test run into
+The `seagull-diameter-scenarios` package gives your coding agent four commands. They turn a recorded test run into
 [Seagull](https://gull.sourceforge.net/) scenarios that send the recorded Diameter requests again, check the answers,
 and give up when an answer is late. You can write the scenarios with fixed values or as templates with placeholders, and
 you can try them against a stand-in OCS before they meet the real one.
@@ -65,6 +65,7 @@ package. After an upgrade, generate once with the same arguments and compare the
 | `/seagull-diameter-steps-extract`        | command | Turn a file of recorded steps into the folder of request and response files                      |
 | `/seagull-diameter-scenario-generate`    | command | Turn that folder into scenarios or templates, configuration, and a dictionary, and run a dry run |
 | `/seagull-diameter-scenario-templatize`  | command | Turn generated scenarios into templates, without reading the steps again                         |
+| `/seagull-diameter-scenario-externalize` | command | Make chosen AVPs read their values from a CSV data file, one row for each call                   |
 | `seagull-diameter-common`                | support | Hold the shared scripts and the formats. You never invoke it                                     |
 
 The commands run only when you type their name; the agent never starts them on its own.
@@ -308,6 +309,91 @@ and names every placeholder that has no value:
 
 ```text
 error: no value for placeholder(s) RATING_GROUP
+```
+
+### /seagull-diameter-scenario-externalize
+
+**Purpose.** Makes chosen AVPs read their values from a CSV file while Seagull runs. Seagull picks one row for each
+call, so one scenario can send many subscribers or Session-Ids without a new scenario for each. Use it after generation,
+when you want the values outside the scenario and outside the command line.
+
+**Arguments.**
+
+```text
+/seagull-diameter-scenario-externalize <scenario folder or files> placeholder=<AVP>=<COLUMN> ... [select=sequential|random] [calls=<N>] [out=<folder>] [data-path=<path>] [options=<file>]
+```
+
+| Argument       | Meaning                                                                                         | Default                                                |
+| -------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| first argument | The `scenario` folder of a generation, or `*.client.xml` files                                  | required                                               |
+| `placeholder=` | One `<AVP>=<COLUMN>` pair; repeat it. The column is a name that heads a column of the data file | the pairs in the options file                          |
+| `select=`      | `sequential` takes the rows in order and starts over; `random` picks a row at random            | `sequential`                                           |
+| `calls=`       | How many calls Seagull makes, which is how many rows it uses                                    | the configuration, 1                                   |
+| `out=`         | The folder to write to; it must be new or empty                                                 | a new `<generation folder>-external`, `-external-2`, ... |
+| `data-path=`   | Where Seagull finds the data file when you run it                                               | `../scenario/external-data.csv`                        |
+
+The pairs use the same names as the placeholders of the other skills: a bare AVP name, or a path such as
+`Subscription-Id/Subscription-Id-Data`.
+
+**Example prompt.**
+
+```text
+/seagull-diameter-scenario-externalize C:\work\Seagull-Scenario\scenario placeholder=Session-Id=SID placeholder=Subscription-Id-Data=MSISDN select=random calls=50
+```
+
+**What you get.** A new folder next to the old one, which stays as it was:
+
+```text
+C:\work\Seagull-Scenario-external\
+  scenario\
+    01-voice-steps-001-002.client.xml          (requests read SID and MSISDN from the data file)
+    01-voice-steps-001-002.stub-server.xml     (a copy, unchanged)
+    external-data.csv
+  config\    conf.client.xml, conf.dry-run.client.xml (now name the data file), conf.stub-server.xml
+  dictionary\
+  scenario-options.ini
+```
+
+The data file starts with the recorded values as its only row:
+
+```text
+# SID; MSISDN
+"string";"string";
+"VOICE18597302321";"966581105391";
+# spare row: Seagull 1.8.3 never picks the last row of a random file
+"VOICE18597302321";"966581105391";
+```
+
+Put as many rows into it as you want calls, each with the same number of fields, every value in quotes and followed by
+`;`. The first line that is not a comment defines the fields (`"string";` for each column); Seagull refuses the file
+without it.
+
+**What the agent tells you.** The new folder, the columns, the configurations that now name the file, and the answer
+checks that it removed. Example:
+
+```text
+output folder: C:\work\Seagull-Scenario-external
+01-voice-steps-001-002.client.xml: changed
+01-voice-steps-001-002.client.xml: removed the check of Session-Id in an answer
+data file: C:\work\Seagull-Scenario-external\scenario\external-data.csv with the columns SID, MSISDN
+config conf.client.xml: ../scenario/external-data.csv
+config conf.dry-run.client.xml: /work/scenario/external-data.csv
+```
+
+Four things to know:
+
+- A scenario compares some answer fields with the recorded value. An AVP that now varies would fail that comparison, so
+  the skill removes the check of that AVP and says so.
+- All the steps of one call use the same row, so the CCR-I and the CCR-T of a session carry the same Session-Id.
+- With `random`, Seagull 1.8.3 never picks the last row, so the skill ends the file with a spare copy. Keep it.
+- Seagull addresses an AVP by name. A name that occurs twice in one request, such as a repeated `GGSN-Address`, is
+  refused.
+
+The dry run runs the new folder as it is. It makes `calls=` calls and reads one row for each, so it proves that Seagull
+reads the file and sends the values. The line shows the number of calls (`successful calls: 50, failed calls: 0`):
+
+```bash
+sh .apm/skills/seagull-diameter-scenario-generate/scripts/dry-run.sh C:\work\Seagull-Scenario-external
 ```
 
 ## Options and tags

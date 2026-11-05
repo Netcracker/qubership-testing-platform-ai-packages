@@ -31,6 +31,10 @@ stateDiagram-v2
     Ready --> Templates: /seagull-diameter-scenario-templatize<br/>+ placeholder pairs
     Templates --> Ready: apply_placeholders.py<br/>--set, --env, values file
 
+    state "Scenarios with a data file<br/>restore-from-external + external-data.csv<br/>in a new folder" as External
+    Ready --> External: /seagull-diameter-scenario-externalize<br/>+ AVP=column pairs
+    External --> Proven: dry-run.sh
+
     Ready --> Output: change an option or a placeholder,<br/>generate again
     Templates --> Output: change an option or a placeholder,<br/>generate again
 
@@ -50,6 +54,7 @@ dry run, so the dry run always sees a filled-in scenario.
 | Source to Steps folder           | `/seagull-diameter-steps-extract`       | The source file and your description of its structure                  | `Step-NNN-request.txt`, `Step-NNN-response.txt`, `Steps-index.csv`                                                              |
 | Steps folder to Generated output | `/seagull-diameter-scenario-generate`   | The folder, the project dictionaries, and the names to merge           | Client and stub scenarios, three configurations, the merged Seagull dictionary, `generation-report.txt`, `scenario-options.ini` |
 | Ready scenarios to Templates     | `/seagull-diameter-scenario-templatize` | Generated `*.client.xml`, and placeholder pairs                        | `*.client.xml.tpl`, `*.client.xml.values`                                                                                       |
+| Ready scenarios to Data file     | `/seagull-diameter-scenario-externalize` | Generated `*.client.xml`, and `AVP=column` pairs                       | A new folder: changed scenarios, `scenario/external-data.csv`, configurations that name the file                                |
 | Templates to Ready scenarios     | `apply_placeholders.py`                 | A template, and values from `--set`, the environment, or a values file | A filled-in `*.client.xml`                                                                                                      |
 | Ready scenarios to Proven        | `dry-run.sh`                            | Docker and the image `seagull:local`                                   | One line for each scenario: `successful calls: 1, failed calls: 0`                                                              |
 | Proven to Run                    | `seagull` command                       | The address of the OCS in `config/conf.client.xml`                     | Seagull logs and statistics CSV files                                                                                           |

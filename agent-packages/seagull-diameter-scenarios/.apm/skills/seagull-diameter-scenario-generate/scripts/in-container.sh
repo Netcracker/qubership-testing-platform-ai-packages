@@ -1,7 +1,7 @@
 #!/bin/sh
 # Runs inside the Seagull container, started by dry-run.sh. For each client scenario in /work/scenario it starts the
 # matching stub OCS, runs the client against it, and reads the statistics. Argument: the suffix of the stub scenarios
-# (default stub-server). Exits non-zero unless every scenario ends with 1 successful call and 0 failed calls.
+# (default stub-server). Exits non-zero unless every scenario ends with at least 1 successful call and 0 failed calls (number-calls of the configuration says how many calls are made; the generated one makes 1).
 export LD_LIBRARY_PATH=/usr/local/bin
 suffix="${1:-stub-server}"
 dictionary=/work/dictionary/diameter-dictionary.xml
@@ -40,7 +40,8 @@ for client in /work/scenario/*.client.xml; do
     fi
     echo "${name}: ${result} ${errors}"
     case "${result}" in
-        "successful calls: 1, failed calls: 0") ;;
+        "successful calls: 0, "*) status=1 ;;
+        "successful calls: "*", failed calls: 0") ;;
         *) status=1 ;;
     esac
     pkill -x seagull 2> /dev/null

@@ -9,13 +9,14 @@ To install the package and run the skills, follow the [user guide](docs/user-gui
 
 ## Skills
 
-The first three skills are commands: the agent runs them only when you type their name.
+The first four skills are commands: the agent runs them only when you type their name.
 
 | Skill                                                                                          | Purpose                                                                                               |
 | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | [/seagull-diameter-steps-extract](.apm/skills/seagull-diameter-steps-extract/SKILL.md)         | Turns a recorded run (an `xlsx` export, for example) into a folder of request and response files      |
 | [/seagull-diameter-scenario-generate](.apm/skills/seagull-diameter-scenario-generate/SKILL.md) | Turns that folder into Seagull scenarios or templates, configuration, and a merged dictionary, then runs a dry run |
 | [/seagull-diameter-scenario-templatize](.apm/skills/seagull-diameter-scenario-templatize/SKILL.md) | Replaces the values of chosen AVPs in generated scenarios with `@@NAME@@` placeholders                |
+| [/seagull-diameter-scenario-externalize](.apm/skills/seagull-diameter-scenario-externalize/SKILL.md) | Makes chosen AVPs read their values from an external CSV data file, one row for each call              |
 | [seagull-diameter-common](.apm/skills/seagull-diameter-common/SKILL.md)                        | Shared scripts and the format of the folder. Not a task; the agent never invokes it                   |
 
 ```mermaid
@@ -55,6 +56,9 @@ once in a prompt; the file keeps it for the next run until you state another.
 - **Tags** that you can switch on: a Session-Id and Event-Timestamp made at run time, a `<log>` line for each step,
   `<check-presence>`, and a `<wait-ms>` pause between steps. The `<default>` section for DWR is on by default.
 - **Existing scenarios** become templates with `/seagull-diameter-scenario-templatize`.
+- **Values from a data file.** `/seagull-diameter-scenario-externalize` makes chosen AVPs read their values from a CSV
+  file while Seagull runs, one row for each call, in sequence or at random. It writes a new folder with the changed
+  scenarios, the data file, and the configuration.
 
 The format of the file is in [the common skill](.apm/skills/seagull-diameter-common/SKILL.md#the-options-file).
 

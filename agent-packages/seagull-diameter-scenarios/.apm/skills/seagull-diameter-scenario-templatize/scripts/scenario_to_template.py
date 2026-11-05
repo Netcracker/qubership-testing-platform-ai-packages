@@ -5,14 +5,13 @@ Usage:
       [--option KEY=VALUE ...] [--placeholder AVP=NAME ...] [--out DIR]
 
 Each SCENARIO is a scenario file, or a folder whose *.client.xml files are converted.
-A file's AVP elements must stand on one line each, as the
-generator writes them. The script replaces the value of every AVP that a
-[placeholders] pair of the options file matches, in the <command> elements of the
-scenario, and writes SCENARIO.tpl and SCENARIO.values next to it (or into --out).
-The values file holds the replaced values, so apply_placeholders.py with it
-reproduces the original scenario. --option and --placeholder change the options file,
-which the script writes back. Without --options the file is scenario-options.ini
-in the folder of the first scenario.
+A file's AVP elements must stand on one line each, as the generator writes them. The
+script replaces the value of every AVP that a [placeholders] pair of the options file
+matches, in the <command> elements of the scenario, and writes SCENARIO.tpl and
+SCENARIO.values next to it (or into --out). The values file holds the replaced values,
+so apply_placeholders.py with it reproduces the original scenario. --option and
+--placeholder change the options file, which the script writes back. Without --options
+the file is scenario-options.ini in the folder of the first scenario.
 
 Requires Python 3.9 or later.
 """
@@ -21,7 +20,6 @@ from __future__ import annotations
 
 import argparse
 import importlib
-import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -32,25 +30,9 @@ sys.dont_write_bytecode = True  # keep __pycache__ out of the skill folder
 COMMON = Path(__file__).resolve().parents[2] / "seagull-diameter-common" / "scripts"
 sys.path.insert(0, str(COMMON))
 scenario_options = importlib.import_module("scenario_options")
+scenario_text = importlib.import_module("scenario_text")
 
 OPTIONS_NAME = "scenario-options.ini"
-GROUP = re.compile(r'^(\s*)<avp name="([^"]+)">\s*$')
-LEAF = re.compile(r'^(\s*)<avp name="([^"]+)" value="([^"]*)">\s*</avp>\s*$')
-END = re.compile(r"^\s*</avp>\s*$")
-
-
-@dataclass
-class Frame:
-    """An open group AVP and how many AVPs of each name it has held so far."""
-
-    name: str
-    position: int
-    counts: dict[str, int] = field(default_factory=dict)
-
-    def next_position(self, name: str) -> int:
-        """Count another child of this name and return its position, from 1."""
-        self.counts[name] = self.counts.get(name, 0) + 1
-        return self.counts[name]
 
 
 @dataclass
@@ -61,54 +43,30 @@ class Conversion:
     used: set[str]
     values: dict[str, str] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
-    frames: list[Frame] = field(default_factory=list)
-    inside: bool = False
 
     def text(self, text: str) -> str:
         """Return the scenario text with the matching values replaced."""
-        return "\n".join(self.convert(line) for line in text.split("\n"))
+        lines = text.split("\n")
+        for start, end in scenario_text.command_ranges(lines):
+            for leaf in scenario_text.leaves(lines, start, end):
+                lines[leaf.index] = self.leaf(leaf, lines[leaf.index])
+        return "\n".join(lines)
 
-    def convert(self, line: str) -> str:
-        """Follow the start and end of a <command>; convert the lines inside it."""
-        if "<command " in line and "</command>" not in line:
-            self.inside, self.frames = True, [Frame("", 1)]
-            return line
-        if "</command>" in line:
-            self.inside = False
-            return line
-        return self.line(line) if self.inside else line
-
-    def line(self, line: str) -> str:
-        """Track the nesting on a line of a command; replace a matching value."""
-        if END.match(line):
-            self.frames.pop()
-            return line
-        group = GROUP.match(line)
-        if group:
-            position = self.frames[-1].next_position(group.group(2))
-            self.frames.append(Frame(group.group(2), position))
-            return line
-        leaf = LEAF.match(line)
-        return self.leaf(leaf) if leaf else line
-
-    def leaf(self, match: re.Match[str]) -> str:
+    def leaf(self, leaf: Any, line: str) -> str:
         """Return an <avp> line, with a placeholder if a rule matches its path."""
-        indent, name, value = match.groups()
-        position = self.frames[-1].next_position(name)
-        path = [(f.name, f.name, f.position) for f in self.frames[1:]]
-        found = scenario_options.lookup(self.rules, [*path, (name, name, position)])
+        found = scenario_options.lookup(self.rules, leaf.path)
         if found is None:
-            return f'{indent}<avp name="{name}" value="{value}"></avp>'
+            return line
         key, holder = found
         self.used.add(key)
-        plain = scenario_options.unwrapped(unescape(value, {"&quot;": '"'}))
+        plain = scenario_options.unwrapped(unescape(leaf.value, {"&quot;": '"'}))
         known = self.values.setdefault(holder, plain)
         if known != plain:
             self.notes.append(
                 f"{holder}: values {known!r} and {plain!r}; used the first"
             )
-        wrapped = scenario_options.wrap(value, holder)
-        return f'{indent}<avp name="{name}" value="{wrapped}"></avp>'
+        wrapped = scenario_options.wrap(leaf.value, holder)
+        return f'{leaf.indent}<avp name="{leaf.name}" value="{wrapped}"></avp>'
 
 
 def parse_arguments(argv: list[str]) -> argparse.Namespace:
@@ -122,10 +80,7 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument("--out", type=Path)
     args = parser.parse_args(argv)
-    files: list[Path] = []
-    for path in args.scenarios:
-        files += sorted(path.glob("*.client.xml")) if path.is_dir() else [path]
-    args.scenarios = files
+    args.scenarios = scenario_text.client_files(args.scenarios)
     return args
 
 
