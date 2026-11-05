@@ -23,20 +23,20 @@ the agent runs it, reads its report, and tells the user what to review.
 /seagull-diameter-scenario-generate <steps folder> dictionaries=<folder> merge=<A,B,C> [out=<folder>] [replace=yes] [timeout=<ms>] [dest=<host:port>] [host-ip=<ip>] [mode=scenario|template] [placeholder=<AVP>=<NAME> ...] [option=<key>=<value> ...] [options=<file>]
 ```
 
-| Argument         | Meaning                                                                                                 | Default                                     |
-| ---------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| `<steps folder>` | The folder of recorded steps                                                                            | required                                    |
-| `dictionaries=`  | The folder of the project's AVP dictionaries. It must hold `DiameterBaseProtocol.xml`                   | required                                    |
-| `merge=`         | The AVP dictionaries to merge into the Seagull dictionary, names without `.xml`, in order of precedence | required                                    |
-| `out=`           | The folder to write to. It must be new or empty, unless `replace=yes`                                   | a new folder, `Seagull-Scenario` or `Seagull-Scenario-2`, ... next to the steps folder |
-| `replace=`       | `yes` moves the old contents of a non-empty `out=` aside, then generates. The options file is kept       | no                                          |
-| `timeout=`       | How long Seagull waits for each answer, in milliseconds                                                 | 5000                                        |
-| `dest=`          | Address and port of the OCS, written into `config/conf.client.xml`                                      | `127.0.0.1:3868`                            |
-| `host-ip=`       | The IP address that the CER announces as the client's own                                               | `192.0.2.10`                                |
-| `mode=`          | `scenario` writes ready scenarios with fixed values; `template` puts placeholders where values were     | the options file, else `scenario`           |
-| `placeholder=`   | One `<AVP>=<NAME>` pair; repeat it for more. An empty `<NAME>` removes the pair                         | the pairs in the options file               |
-| `option=`        | One `<key>=<value>` option of [the options file](../seagull-diameter-common/SKILL.md#the-options-file)  | the options file                            |
-| `options=`       | An older options file to start from. The result is always written to `scenario-options.ini` in the output folder; the older file is only read | `scenario-options.ini` in the output folder |
+| Argument         | Meaning                                                                                                                                       | Default                                                                                |
+| ---------------- |-----------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|
+| `<steps folder>` | The folder of recorded steps                                                                                                                  | required                                                                               |
+| `dictionaries=`  | The folder of the project's AVP dictionaries. It must hold `DiameterBaseProtocol.xml`                                                         | required                                                                               |
+| `merge=`         | The AVP dictionaries to merge into the Seagull dictionary, names without `.xml`, in order of precedence                                       | required                                                                               |
+| `out=`           | The folder to write to. It must be new or empty, unless `replace=yes`                                                                         | a new folder, `Seagull-Scenario` or `Seagull-Scenario-2`, ... next to the steps folder |
+| `replace=`       | `yes` moves the old contents of a non-empty `out=` aside, then generates. The options file is kept                                            | no                                                                                     |
+| `timeout=`       | How long Seagull waits for each answer, in milliseconds                                                                                       | 5000                                                                                   |
+| `dest=`          | Address and port of the OCS, written into `config/conf.client.xml`                                                                            | `127.0.0.1:3868`                                                                       |
+| `host-ip=`       | The IP address that the CER announces as the client's own                                                                                     | `192.0.2.10`                                                                           |
+| `mode=`          | `scenario` writes ready scenarios with fixed values; `template` puts placeholders where values were                                           | the options file, else `scenario`                                                      |
+| `placeholder=`   | One `<AVP>=<NAME>` pair; repeat it for more. An empty `<NAME>` removes the pair                                                               | the pairs in the options file                                                          |
+| `option=`        | One `<key>=<value>` option of [the options file](../seagull-diameter-common/SKILL.md#the-options-file)                                        | the options file                                                                       |
+| `options=`       | An older options file to start from. The result is always written to `scenario-options.ini` in the output folder; the older file is only read | `scenario-options.ini` in the output folder                                            |
 
 **The output folder is never reused silently.** Without `out=` the script takes the first free
 `Seagull-Scenario[-N]` next to the steps folder (`--out-auto <parent>`), so an earlier output stays as it was. With
@@ -128,18 +128,18 @@ of the merged dictionaries, the first one in `merge=` keeps the name.
 
 ## What the output holds
 
-| Path                                        | Content                                                                                |
-| ------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `scenario/NN-<kind>-steps-<...>.client.xml` | The client scenario of one Diameter session: CER/CEA, then each request and its checks |
-| `scenario/*.client.xml.tpl`                 | With `mode=template` and text placeholders: the template, with `@@NAME@@` in place of values |
+| Path                                        | Content                                                                                                           |
+| ------------------------------------------- |-------------------------------------------------------------------------------------------------------------------|
+| `scenario/NN-<kind>-steps-<...>.client.xml` | The client scenario of one Diameter session: CER/CEA, then each request and its checks                            |
+| `scenario/*.client.xml.tpl`                 | With `mode=template` and text placeholders: the template, with `@@NAME@@` in place of values                      |
 | `scenario/*.client.xml.values`              | The values of the placeholders of that template. The `.client.xml` next to it is the template filled in with them |
-| `scenario-options.ini`                      | The options of this generation: mode, tags, and placeholder pairs. The next run reads it |
-| `scenario/*.stub-server.xml`                | A stub OCS for the dry run: answers with the AVPs of the recorded answers              |
-| `config/conf.client.xml`                    | The client configuration with `dest` and the response timeout                          |
-| `config/conf.dry-run.client.xml`            | The same, pointing at the stub OCS                                                     |
-| `config/conf.stub-server.xml`               | The stub OCS configuration                                                             |
-| `dictionary/diameter-dictionary.xml`        | The merged Seagull dictionary, used by the scenarios and the stub                      |
-| `generation-report.txt`                     | What the generator did and what to review                                              |
+| `scenario-options.ini`                      | The options of this generation: mode, tags, and placeholder pairs. The next run reads it                          |
+| `scenario/*.stub-server.xml`                | A stub OCS for the dry run: answers with the AVPs of the recorded answers                                         |
+| `config/conf.client.xml`                    | The client configuration with `dest` and the response timeout                                                     |
+| `config/conf.dry-run.client.xml`            | The same, pointing at the stub OCS                                                                                |
+| `config/conf.stub-server.xml`               | The stub OCS configuration                                                                                        |
+| `dictionary/diameter-dictionary.xml`        | The merged Seagull dictionary, used by the scenarios and the stub                                                 |
+| `generation-report.txt`                     | What the generator did and what to review                                                                         |
 
 ## What the scenarios do
 
@@ -155,7 +155,7 @@ of the merged dictionaries, the first one in `merge=` keeps the name.
   `generated-timestamp` option is on.
 - The `<default>` section answers a Device-Watchdog request from the OCS with a DWA, so a long run is not dropped. It is
   on unless `default-dwr=false`.
-- The other tags are off until the options file turns them on: a Session-Id and an Event-Timestamp made at run time, a
+- The other tags are off until the options file turns them on: a Session-Id and an Event-Timestamp made at runtime, a
   `<log>` line for each step, `<check-presence>` before each `<check-value>`, and a `<wait-ms>` pause between steps.
   [The options file](../seagull-diameter-common/SKILL.md#the-options-file) lists the keys.
 - In `mode=template`, the AVPs that a `[placeholders]` pair names carry `@@NAME@@` (`text` substitution) or a Seagull

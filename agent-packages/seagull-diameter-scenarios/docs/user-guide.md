@@ -73,7 +73,7 @@ The commands run only when you type their name; the agent never starts them on i
 ### /seagull-diameter-steps-extract
 
 **Purpose.** Reads a recorded run and writes each Diameter request and each response to its own file. The structure of
-your file differs from every other, so the skill has none built in. You describe it in the prompt and the skill does
+your file differs from every other, so the skill has none built-in. You describe it in the prompt and the skill does
 what you said.
 
 **Arguments.**
@@ -143,20 +143,20 @@ a Seagull dictionary merged from your project dictionaries. Then it runs the dry
 /seagull-diameter-scenario-generate <steps folder> dictionaries=<folder> merge=<A,B,C> [out=<folder>] [replace=yes] [timeout=<ms>] [dest=<host:port>] [host-ip=<ip>] [mode=scenario|template] [placeholder=<AVP>=<NAME> ...] [option=<key>=<value> ...] [options=<file>]
 ```
 
-| Argument         | Meaning                                                                                                   | Default                                      |
-| ---------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| first argument   | The folder of recorded steps                                                                              | required                                     |
-| `dictionaries=`  | The folder of the project's dictionaries                                                                  | required                                     |
-| `merge=`         | The dictionaries to merge, without `.xml`, in order. For an AVP that two of them define, the first wins   | required                                     |
+| Argument         | Meaning                                                                                                   | Default                                                      |
+| ---------------- | --------------------------------------------------------------------------------------------------------- |--------------------------------------------------------------|
+| first argument   | The folder of recorded steps                                                                              | required                                                     |
+| `dictionaries=`  | The folder of the project's dictionaries                                                                  | required                                                     |
+| `merge=`         | The dictionaries to merge, without `.xml`, in order. For an AVP that two of them define, the first wins   | required                                                     |
 | `out=`           | Where to write. A folder with files is refused, see [the output folder](#the-output-folder)               | a new `Seagull-Scenario`, `-2`, ... next to the steps folder |
-| `replace=`       | `yes` moves the old contents of a non-empty `out=` aside and generates anew                               | no                                           |
-| `timeout=`       | How long Seagull waits for each answer, in milliseconds                                                   | 5000                                         |
-| `dest=`          | Address and port of the OCS                                                                               | `127.0.0.1:3868`, the stub OCS               |
-| `host-ip=`       | The IP address that the capabilities exchange announces as the client's                                   | a placeholder address                        |
-| `mode=`          | `scenario` for fixed values, `template` for placeholders                                                  | the options file, else `scenario`            |
-| `placeholder=`   | One `<AVP>=<NAME>` pair; repeat it. An empty `<NAME>` removes the pair                                    | the pairs in the options file                |
-| `option=`        | One `<key>=<value>` option, see [Options and tags](#options-and-tags)                                     | the options file                             |
-| `options=`       | An older options file to start from; it is only read. The result goes to the output folder                | `scenario-options.ini` in the output folder  |
+| `replace=`       | `yes` moves the old contents of a non-empty `out=` aside and generates anew                               | no                                                           |
+| `timeout=`       | How long Seagull waits for each answer, in milliseconds                                                   | 5000                                                         |
+| `dest=`          | Address and port of the OCS                                                                               | `127.0.0.1:3868`, the stub OCS                               |
+| `host-ip=`       | The IP address that the capabilities exchange announces as the client's                                   | a placeholder address                                        |
+| `mode=`          | `scenario` for fixed values, `template` for placeholders                                                  | the options file, else `scenario`                            |
+| `placeholder=`   | One `<AVP>=<NAME>` pair; repeat it. An empty `<NAME>` removes the pair                                    | the pairs in the options file                                |
+| `option=`        | One `<key>=<value>` option, see [Options and tags](#options-and-tags)                                     | the options file                                             |
+| `options=`       | An older options file to start from; it is only read. The result goes to the output folder                | `scenario-options.ini` in the output folder                  |
 
 When you leave out `dictionaries=` or `merge=`, the agent lists the files of the dictionary folder and asks which to
 merge. If the generator says an AVP is in none of the dictionaries, add the one that has it to `merge=`.
@@ -323,14 +323,14 @@ when you want the values outside the scenario and outside the command line.
 /seagull-diameter-scenario-externalize <scenario folder or files> placeholder=<AVP>=<COLUMN> ... [select=sequential|random] [calls=<N>] [out=<folder>] [data-path=<path>] [options=<file>]
 ```
 
-| Argument       | Meaning                                                                                         | Default                                                |
-| -------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| first argument | The `scenario` folder of a generation, or `*.client.xml` files                                  | required                                               |
-| `placeholder=` | One `<AVP>=<COLUMN>` pair; repeat it. The column is a name that heads a column of the data file | the pairs in the options file                          |
-| `select=`      | `sequential` takes the rows in order and starts over; `random` picks a row at random            | `sequential`                                           |
-| `calls=`       | How many calls Seagull makes, which is how many rows it uses                                    | the configuration, 1                                   |
+| Argument       | Meaning                                                                                         | Default                                                  |
+| -------------- | ----------------------------------------------------------------------------------------------- |----------------------------------------------------------|
+| first argument | The `scenario` folder of a generation, or `*.client.xml` files                                  | required                                                 |
+| `placeholder=` | One `<AVP>=<COLUMN>` pair; repeat it. The column is a name that heads a column of the data file | the pairs in the options file                            |
+| `select=`      | `sequential` takes the rows in order and starts over; `random` picks a row at random            | `sequential`                                             |
+| `calls=`       | How many calls Seagull makes, which is how many rows it uses                                    | the configuration, 1                                     |
 | `out=`         | The folder to write to; it must be new or empty                                                 | a new `<generation folder>-external`, `-external-2`, ... |
-| `data-path=`   | Where Seagull finds the data file when you run it                                               | `../scenario/external-data.csv`                        |
+| `data-path=`   | Where Seagull finds the data file when you run it                                               | `../scenario/external-data.csv`                          |
 
 The pairs use the same names as the placeholders of the other skills: a bare AVP name, or a path such as
 `Subscription-Id/Subscription-Id-Data`.

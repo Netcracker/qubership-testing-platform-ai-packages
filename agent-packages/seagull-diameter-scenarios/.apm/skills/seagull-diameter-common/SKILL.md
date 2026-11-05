@@ -15,15 +15,15 @@ and [seagull-diameter-scenario-generate](../seagull-diameter-scenario-generate/S
 because APM deploys the files of a skill folder next to each other, so the scripts of the other skills can import
 `../../seagull-diameter-common/scripts`.
 
-| Script                       | Purpose                                                                                      |
-|------------------------------|----------------------------------------------------------------------------------------------|
-| `scripts/steps_format.py`    | Reads a folder of recorded steps; repairs and reports the faults of hand-edited text         |
-| `scripts/check_steps.py`     | Checks a folder of recorded steps; run it before generating                                  |
-| `scripts/dict2seagull.py`    | Converts the project's AVP dictionaries into one Seagull dictionary                          |
-| `scripts/scenario_options.py`| Reads and writes the options file; matches AVPs to placeholders; fills templates in          |
-| `scripts/apply_placeholders.py` | Replaces the `@@NAME@@` placeholders of a template with values                            |
-| `scripts/scenario_text.py`   | Reads the `<avp>` lines of a generated scenario, with their paths; the templatize and externalize scripts use it |
-| `scripts/output_folder.py`   | Picks the first free output folder (`next-free`) and describes a folder (`describe`)         |
+| Script                          | Purpose                                                                                                          |
+|---------------------------------|------------------------------------------------------------------------------------------------------------------|
+| `scripts/steps_format.py`       | Reads a folder of recorded steps; repairs and reports the faults of hand-edited text                             |
+| `scripts/check_steps.py`        | Checks a folder of recorded steps; run it before generating                                                      |
+| `scripts/dict2seagull.py`       | Converts the project's AVP dictionaries into one Seagull dictionary                                              |
+| `scripts/scenario_options.py`   | Reads and writes the options file; matches AVPs to placeholders; fills templates in                              |
+| `scripts/apply_placeholders.py` | Replaces the `@@NAME@@` placeholders of a template with values                                                   |
+| `scripts/scenario_text.py`      | Reads the `<avp>` lines of a generated scenario, with their paths; the templatize and externalize scripts use it |
+| `scripts/output_folder.py`      | Picks the first free output folder (`next-free`) and describes a folder (`describe`)                             |
 
 ## The folder of recorded steps
 
@@ -99,17 +99,17 @@ Subscription-Id/Subscription-Id-Data = SUBSCRIBER_ID
 wait-ms = WAIT_MS
 ```
 
-| Key                    | Values                      | Effect                                                                                  |
-| ---------------------- | --------------------------- | --------------------------------------------------------------------------------------- |
-| `mode`                 | `scenario`, `template`      | `scenario` writes fixed values and ignores `[placeholders]`; `template` applies them    |
+| Key                    | Values                      | Effect                                                                                   |
+| ---------------------- | --------------------------- |------------------------------------------------------------------------------------------|
+| `mode`                 | `scenario`, `template`      | `scenario` writes fixed values and ignores `[placeholders]`; `template` applies them     |
 | `substitution`         | `text`, `native`            | `text` writes `@@NAME@@`; `native` keeps the value in the scenario as a Seagull variable |
-| `default-dwr`          | `true`, `false`             | A `<default>` section that answers DWR with DWA. Default `true`                         |
-| `generated-session-id` | `true`, `false`             | A Session-Id built from a counter in the first step and restored in the later ones      |
-| `generated-timestamp`  | `true`, `false`             | An Event-Timestamp set at run time; needs `time-method`                                 |
-| `log`                  | `true`, `false`             | A `<log>` line in each send and receive block                                           |
-| `check-presence`       | `true`, `false`             | A `<check-presence>` before each `<check-value>`                                        |
-| `wait-ms`              | milliseconds, `0` for none  | A `<wait-ms>` pause between two steps                                                   |
-| `time-method`          | a Seagull method name       | The method that returns the time, for `generated-timestamp` and a timed Session-Id     |
+| `default-dwr`          | `true`, `false`             | A `<default>` section that answers DWR with DWA. Default `true`                          |
+| `generated-session-id` | `true`, `false`             | A Session-Id built from a counter in the first step and restored in the later ones       |
+| `generated-timestamp`  | `true`, `false`             | An Event-Timestamp set at runtime; needs `time-method`                                   |
+| `log`                  | `true`, `false`             | A `<log>` line in each send and receive block                                            |
+| `check-presence`       | `true`, `false`             | A `<check-presence>` before each `<check-value>`                                         |
+| `wait-ms`              | milliseconds, `0` for none  | A `<wait-ms>` pause between two steps                                                    |
+| `time-method`          | a Seagull method name       | The method that returns the time, for `generated-timestamp` and a timed Session-Id       |
 
 In `[placeholders]` the key is the AVP name as the scenario file spells it, and the value is the placeholder name
 (letters, digits, and `_`, starting with a letter). A bare name matches that AVP at any depth, a path such as

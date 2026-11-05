@@ -17,4 +17,4 @@ Run `apm install` in the folder in which you start your agent:
 apm install --target claude Netcracker/qubership-testing-platform-ai-packages/agent-packages/<package>#main
 ```
 
-The steps for each package are in its README and user guide.
+The steps for each package are in its `README` and user guide.

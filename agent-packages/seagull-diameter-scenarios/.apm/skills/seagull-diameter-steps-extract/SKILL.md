@@ -21,10 +21,10 @@ source, and the skill does what was said.
 /seagull-diameter-steps-extract <source> -- <how to read it>
 ```
 
-| Part              | Meaning                                                                                                     |
-|-------------------|-------------------------------------------------------------------------------------------------------------|
-| `<source>`        | An `xlsx`, `csv`, JSON, or log file, or a folder that already has the `Step-NNN-...` files                  |
-| `<how to read it>`| Free text. It must say what is needed to answer the questions in the next section                           |
+| Part              | Meaning                                                                                                                                                                      |
+|-------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `<source>`        | An `xlsx`, `csv`, JSON, or log file, or a folder that already has the `Step-NNN-...` files                                                                                   |
+| `<how to read it>`| Free text. It must say what is needed to answer the questions in the next section                                                                                            |
 | output folder     | Optional, in the text: where to write; it must be new or empty. Default: a new folder next to the source, `Diameter-Steps`, or `Diameter-Steps-2` and so on when that exists |
 
 If the source is a folder that already follows the format, skip the extraction: run the check in the last section and
@@ -64,11 +64,10 @@ message, and wait. Never guess the structure of a file.
 
    When the user named a folder, check it with `output_folder.py describe <folder>`. If it prints that the folder holds
    files (exit status 1), stop and tell the user what it printed, then ask for another folder or for permission to use
-   a new one; never clear a folder or write beside its files, because the step files of two runs mix. Number the kept steps one by one from `001` in
-   the order they ran, as `Step-001-request.txt` and `Step-001-response.txt`. Write the message text exactly as it is in
-   the
-   source, in UTF-8, with no trimming and no change of line breaks. Do not repair or reformat it here: the generator
-   reports what it repairs.
+   a new one; never clear a folder or write beside its files, because the step files of two runs mix. Number the kept
+   steps one by one from `001` in the order they ran, as `Step-001-request.txt` and `Step-001-response.txt`. Write the
+   message text exactly as it is in the source, in UTF-8, with no trimming and no change of line breaks. Do not repair
+   or reformat it here: the generator reports what it repairs.
 5. **Write `Steps-index.csv`** (UTF-8 with a BOM, separator `;`) with the columns `Step file number`,
    `Step number in the scenario` (the position of the step in the source, counting every step, not only the kept ones),
    `Step ID` (any identifier the source has), `Status`, `Request` and `Response` (the command of each message), and

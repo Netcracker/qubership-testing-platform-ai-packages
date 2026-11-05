@@ -21,16 +21,16 @@ wrote. To write a template straight from recorded steps, give that skill `mode=t
 /seagull-diameter-scenario-templatize <scenario files or folder> [placeholder=<AVP>=<NAME> ...] [options=<file>] [out=<folder>]
 ```
 
-| Argument         | Meaning                                                                                                | Default                                       |
-| ---------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------- |
+| Argument         | Meaning                                                                                                 | Default                                       |
+| ---------------- |---------------------------------------------------------------------------------------------------------| --------------------------------------------- |
 | first argument   | One or more `*.client.xml` files, or the `scenario` folder of a generation (every `*.client.xml` in it) | required                                      |
 | `placeholder=`   | One pair, `<AVP>=<NAME>`; repeat it for more pairs. An empty `<NAME>` removes the pair                  | the pairs in the options file                 |
-| `options=`       | The options file                                                                                       | `scenario-options.ini` next to the scenarios  |
-| `out=`           | The folder for the templates and values files                                                          | next to each scenario                         |
+| `options=`       | The options file                                                                                        | `scenario-options.ini` next to the scenarios  |
+| `out=`           | The folder for the templates and values files                                                           | next to each scenario                         |
 
-The pairs are the memory of the work. When the user names placeholders in the prompt, pass each as `--placeholder`; the
+The pairs are the memory of the work. When the user specifies placeholders in the prompt, pass each as `--placeholder`; the
 script writes them to the options file, and the next run reads them from there until the user changes them in a prompt.
-When there is no options file and the user names no placeholder, ask which AVP values should become placeholders; never
+When there is no options file and the user specifies no placeholder, ask which AVP values should become placeholders; never
 pick them.
 
 `<AVP>` is the AVP name as the scenario file spells it. A name alone matches that AVP at any depth. Use a path such as

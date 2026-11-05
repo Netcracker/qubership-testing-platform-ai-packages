@@ -23,19 +23,19 @@ the generator; the user's prompt says which one is wanted.
 /seagull-diameter-scenario-externalize <scenario folder or files> placeholder=<AVP>=<COLUMN> ... [select=sequential|random] [calls=<N>] [out=<folder>] [data-path=<path>] [options=<file>]
 ```
 
-| Argument       | Meaning                                                                                              | Default                                                  |
-| -------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| first argument | The `scenario` folder of a generation, or one or more `*.client.xml` files                           | required                                                 |
-| `placeholder=` | One `<AVP>=<COLUMN>` pair; repeat it. `<COLUMN>` names a column of the data file                       | the pairs in the options file                            |
-| `select=`      | `sequential` takes the rows in order and starts again at the end; `random` picks a row at random       | `sequential`                                             |
-| `calls=`       | How many calls Seagull makes (`number-calls`), so how many rows it uses                                | the value in the configuration, 1                        |
-| `out=`         | The folder to write to. It must be new or empty                                                        | a new folder, `<generation folder>-external`, `-external-2`, ... |
-| `data-path=`   | Where Seagull will find the data file when it runs                                                     | `../scenario/external-data.csv`                          |
-| `options=`     | An older options file whose pairs to use                                                               | `scenario-options.ini` in the generation folder          |
+| Argument       | Meaning                                                                                           | Default                                                          |
+| -------------- |---------------------------------------------------------------------------------------------------|------------------------------------------------------------------|
+| first argument | The `scenario` folder of a generation, or one or more `*.client.xml` files                        | required                                                         |
+| `placeholder=` | One `<AVP>=<COLUMN>` pair; repeat it. `<COLUMN>` names a column of the data file                  | the pairs in the options file                                    |
+| `select=`      | `sequential` takes the rows in order and starts again at the end; `random` picks a row at random  | `sequential`                                                     |
+| `calls=`       | How many calls Seagull makes (`number-calls`), so how many rows it uses                           | the value in the configuration, 1                                |
+| `out=`         | The folder to write to. It must be new or empty                                                   | a new folder, `<generation folder>-external`, `-external-2`, ... |
+| `data-path=`   | Where Seagull will find the data file when it runs                                                | `../scenario/external-data.csv`                                  |
+| `options=`     | An older options file whose pairs to use                                                          | `scenario-options.ini` in the generation folder                  |
 
 The pairs work as in the other skills: `<AVP>` is the AVP name as the scenario file spells it, with an optional path
 (`Multiple-Services-Credit-Control/Rating-Group`); the most specific pair wins. When there is no options file and the
-user names no pair, ask which AVPs should come from the data file; never pick them.
+user specifies no pair, ask which AVPs should come from the data file; never pick them.
 
 ## Run
 
