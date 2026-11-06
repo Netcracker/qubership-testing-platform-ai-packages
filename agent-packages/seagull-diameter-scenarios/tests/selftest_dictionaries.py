@@ -26,7 +26,7 @@ from xml.etree import ElementTree
 
 sys.dont_write_bytecode = True  # keep __pycache__ out of the package
 SKILLS = Path(__file__).resolve().parents[1] / ".apm" / "skills"
-CONVERT_DIR = SKILLS / "seagull-diameter-dictionary-convert" / "scripts"
+CONVERT_DIR = SKILLS / "seagull-diameter-convert-dictionaries" / "scripts"
 sys.path.insert(0, str(SKILLS / "seagull-diameter-common" / "scripts"))
 sys.path.insert(0, str(CONVERT_DIR))
 convert = importlib.import_module("convert_dictionaries")

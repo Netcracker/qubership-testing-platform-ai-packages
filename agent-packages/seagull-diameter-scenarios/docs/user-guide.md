@@ -61,15 +61,32 @@ package. After an upgrade, generate once with the same arguments and compare the
 ## The skills
 
 | Skill                                    | Type    | Use it to                                                                                        |
-| ---------------------------------------- | ------- |--------------------------------------------------------------------------------------------------|
+| ---------------------------------------- | ------- | ------------------------------------------------------------------------------------------------ |
 | `/seagull-diameter-steps-extract`        | command | Turn a file of recorded steps into the folder of request and response files                      |
 | `/seagull-diameter-scenario-generate`    | command | Turn that folder into scenarios or templates, configuration, and a dictionary, and run a dry run |
 | `/seagull-diameter-scenario-templatize`  | command | Turn generated scenarios into templates, without reading the steps again                         |
 | `/seagull-diameter-scenario-externalize` | command | Make chosen AVPs read their values from a CSV data file, one row for each call                   |
 | `/seagull-diameter-dictionary-convert`   | command | Convert the project's dictionaries into Seagull dictionaries, and check them                     |
+| `seagull-diameter-convert-dictionaries`  | plain   | Do the same as the dictionary command, from a request in your own words                          |
 | `seagull-diameter-common`                | support | Hold the shared scripts and the formats. You never invoke it                                     |
 
-The commands run only when you type their name; the agent never starts them on its own.
+The commands run only when you type their name, and they take their arguments literally. A plain skill is picked by the
+agent from an ordinary request, such as "convert the dictionaries in C:\work\dictionaries". For now the dictionary
+conversion is the only task with a plain skill. The other tasks need the command.
+
+### Plain requests
+
+A plain request starts the same steps as the command, with these rules from the package instruction:
+
+- The agent does not start Docker or WSL, so there is no dry run and no image check, unless your request asks for it.
+  Otherwise it finishes the task and offers the run in one sentence.
+- It does not move, replace, or delete an existing file or folder, and it writes to a new folder.
+- It does not choose the dictionaries to merge, the placeholders, the flags, or an option such as a time method. When
+  your request does not give them, it asks.
+- When it had to interpret your wording to fill a parameter, it says how it understood it, for example
+  `combine=Gy,Sy`, before it runs anything, and you can correct it.
+
+The command is the place for many exact parameters. Both ways give the same result for the same parameters.
 
 ### /seagull-diameter-steps-extract
 
@@ -403,6 +420,10 @@ Converts the project's Diameter dictionaries into dictionaries that Seagull read
 for the dictionaries it merges. Use this command when you want the dictionaries themselves: to run a hand-written
 scenario with `-dico`, to read the conversion report before you generate, or to check that Seagull loads a result.
 What the conversion does is in [the dictionary conversion page](dictionary-conversion.md).
+
+You can also ask in plain words, for example "convert the dictionaries in C:\work\dictionaries and merge Gy and Sy into
+one file". The agent then follows the skill `seagull-diameter-convert-dictionaries` and the rules in
+"Plain requests" above; it validates the sources only when you ask for it.
 
 ```text
 /seagull-diameter-dictionary-convert <dictionaries folder> [out=<folder>] [combine=<A,B> ...] [rename=<OLD>=<NEW> ...] [command-flags=<KEY>=<N> ...] [avp-flags=<AVP>=<N> ...] [vendor-mandatory=source|yes|no] [options=<file>] [keep-tgpp=yes] [no-comments=yes] [validate=yes] [xsd=<folder>] [check=yes]
