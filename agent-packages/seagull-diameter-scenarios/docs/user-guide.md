@@ -494,7 +494,7 @@ folder. The agent tells you the number of AVPs and commands in each file and eve
 
 ```text
 Gy+Sy.xml: 25 AVPs, 3 command pairs, 1 warnings
-    WARNING AVP name Node-Id is defined twice with different identity: vendor 10415 code 2064 (Gy.xml) and vendor 99999 code 5 (Gy.xml); the second is written as Node-Id-v99999c5
+    WARNING AVP name Node-Id is defined twice with different identity: vendor 10415 code 2064 (Gy.xml) and vendor 99999 code 5 (Gy.xml); Seagull sends the first one wherever a scenario uses the name
 ```
 
 The numbers and the name above come from the invented dictionaries of the self-test; yours differ.

@@ -160,9 +160,13 @@ class GeneratorTest(unittest.TestCase):
     def test_choice_between_definitions(self) -> None:
         """Node-Id has two definitions: the enclosing group's vendor decides."""
         text = self.text(0)
-        self.assertIn('<avp name="Node-Id" value="first-node">', text)
-        self.assertIn('<avp name="Node-Id-v99999c5" value="example-node">', text)
+        self.assertEqual(text.count('<avp name="Node-Id" value='), 2)
         self.assertIn("Node-Id: definitions (vendor, code)", self.report)
+
+    def test_second_definition_of_a_name_is_reported(self) -> None:
+        """The report says where a message needs a definition that Seagull does not send."""
+        needed = "Node-Id: the message needs vendor 99999 code 5, "
+        self.assertIn(needed + "but Seagull sends vendor 10415 code 2064", self.report)
 
     def test_answer_is_checked(self) -> None:
         """Each answer is checked against the recorded and the sent values."""

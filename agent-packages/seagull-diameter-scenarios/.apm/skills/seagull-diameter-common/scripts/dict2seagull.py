@@ -28,6 +28,12 @@ Converted:
   * The <types>, <header> and <body> sections are those of the dictionaries that ship
     with Seagull.
 
+An AVP keeps the name of its type (Time, Address, UTF8String, Enumerated, ...). The output
+defines a <typedef> for each type in use, so a reader of the dictionary and the generator of
+scenarios still know what the value is. An AVP name that two dictionaries define with
+another vendor or code is not renamed: both definitions are written, Seagull uses the first
+for every use of the name, and the report says so.
+
 Lost, because Seagull has no place for it: enumeration values, group members and
 multiplicities. The first two are kept as XML comments. The *Commands.xml files, which
 list the AVPs of each command, are only used to check that no command is missing.
@@ -50,7 +56,7 @@ import argparse
 import importlib
 import re
 import sys
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree
@@ -79,24 +85,27 @@ BASE_AVPS = {
 BASE_COMMANDS = {257: "CER/CEA", 280: "DWR/DWA"}
 BUNDLED_BASE = "base_draft08.xml"  # in diameter-env/config of Seagull
 
-# The six types that the dictionaries shipped with Seagull define. The string-like
-# types differ in meaning only, not in how they are encoded.
-TYPE_MAP = {
-    "Integer32": "Integer32",
-    "Integer64": "Integer64",
-    "Unsigned32": "Unsigned32",
-    "Unsigned64": "Unsigned64",
-    "Enumerated": "Unsigned32",
-    "OctetString": "OctetString",
-    "UTF8String": "OctetString",
-    "DiameterIdentity": "OctetString",
-    "DiameterURI": "OctetString",
-    "IPFilterRule": "OctetString",
-    "QoSFilterRule": "OctetString",
-    "Address": "OctetString",
-    "IPAddress": "OctetString",
-    "Time": "OctetString",
+# How Seagull encodes each type of the project dictionaries: its kind and size in octets. An
+# AVP keeps the name of its own type, and the output defines a <typedef> for each type in use,
+# as the dictionaries of projects do. Time is an unsigned number: a signed one holds only up
+# to 2^31, which is before NTP times of today.
+TYPE_KINDS = {
+    "Integer32": ("signed", 4),
+    "Integer64": ("signed64", 8),
+    "Unsigned32": ("number", 4),
+    "Unsigned64": ("number64", 8),
+    "Enumerated": ("signed", 4),
+    "Time": ("number", 4),
+    "OctetString": ("string", 4),
+    "UTF8String": ("string", 4),
+    "DiameterIdentity": ("string", 4),
+    "DiameterURI": ("string", 4),
+    "IPFilterRule": ("string", 4),
+    "QoSFilterRule": ("string", 4),
+    "Address": ("string", 4),
+    "IPAddress": ("string", 4),
 }
+FALLBACK_TYPE = "OctetString"  # for an AVP without a type, or with one that is not in TYPE_KINDS
 
 PREFIX_RENAMES = (("TGPP-", "3GPP-"),)
 
@@ -109,13 +118,7 @@ HEADER = """<?xml version="1.0" encoding="ISO-8859-1"?>
 
   <types>
     <!-- Types defined for the AVP -->
-    <typedef name="Integer32" type="signed" size="4" unit="octet"></typedef>
-    <typedef name="Unsigned32" type="number" size="4" unit="octet"></typedef>
-    <typedef name="Integer64" type="signed64" size="8" unit="octet"></typedef>
-    <typedef name="Unsigned64" type="number64" size="8" unit="octet"></typedef>
-    <typedef name="OctetString" type="string" size="4" unit="octet"></typedef>
-    <typedef name="Grouped" type="grouped"></typedef>
-  </types>
+{types}  </types>
 
   <header name="command" length="msg-length" type="cmd-code">
     <fielddef name="protocol-version" size="1" unit="octet"></fielddef>
@@ -331,32 +334,28 @@ def merge_avps(
     avp_lists: list[list[Avp]],
     warnings: list[str],
 ) -> tuple[list[Avp], dict[tuple[int, int], Avp]]:
-    """Merge AVP lists in order. Seagull finds an AVP by name, so a second AVP with a
-    name that is taken, but a different vendor or code, is written under a new name."""
+    """Merge AVP lists in order and keep every definition, as the dictionaries of projects do.
+
+    Seagull finds an AVP by name and takes the first definition of a name for every use of it,
+    so a later definition of a name with another vendor or code is written, but a scenario
+    cannot send it. The warning says which one wins.
+    """
     merged: list[Avp] = []
     by_name: dict[str, Avp] = {}
     by_code: dict[tuple[int, int], Avp] = {}
-    for candidate in (avp for avp_list in avp_lists for avp in avp_list):
-        avp = candidate
+    seen: set[tuple[str, int, int]] = set()
+    for avp in (avp for avp_list in avp_lists for avp in avp_list):
+        if (avp.name, avp.vendor_id, avp.code) in seen:
+            continue
+        seen.add((avp.name, avp.vendor_id, avp.code))
         first = by_name.get(avp.name)
         if first is not None:
-            if (first.vendor_id, first.code) == (avp.vendor_id, avp.code):
-                continue
-            renamed = f"{avp.name}-v{avp.vendor_id}c{avp.code}"
-            twin = by_name.get(renamed)
-            if twin is not None and (twin.vendor_id, twin.code) == (
-                avp.vendor_id,
-                avp.code,
-            ):
-                continue
             warnings.append(
                 f"AVP name {avp.name} is defined twice with different identity: "
                 f"vendor {first.vendor_id} code {first.code} ({first.source}) and "
                 f"vendor {avp.vendor_id} code {avp.code} ({avp.source}); "
-                f"the second is written as {renamed}"
+                "Seagull sends the first one wherever a scenario uses the name"
             )
-            # A copy: the same AVP object is merged again for the next output file.
-            avp = replace(avp, name=renamed)
         other = by_code.get((avp.vendor_id, avp.code))
         if other is not None:
             warnings.append(
@@ -364,7 +363,7 @@ def merge_avps(
                 f"{other.name} ({other.source}) and {avp.name} ({avp.source}); "
                 "kept both"
             )
-        by_name[avp.name] = avp
+        by_name.setdefault(avp.name, avp)
         by_code.setdefault((avp.vendor_id, avp.code), avp)
         merged.append(avp)
     return merged, by_code
@@ -401,9 +400,9 @@ def check_avp(avp: Avp, warnings: list[str]) -> None:
         message = f"{where}: vendor-specific=no but the vendor id is {avp.vendor_id}"
         warnings.append(message)
     if avp.members is None and avp.type_name is None:
-        warnings.append(f"{where}: neither <type> nor <grouped>; used OctetString")
-    if avp.type_name is not None and avp.type_name not in TYPE_MAP:
-        warnings.append(f"{where}: unknown type {avp.type_name}; used OctetString")
+        warnings.append(f"{where}: neither <type> nor <grouped>; used {FALLBACK_TYPE}")
+    if avp.type_name is not None and avp.type_name not in TYPE_KINDS:
+        warnings.append(f"{where}: unknown type {avp.type_name}; used {FALLBACK_TYPE}")
 
 
 def comment(text: str) -> str:
@@ -419,12 +418,28 @@ class Render:
     flags: Any
 
 
+def seagull_type_of(avp: Avp) -> str:
+    """Return the type an AVP gets in the output: its own, when Seagull can encode it."""
+    if avp.members is not None:
+        return "Grouped"
+    return avp.type_name if avp.type_name in TYPE_KINDS else FALLBACK_TYPE
+
+
+def render_types(avps: list[Avp]) -> str:
+    """Return the <typedef> lines for the types that the AVPs use."""
+    used = {seagull_type_of(avp) for avp in avps}
+    lines = []
+    for name, (kind, size) in TYPE_KINDS.items():
+        if name in used:
+            attributes = f'name="{name}" type="{kind}" size="{size}" unit="octet"'
+            lines.append(f"    <typedef {attributes}></typedef>\n")
+    lines.append('    <typedef name="Grouped" type="grouped"></typedef>\n')
+    return "".join(lines)
+
+
 def render_avp(avp: Avp, render: Render) -> str:
     """Return the Seagull <define> of an AVP."""
-    if avp.members is not None:
-        seagull_type = "Grouped"
-    else:
-        seagull_type = TYPE_MAP.get(avp.type_name or "", "OctetString")
+    seagull_type = seagull_type_of(avp)
     lines = []
     if render.with_comments and avp.enums:
         values = ", ".join(f"{name}={code}" for name, code in avp.enums)
@@ -471,7 +486,7 @@ def write_dictionary(
     render: Render,
 ) -> None:
     """Write one Seagull dictionary file."""
-    text = HEADER.format(sources=", ".join(source_names))
+    text = HEADER.format(sources=", ".join(source_names), types=render_types(avps))
     text += "".join(render_avp(avp, render) for avp in avps)
     text += MIDDLE
     for command in commands:
