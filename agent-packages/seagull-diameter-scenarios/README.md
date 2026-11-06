@@ -9,7 +9,18 @@ To install the package and run the skills, follow the [user guide](docs/user-gui
 
 ## Skills
 
-The first five skills are commands: the agent runs them only when you type their name.
+The first five skills are commands: the agent runs them only when you type their name, and takes their arguments
+literally. A task can also have a skill that the agent picks from a plain request. That skill does the work, and the
+command is a frontend for it with formal arguments. The plain skills so far:
+
+| Plain-language skill                                                                                | The command it serves                  |
+| --------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| [seagull-diameter-convert-dictionaries](.apm/skills/seagull-diameter-convert-dictionaries/SKILL.md) | `/seagull-diameter-dictionary-convert` |
+
+When a plain request starts a task, the package instruction
+[seagull-diameter-scenarios](.apm/instructions/seagull-diameter-scenarios.instructions.md) applies: the agent does not
+start Docker, replace files, or choose dictionaries, placeholders, or flags on its own, and it says how it understood
+your wording before it runs.
 
 | Skill                                                                                                | Purpose                                                                                                            |
 |------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|

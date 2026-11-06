@@ -20,7 +20,8 @@ import unittest
 from pathlib import Path
 
 SKILLS = Path(__file__).resolve().parents[1] / ".apm" / "skills"
-VALIDATOR = SKILLS / "seagull-diameter-dictionary-convert" / "scripts" / "ValidateDictionaries.java"
+SCRIPTS = SKILLS / "seagull-diameter-convert-dictionaries" / "scripts"
+VALIDATOR = SCRIPTS / "ValidateDictionaries.java"
 JAVA = shutil.which("java") or (
     str(Path(os.environ["JAVA_HOME"]) / "bin" / "java") if os.environ.get("JAVA_HOME") else ""
 )
