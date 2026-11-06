@@ -35,7 +35,7 @@ follow that skill directly instead.
 | `no-comments=`      | `yes` leaves the enumeration values and the group members out of the output                                                                                                           | no                                                                                         |
 | `validate=`         | `yes` first checks the sources against their XSD files. Without `yes`, no schema is looked for or opened                                                                              | no                                                                                         |
 | `xsd=`              | The folder of the XSD files, for `validate=yes`. Without it only the schema references inside the files are used                                                                      | `[validate] xsd` of the `options=` file, else none                                         |
-| `check=`            | `yes` then loads each result in the Seagull image and runs one Credit-Control exchange with it                                                                                        | no                                                                                         |
+| `check=`            | `yes` then loads each result in Seagull and runs one Credit-Control exchange with it                                                                                                  | no                                                                                         |
 
 ## Behavior
 
@@ -48,5 +48,5 @@ follow that skill directly instead.
   `combine=Gy,Sy` becomes `--combine Gy,Sy`; `keep-tgpp=yes` and `no-comments=yes` become `--keep-tgpp` and
   `--no-comments`. `validate=yes` and `xsd=` decide step 1 of the skill, and `check=yes` decides step 4.
 - The arguments are the user's instruction, so don't ask again before a step they name. Without `validate=yes`, look
-  for no schema. Without `check=yes`, don't start Docker.
+  for no schema. Without `check=yes`, don't start Seagull.
 - Never pick `combine=`, a flag option, or a rename yourself.

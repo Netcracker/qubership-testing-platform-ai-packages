@@ -31,7 +31,7 @@ from formal arguments, and the dry run is part of it. What this page says holds 
 | `placeholder=`  | "make the subscriber number a placeholder SUBSCRIBER_ID"             | Only pairs that the user gives. When placeholders are wanted but none given, ask which AVPs     |
 | `option=`       | "log every step", "add check-presence", "pause 500 ms between steps" | `log=true`, `check-presence=true`, `wait-ms=500`; see the options file. Only what the user asks |
 | `options=`      | "start from the options of the earlier generation"                   | An older `scenario-options.ini`                                                                 |
-| dry run         | "and run it against the stub", "check that it works in Seagull"      | Needs Docker. Run it only when the user asked; otherwise offer it at the end                    |
+| dry run         | "and run it against the stub", "check that it works in Seagull"      | Starts Seagull. Run it only when the user asked; otherwise offer it at the end                  |
 
 When you had to interpret the wording to fill a parameter, say how you understood it before you run anything, for
 example `merge=RoSCP,Gy,Integration` or `option=log=true`, and let the user correct it.
@@ -61,8 +61,10 @@ several of the merged dictionaries, the first one in `merge=` keeps the name.
 ## Prerequisites
 
 - Python 3.9 or later, started as `python`, `python3`, or `py -3`.
-- For the dry run: Docker, and a Seagull 1.8.3 image tagged `seagull:local`. On Windows without Docker in PowerShell,
-  run the shell scripts through `wsl`.
+- For the dry run: a Seagull 1.8.3, either in an image in Docker (by default tagged `seagull:local`) or as a Seagull for
+  Windows. Which one is a setting; see
+  [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs). On Windows without Docker in
+  PowerShell, run the shell scripts through `wsl`.
 
 ## Run
 
@@ -104,11 +106,16 @@ several of the merged dictionaries, the first one in `merge=` keeps the name.
      difference), and `placeholder <AVP>: matched no AVP` (a misspelled name or an AVP that is not in the steps).
 4. **Dry run.** Run it only when the user asked for it, in the request or in the answer to your offer. When the
    request did not mention it, end your reply by offering the run in one sentence, say that the scenarios are not
-   verified yet, and do not start Docker.
+   verified yet, and do not start Seagull. Find out where Seagull runs first, as
+   [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs) describes: read the setting, and ask
+   the user when it is not set.
 
    ```bash
    sh <skill folder>/scripts/dry-run.sh <out folder> [<image>]
+   python <skill folder>/../seagull-diameter-common/scripts/seagull_windows_run.py dry-run <out folder> --seagull-exe <path>
    ```
+
+   The first line is for `docker`, the second for `windows`.
 
    It starts a stub OCS that answers with the recorded answers, runs each scenario against it, and prints one line for
    each: `successful calls: 1, failed calls: 0`. A scenario that does not end so is a defect of the generation or of the

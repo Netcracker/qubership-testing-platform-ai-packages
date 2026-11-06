@@ -11,8 +11,10 @@ These rules hold when the user asks for a Seagull Diameter task in plain languag
 
 ## What to ask before acting
 
-- **Docker or WSL.** Don't start Seagull, a dry run, or any container unless the user asked for it in the request.
-  When the request didn't mention it, finish the task and offer the run in one sentence.
+- **Seagull.** Don't start Seagull (in Docker, in WSL, or as a Seagull for Windows), a dry run, or any container unless
+  the user asked for it in the request. When the request didn't mention it, finish the task and offer the run in one
+  sentence. When the user asks and the setting `SEAGULL_RUNNER` is not set, ask which Seagull to use, and save the
+  answer only after the user confirms it, as `seagull-diameter-common` describes.
 - **Existing files.** Don't move, replace, or delete an existing output folder or file unless the user asked for it.
   Write to a new folder.
 - **A real OCS.** Never run a scenario against a real OCS on your own.

@@ -32,7 +32,7 @@ Take each parameter from the user's words, and apply the rule in the last column
 | `options=`          | "start from the options of the earlier run"            | The `dictionary-options.ini` of that run                                                  |
 | `validate=yes`      | "validate the dictionaries against their schemas"      | Only when the user asks for validation. Otherwise do not look for or open any schema file |
 | `xsd=`              | "the schemas are in C:\work\xsd"                       | Only with validation                                                                      |
-| `check=yes`         | "check that Seagull loads them", "try them in Seagull" | Needs Docker. Run it only when the user asked; otherwise offer it at the end              |
+| `check=yes`         | "check that Seagull loads them", "try them in Seagull" | Starts Seagull. Run it only when the user asked; otherwise offer it at the end            |
 
 When you had to interpret the wording to fill a parameter, say how you understood it before you run anything, for
 example `combine=Gy,Sy`, and let the user correct it. When the folder or the combination is unclear, ask.
@@ -96,13 +96,18 @@ When the user specifies the dictionaries they use together, pass them in `combin
      Seagull cannot check that a message is complete.
    - That the options in effect are in `dictionary-options.ini` in the output folder. Pass it as `options=` to repeat
      the run.
-4. **Check in the image.** Needs Docker and a Seagull image tagged `seagull:local`. On Windows run the script through
-   `wsl`. Run it only when the user asked for the check, either in the request or in the answer to your offer. When
-   the request did not mention it, end your reply by offering the check in one sentence and do not start Docker.
+4. **Check in Seagull.** Needs a Seagull 1.8.3: an image in Docker (by default tagged `seagull:local`; on Windows run
+   the script through `wsl`) or a Seagull for Windows. Where it runs is a setting: read it, and ask when it is not set,
+   as [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs) describes. Run the check only when
+   the user asked for it, either in the request or in the answer to your offer. When the request did not mention it,
+   end your reply by offering the check in one sentence and do not start Seagull.
 
    ```bash
    sh <skill folder>/scripts/check-converted.sh <output folder> [IMAGE]
+   python <skill folder>/../seagull-diameter-common/scripts/seagull_windows_run.py check-converted <output folder> --seagull-exe <path>
    ```
+
+   The first line is for `docker`, the second for `windows`.
 
    For each result that defines `CCR` the script runs a stub OCS and a client with invented values and prints
    `<name>: successful calls: 1, failed calls: 0`. A dictionary without `CCR` is `skipped`. A line that says anything

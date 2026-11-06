@@ -88,8 +88,9 @@ image. What the conversion does and drops is in [the dictionary conversion page]
 ## Requirements
 
 - Python 3.9 or later, with no other package, to run the scripts.
-- Docker and a Seagull 1.8.3 image tagged `seagull:local` for the dry run and for checking converted dictionaries. This
-  repository does not build the image.
+- For the dry run and for checking converted dictionaries, a Seagull 1.8.3 that starts in one of two ways: Docker with
+  an image tagged `seagull:local` (this repository does not build the image), or a Seagull for Windows. The choice is a
+  setting; see [Where Seagull runs](docs/user-guide.md#where-seagull-runs).
 - Java 11 or later, only to validate dictionaries against their XSD files.
 - The project's Diameter dictionaries in the project format, to find the vendor, the code, and the type of each AVP.
 
@@ -100,6 +101,6 @@ python tests/selftest.py
 ```
 
 The self-test generates scenarios from the invented dictionaries and steps in `tests/fixtures`. It also runs the dry run
-in
-the Seagull image when `SEAGULL_IMAGE` names the image (for example `SEAGULL_IMAGE=seagull:local`) and `sh` and `docker`
-work.
+in the Seagull image when `SEAGULL_IMAGE` names the image (for example `SEAGULL_IMAGE=seagull:local`) and `sh` and
+`docker` work, and with a Seagull for Windows when `SEAGULL_EXE` names its `seagull.exe`. The tests of the XSD validator
+need Java.

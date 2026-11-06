@@ -60,14 +60,17 @@ for example `placeholder=Subscription-Id-Data=MSISDN` and `calls=50`, and let th
    wanted, and sets `calls=`. All the steps of one call use the same row. With `sequential` the rows repeat from the
    top after the last one. With `random` the file ends with a spare row, because Seagull 1.8.3 never picks the last
    row of a random file; do not remove it.
-4. **The dry run** on the new folder needs Docker. Run it only when the user asked for it, in the request or in the
+4. **The dry run** on the new folder starts Seagull. Run it only when the user asked for it, in the request or in the
    answer to your offer. Otherwise offer it in one sentence and say that the scenarios are not verified in Seagull yet.
+   Where Seagull runs is a setting: see [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs).
 
    ```bash
    sh <skill folder>/../seagull-diameter-generate-scenarios/scripts/dry-run.sh <out folder> [<image>]
+   python <skill folder>/../seagull-diameter-common/scripts/seagull_windows_run.py dry-run <out folder> --seagull-exe <path>
    ```
 
-   The dry-run configuration reads the data file from `/work/scenario/` inside the Seagull image. The stub OCS answers
+   The first line is for `docker`, the second for `windows`. In the image, the dry-run configuration reads the data
+   file from `/work/scenario/`; the Windows runner points it to the file in the output folder. The stub OCS answers
    whatever the scenario sends, so the run proves that Seagull reads the file and sends the values, not that an OCS
    accepts them.
 

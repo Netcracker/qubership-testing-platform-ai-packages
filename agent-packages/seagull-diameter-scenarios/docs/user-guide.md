@@ -17,9 +17,11 @@ You need:
   one of `tdm-test-data-assistant`, which was checked with APM 0.29.1.
 - Python 3.9 or later, available as `python`, `python3`, or `py -3`. The scripts use nothing outside the standard
   library.
-- For the dry run: Docker, and a Seagull 1.8.3 image tagged `seagull:local`. This repository does not build the image;
-  build it with `docker build -t seagull:local .` in the repository that holds the Seagull `Dockerfile`. On Windows,
-  Docker works in WSL; run the shell scripts as `wsl sh <script> ...`.
+- For the dry run and for checking converted dictionaries, one of two ways to start Seagull 1.8.3: Docker with an image
+  tagged `seagull:local` (this repository does not build the image; build it with `docker build -t seagull:local .` in
+  the repository that holds the Seagull `Dockerfile`; on Windows, Docker works in WSL, and you run the shell scripts as
+  `wsl sh <script> ...`), or a Seagull for Windows, with its `seagull.exe`. See
+  [Where Seagull runs](#where-seagull-runs).
 - The project's Diameter dictionaries in the project format, in one folder, with `DiameterBaseProtocol.xml` among them.
   Seagull reads its own format, so the generator converts them.
 - The recorded run: either a file you can describe (an `xlsx` export of a test database, for example) or a folder that
@@ -82,7 +84,8 @@ skill, and the command is the place for many exact parameters.
 
 A plain request starts the same steps as the command, with these rules from the package instruction:
 
-- The agent does not start Docker or WSL, so there is no dry run and no image check, unless your request asks for it.
+- The agent does not start Seagull (Docker, WSL, or Seagull for Windows), so there is no dry run and no check of a
+  converted dictionary, unless your request asks for it.
   Otherwise it finishes the task and offers the run in one sentence.
 - It does not move, replace, or delete an existing file or folder, and it writes to a new folder.
 - It does not choose the dictionaries to merge, the placeholders, the flags, or an option such as a time method. When
@@ -473,7 +476,7 @@ one file". The agent then follows the skill `seagull-diameter-convert-dictionari
 | `no-comments=`      | `yes` leaves the enumeration values and the group members out of the results                                                                                                                                      |
 | `validate=`         | `yes` first checks the sources against their XSD files (needs Java 11). Default `no`: then no schema is looked for                                                                                                |
 | `xsd=`              | The folder of the XSD files, for `validate=yes`. Without it only the schema references inside the files are used                                                                                                  |
-| `check=`            | `yes` then loads each result in the Seagull image and runs one Credit-Control exchange (needs Docker)                                                                                                             |
+| `check=`            | `yes` then loads each result in Seagull and runs one Credit-Control exchange (Docker or Seagull for Windows)                                                                                                      |
 
 Example:
 
@@ -537,6 +540,38 @@ Each change is a `NOTE` line in the report, for example `CCR: flags 192 (the con
 `vendor-mandatory=yes: changed the M bit of 45 of 509 vendor AVPs`. The options in effect are written to
 `dictionary-options.ini` in the new folder. Pass that file as `options=` to repeat the run on other dictionaries.
 A flags byte that contradicts the V bit of the AVP (a vendor AVP without 128, or a base AVP with it) is refused.
+
+## Where Seagull runs
+
+The dry run of a generation and the check of converted dictionaries start Seagull. They can use the Seagull image in
+Docker, or the `seagull.exe` of a Seagull for Windows, so a machine without Docker still works. Which one is a setting
+in `.seagull-diameter/config.json`:
+
+```json
+{
+  "SEAGULL_RUNNER": "windows",
+  "SEAGULL_WINDOWS_PATH": "C:\\Program Files (x86)\\Seagull\\seagull.exe"
+}
+```
+
+| Key                    | Meaning                                                 |
+| ---------------------- | ------------------------------------------------------- |
+| `SEAGULL_RUNNER`       | `docker` or `windows`                                   |
+| `SEAGULL_DOCKER_IMAGE` | The Seagull image for `docker`. Default `seagull:local` |
+| `SEAGULL_WINDOWS_PATH` | The `seagull.exe` for `windows`                         |
+
+The agent reads exactly two files, in this order: `.seagull-diameter/config.json` in the folder where the session works,
+then the same path in your home folder. It searches nothing else. A value in your request wins over the environment
+variable of the same name, which wins over the file, which wins over the default. The first time the agent needs
+Seagull and the runner is not set, it asks you one question, Docker or Seagull for Windows and where `seagull.exe` is,
+and saves the answer after you confirm it. It saves to the session folder, or to your home folder when you ask for
+that. The file never holds a password or a token.
+
+With `windows` the runner starts a stub OCS and the client as two `seagull.exe` processes in a hidden console, with
+copies of the configurations. The stub gets a free port, because the machine may already use 3868, and a scenario that
+reads a data file gets the path of that file on your machine. The runner stops only the processes it started. It prints
+the same line for each scenario as the Docker script: `successful calls: 1, failed calls: 0`. Add `--logs <folder>` to
+the runner to keep the Seagull logs, which are deleted otherwise.
 
 ## Options and tags
 

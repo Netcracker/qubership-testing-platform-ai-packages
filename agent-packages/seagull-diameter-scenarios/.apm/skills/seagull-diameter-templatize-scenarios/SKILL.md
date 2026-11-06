@@ -69,8 +69,9 @@ When you had to interpret the wording to fill a pair, say how you understood it 
    A value comes from `--set`, then from the environment when `--env` is given, then from the values file. The script
    stops and names every placeholder that has no value. With the unchanged values file the result equals the original
    scenario.
-5. **The dry run** on the filled-in scenario, as the generate skill describes, needs Docker. Run it only when the user
-   asked for it; otherwise offer it in one sentence and say that the template is not verified in Seagull yet.
+5. **The dry run** on the filled-in scenario, as the generate skill describes, starts Seagull. Run it only when the
+   user asked for it; otherwise offer it in one sentence and say that the template is not verified in Seagull yet. Where
+   Seagull runs is a setting: see [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs).
 
 ## Limits
 
