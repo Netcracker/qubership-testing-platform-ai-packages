@@ -184,6 +184,18 @@ class BaseProtocolTest(unittest.TestCase):
         self.assertEqual((defined_flags(gy, "CER"), defined_flags(gy, "Origin-Host")), (128, 64))
         self.assertEqual(defined_flags(gy, "Destination-Realm"), 64)
 
+    def test_a_comment_before_the_xml_declaration_is_read(self) -> None:
+        """The dictionaries of Seagull start with a license comment, then the declaration."""
+        source, out = self.folder("Gy.xml")
+        lines = SEAGULL_BASE.read_text(encoding="utf-8").split("\n")
+        lines[0], lines[1] = lines[1], lines[0]
+        base = source.parent / "base_draft08.xml"
+        base.write_text("\n".join(lines), encoding="utf-8", newline="\n")
+        argv = [str(source), "--out", str(out), "--seagull-base", str(base)]
+        status, text, error = run_convert(argv)
+        self.assertEqual(status, 0, error)
+        self.assertIn("added 13 AVPs and 2 command pairs from base_draft08.xml", text)
+
     def test_the_users_dictionary_wins_over_the_seagull_one(self) -> None:
         """A name or a code defined by the user keeps the user's definition; nothing is renamed."""
         source, out = self.folder("Gy.xml")

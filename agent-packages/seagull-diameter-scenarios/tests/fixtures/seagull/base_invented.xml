@@ -1,5 +1,5 @@
-<!-- Invented test data for selftest.py: a Seagull dictionary with the base protocol, not a real one. -->
 <?xml version="1.0" encoding="ISO-8859-1"?>
+<!-- Invented test data for selftest.py: a Seagull dictionary with the base protocol, not a real one. -->
 <protocol name="diameter-v1" type="binary" padding="4">
 
   <dictionary>
