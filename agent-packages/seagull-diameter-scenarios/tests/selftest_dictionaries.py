@@ -83,6 +83,32 @@ class ConvertDictionariesTest(unittest.TestCase):
         self.assertIn('name="3GPP-Charging-Id"', texts["plain"])
         self.assertIn('name="TGPP-Charging-Id"', texts["kept"])
 
+    def converted(self) -> tuple[str, str]:
+        """Convert the fixture dictionaries; return the dictionary and the report."""
+        folder = Path(tempfile.mkdtemp(prefix="seagull-selftest-"))
+        self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        argv = [str(FIXTURES / "dictionaries"), "--out", str(folder / "out")]
+        status, text, error = run_convert(argv)
+        self.assertEqual(status, 0, error)
+        return (folder / "out" / "diameter-dictionary.xml").read_text(encoding="iso-8859-1"), text
+
+    def test_the_type_of_an_avp_is_kept(self) -> None:
+        """An AVP keeps its type name, and the output defines each type in use and no other."""
+        text, _ = self.converted()
+        self.assertIn('<define name="Event-Timestamp" type="Time">', text)
+        self.assertIn('<typedef name="Time" type="number" size="4" unit="octet">', text)
+        self.assertIn('<typedef name="Enumerated" type="signed" size="4" unit="octet">', text)
+        self.assertIn('<typedef name="UTF8String" type="string" size="4" unit="octet">', text)
+        self.assertNotIn('<typedef name="Integer64"', text)
+
+    def test_a_name_with_two_identities_is_not_renamed(self) -> None:
+        """Both definitions are written under the name; the report says which one Seagull uses."""
+        text, report = self.converted()
+        self.assertEqual(text.count('<define name="Node-Id" '), 2)
+        self.assertNotIn("Node-Id-v", text)
+        self.assertIn("Node-Id is defined twice with different identity", report)
+        self.assertIn("Seagull sends the first one", report)
+
 
 SEAGULL_BASE = FIXTURES / "seagull" / "base_invented.xml"
 MINE = """<dictionary><vendor id="0" name="base">

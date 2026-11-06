@@ -24,12 +24,12 @@ is the whole update.
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `<avp name code>` inside `<vendor id>`                              | `<define name type>` with `avp-code`, `flags`, and for a vendor AVP `Vendor-ID`                                                                                                                                                                                                                  |
 | `vendor-specific="yes"`, `mandatory="must"`, `protected="must"`     | The flag bits V (128), M (64), and P (32), added up. `mandatory="may"` and `"mustnot"` leave M unset                                                                                                                                                                                             |
-| `<type type-name>`                                                  | One of the six Seagull types: `Integer32`, `Integer64`, `Unsigned32`, `Unsigned64`, `OctetString`, `Grouped`. `Enumerated` becomes `Unsigned32`; `UTF8String`, `Address`, `Time`, `DiameterIdentity`, `IPFilterRule` and the other string-like types become `OctetString`                        |
+| `<type type-name>`                                                  | The same type name, for example `Time`, `Address`, `UTF8String`, `Enumerated`, with a `<typedef>` for each type in use. Seagull encodes `Unsigned32` and `Time` as unsigned numbers, `Integer32` and `Enumerated` as signed ones, and the string-like types as strings                           |
 | `<grouped>` with `<gavp>`                                           | `type="Grouped"`. The member list is kept as a comment                                                                                                                                                                                                                                           |
 | `<enum name code>`                                                  | A comment above the definition, for example `values: INITIAL_REQUEST=1, ...`                                                                                                                                                                                                                     |
 | `<command name code>` in `<base>` and `<application>`               | A request and an answer: the initials of the name plus `R` and `A` (`Credit-Control` gives `CCR` and `CCA`). By default requests have flags 128 and answers 0 (see [Flags](#flags-of-commands-and-avps)); `cmd-code`, `protocol-version` 1, and `application-id` for a command of an application |
 | `TGPP-` at the start of an AVP name                                 | `3GPP-`, as in the specifications and in Seagull scenarios. `keep-tgpp=yes` keeps `TGPP-`                                                                                                                                                                                                        |
-| Two AVPs with one name and different vendor or code                 | The first keeps the name. The second is written as `<name>-v<vendor>c<code>`, for example `MSC-Address-v13421c281`, and the report says so                                                                                                                                                       |
+| Two AVPs with one name and different vendor or code                 | Both are written under the name, as the dictionaries of projects do. Seagull uses the first one wherever a scenario uses the name, and the report says which one that is                                                                                                                         |
 | An application command with the same abbreviation as a base command | The application command replaces the base command                                                                                                                                                                                                                                                |
 
 Each result is merged with the base protocol of the folder, so that `CER`, `DWR`, and the other base commands are always
@@ -133,9 +133,11 @@ The base protocol is always merged in, so it need not be listed. The dictionarie
 the base protocol:
 
 - An AVP that several files define in the same way, with one name, vendor, and code, appears once.
-- An AVP name that a later file uses for another vendor or code does not replace the first definition. The later one is
-  written as `<name>-v<vendor>c<code>`, and the report lists it. If your product resolves such conflicts in another way,
-  for example by taking the last definition, the merged file differs from what the product loads.
+- An AVP name that a later file uses for another vendor or code is not renamed. Both definitions stay in the file, in
+  the order of the merge, and the report lists the name. Seagull finds an AVP by name and sends the first definition
+  for every use of the name, so a scenario cannot send the later one. On the real Seagull 1.8.3, a name defined twice
+  with two codes gave the code of the first definition in both places of the message. If your product takes the last
+  definition instead, the merged file differs from what the product loads.
 
 ## Check a result
 

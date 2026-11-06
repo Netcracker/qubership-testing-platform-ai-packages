@@ -61,6 +61,7 @@ steps_format = importlib.import_module("steps_format")
 dict2seagull = importlib.import_module("dict2seagull")
 scenario_options = importlib.import_module("scenario_options")
 output_folder = importlib.import_module("output_folder")
+seagull_dictionary = importlib.import_module("seagull_dictionary")
 
 NTP_OFFSET = 2208988800
 NUMERIC = {"Unsigned32", "Unsigned64", "Integer32", "Integer64", "Enumerated"}
@@ -132,6 +133,7 @@ class Resolver:
 
     project: dict[str, list[Any]]
     seagull_names: dict[tuple[int, int], list[str]]
+    first: dict[str, tuple[int, int]] = field(default_factory=dict)
     notes: set[str] = field(default_factory=set)
     counters: Counter = field(default_factory=Counter)
 
@@ -156,7 +158,16 @@ class Resolver:
             message = f"AVP {name} ({where}) is not in the Seagull dictionary"
             raise GenerationError(message)
         wanted = name.replace("TGPP-", "3GPP-", 1)
-        return (wanted if wanted in names else names[0]), chosen
+        result = wanted if wanted in names else names[0]
+        sent = self.first.get(result)
+        if sent is not None and sent != (chosen.vendor_id, chosen.code):
+            needed = f"vendor {chosen.vendor_id} code {chosen.code}"
+            self.notes.add(
+                f"{result}: the message needs {needed}, "
+                f"but Seagull sends vendor {sent[0]} code {sent[1]}, "
+                "the first definition of the name in the Seagull dictionary"
+            )
+        return result, chosen
 
 
 def describe_choice(name: str, candidates: list[Any], chosen: Any, same: bool) -> str:
@@ -196,28 +207,6 @@ def load_project_dictionaries(options: argparse.Namespace) -> dict[str, list[Any
             if not known:
                 known.append(avp)
     return project
-
-
-def read_seagull_dictionary(path: Path) -> ElementTree.Element:
-    """Parse a Seagull dictionary, which may have a comment before the declaration."""
-    text = path.read_text(encoding="iso-8859-1")
-    _, marker, body = text.partition("<protocol")
-    return ElementTree.fromstring(marker + body)
-
-
-def avp_names_of(root: ElementTree.Element) -> dict[tuple[int, int], list[str]]:
-    """Return {(vendor, code): [Seagull AVP names]} of a Seagull dictionary."""
-    names: dict[tuple[int, int], list[str]] = {}
-    for define in root.findall("./dictionary/avp/define"):
-        fields = {s.get("name"): s.get("value") for s in define.findall("setfield")}
-        key = (int(fields.get("Vendor-ID") or 0), int(fields.get("avp-code") or 0))
-        names.setdefault(key, []).append(define.get("name", ""))
-    return names
-
-
-def command_names_of(root: ElementTree.Element) -> set[str]:
-    """Return the names of the commands that a Seagull dictionary defines."""
-    return {d.get("name", "") for d in root.findall("./dictionary/command/define")}
 
 
 def to_ntp_hex(text: str) -> str:
@@ -919,8 +908,8 @@ def prepare(
     else:
         final = build_dictionary(options)
     project = load_project_dictionaries(options)
-    root = read_seagull_dictionary(final)
-    defined = command_names_of(root)
+    root = seagull_dictionary.read_dictionary(final)
+    defined = seagull_dictionary.command_names_of(root)
     for step in steps:
         for command in (step.request.command, step.response.command):
             if command not in defined:
@@ -928,7 +917,8 @@ def prepare(
     if scenario_settings.tags.default_dwr and not {"DWR", "DWA"} <= defined:
         scenario_settings.tags.default_dwr = False
         notes.append("default-dwr is off: the dictionary has no DWR and DWA")
-    return steps, Resolver(project, avp_names_of(root)), notes
+    names, first = seagull_dictionary.avp_names_of(root), seagull_dictionary.first_definitions(root)
+    return steps, Resolver(project, names, first), notes
 
 
 def choose_output(options: argparse.Namespace) -> list[str]:

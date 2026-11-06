@@ -92,8 +92,8 @@ user decide whether to list the dictionaries.
 3. **Read the report** (the script prints it and writes `conversion-report.txt`) and tell the user:
    - How many AVPs and command pairs each file has.
    - Every `WARNING` line. The usual ones are an AVP name that the sources define twice with another vendor or code
-     (the second is written as `<name>-v<vendor>c<code>`, so a scenario that uses the plain name gets the first
-     definition), and an application command that replaced a base command of the same abbreviation. The script
+     (both stay in the file under the name, and Seagull sends the first one wherever a scenario uses the name, so
+     a message that needs the other cannot be sent), and an application command that replaced a base command of the same abbreviation. The script
      reports what looks inconsistent and corrects nothing: the dictionary's owners decide which definition is intended.
    - Every `NOTE` line: a flags byte that differs from the default. It names the command or AVP and both values, or
      gives the number of vendor AVPs whose M bit the policy changed. A name in the flag options that matches nothing is
