@@ -116,8 +116,89 @@ The check shows that Seagull loads the dictionary, finds the AVP names of the sc
 the messages. It does not show that a real OCS accepts them, because the stub does not read the request. The client
 sends Credit-Control AVPs, so a dictionary that lacks them fails the check without being wrong for its own protocol.
 
-`validate=yes` checks the sources against their XSD files with `scripts/validate.sh`. It checks the structure that the
-XSD files describe, not that a code or a flag is right.
+## Validate the sources
+
+The conversion does not read XSD files, and `validate=` is `no` by default: with `no`, nothing looks for a schema.
+`validate=yes` adds a separate check of the sources against their schemas, with `scripts/validate.sh` and
+`ValidateDictionaries.java` (Java 11 or later). It checks the structure that the schemas describe, such as the order of
+elements and the values an attribute may take, not that a code or a flag is right. A file that fails the schema is
+still converted.
+
+### Which schema a file gets
+
+The validator never searches the disk. It chooses the schema of each `.xml` file of the folder from these places, in
+this order:
+
+1. **The reference in the file.** The root element may carry `xsi:noNamespaceSchemaLocation` (or `xsi:schemaLocation`).
+   The path is resolved against the folder of the file, so `xsd/diameter-command.xsd` means the `xsd` folder next to
+   that file. If the file exists, it is the schema. A reference that is a URL is not downloaded and counts as not found.
+2. **The same filename in `xsd=`.** If the reference does not resolve and a folder was given in `xsd=`
+   (`--xsd-dir`), the validator takes the file of the referenced name from that folder, but only if that schema
+   declares the root element of the dictionary.
+3. **The root element.** If the file has no reference, or the name is not in the folder, the validator looks in the
+   `xsd=` folder for the `.xsd` file that declares the root element of the dictionary. The root element is the outermost
+   tag: `<dictionary>` for an AVP dictionary and `<diameter-command-dictionary>` for a command dictionary. The filename
+   of the schema does not matter.
+
+In step 3 only global elements count, that is, the `xs:element` declarations directly under `xs:schema`. A schema for
+command dictionaries declares `diameter-command-dictionary` globally and contains a nested element that is also called
+`dictionary`. The nested one does not make that schema a candidate for an AVP dictionary. If no schema declares the root
+element, or several do, the file has no schema, and the problem names the candidates.
+
+AVP dictionaries usually carry no reference, so they get their schema in step 3, and a folder in `xsd=` is the way to
+name it.
+
+### When no schema is found
+
+If any file has no schema, the validator validates nothing and exits with status 3. It lists each file with its problem
+and then each distinct problem once, with the number of files it affects. Files that share a reference, such as
+`xsd/diameter-command.xsd` in every command dictionary, give one problem:
+
+```text
+NO SCHEMA Sy.xml (dictionary): the file has no schema reference
+NO SCHEMA SyCommands.xml (diameter-command-dictionary): the reference xsd/diameter-command.xsd does not resolve; no file C:\work\dictionaries\xsd\diameter-command.xsd
+2 distinct problem(s) in 11 file(s):
+    the reference xsd/diameter-command.xsd does not resolve; no file C:\work\dictionaries\xsd\diameter-command.xsd (7 file(s))
+    the file has no schema reference (4 file(s))
+```
+
+The agent then stops and asks two questions in one message: where the XSD files are, and whether to keep the answer.
+With the answer it runs the validator again with `--xsd-dir`. Keeping the answer writes it to `dictionary-options.ini`
+in the output folder:
+
+```ini
+[validate]
+xsd = C:\work\schemas
+```
+
+A later run that starts from that file (`options=`) uses the folder without asking. The default is not to keep it,
+because the path belongs to one machine. If you cannot say where the schemas are, the agent skips the validation and
+converts anyway.
+
+### Output and exit statuses
+
+For each file the validator prints the verdict, the schema it used, and the distinct error messages with the number of
+occurrences and the line of the first one:
+
+```text
+Gy.xml (dictionary): valid
+    schema: C:\work\schemas\diameter-dictionary.xsd
+Sy.xml (dictionary): 2 errors
+    schema: C:\work\schemas\diameter-dictionary.xsd
+    x2, first at line 423: cvc-attribute.3: ...
+```
+
+`--plan` prints the schema chosen for each file and the reason, without validating.
+
+| Status | Meaning                                                                         |
+| ------ | ------------------------------------------------------------------------------- |
+| 0      | Every file is valid, or `--plan` found a schema for every file                  |
+| 1      | Some file is invalid                                                            |
+| 2      | Wrong arguments, `--xsd-dir` is not a folder, or the folder has no `.xml` files |
+| 3      | A schema was not found for some files; nothing was validated                    |
+
+The validator rejects files with a document type declaration and turns on the secure processing mode of the schema
+factory. A schema that does not compile ends it with a stack trace and not with a validation message.
 
 ## Limits
 

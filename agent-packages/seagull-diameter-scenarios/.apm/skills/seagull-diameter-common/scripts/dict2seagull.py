@@ -539,6 +539,11 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
         choices=dictionary_options.POLICIES,
         help="the M bit of every vendor AVP: as the source says (default), always set, or clear",
     )
+    parser.add_argument(
+        "--xsd-dir",
+        metavar="DIR",
+        help="the folder of the XSD files; recorded in the options file for the validation step",
+    )
     return parser.parse_args(argv)
 
 
@@ -615,6 +620,7 @@ def main(argv: list[str]) -> int:
         flags = dictionary_options.load_options(args.options)
         pairs = (args.command_flags, args.avp_flags)
         dictionary_options.apply_pairs(flags, *pairs, args.vendor_mandatory)
+        flags.xsd = args.xsd_dir or flags.xsd
         return convert_all(args, loaded, Render(not args.no_comments, flags))
     except dictionary_options.DictionaryOptionsError as error:
         sys.stderr.write(f"error: {error}\n")
