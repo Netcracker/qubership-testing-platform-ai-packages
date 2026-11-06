@@ -16,6 +16,7 @@ command is a frontend for it with formal arguments. The plain skills so far:
 | Plain-language skill                                                                                | The command it serves                  |
 | --------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | [seagull-diameter-extract-steps](.apm/skills/seagull-diameter-extract-steps/SKILL.md)               | `/seagull-diameter-steps-extract`      |
+| [seagull-diameter-generate-scenarios](.apm/skills/seagull-diameter-generate-scenarios/SKILL.md)     | `/seagull-diameter-scenario-generate`  |
 | [seagull-diameter-convert-dictionaries](.apm/skills/seagull-diameter-convert-dictionaries/SKILL.md) | `/seagull-diameter-dictionary-convert` |
 
 When a plain request starts a task, the package instruction
