@@ -69,13 +69,14 @@ package. After an upgrade, generate once with the same arguments and compare the
 | `/seagull-diameter-dictionary-convert`   | command | Convert the project's dictionaries into Seagull dictionaries, and check them                     |
 | `seagull-diameter-extract-steps`         | plain   | Do the same as the steps command, from a request in your own words                               |
 | `seagull-diameter-generate-scenarios`    | plain   | Do the same as the generate command, from a request in your own words                            |
+| `seagull-diameter-templatize-scenarios`  | plain   | Do the same as the templatize command, from a request in your own words                          |
 | `seagull-diameter-convert-dictionaries`  | plain   | Do the same as the dictionary command, from a request in your own words                          |
 | `seagull-diameter-common`                | support | Hold the shared scripts and the formats. You never invoke it                                     |
 
 The commands run only when you type their name, and they take their arguments literally. A plain skill is picked by the
 agent from an ordinary request, such as "convert the dictionaries in C:\work\dictionaries". For now the extraction of
-steps, the generation of scenarios, and the dictionary conversion have a plain skill. The other tasks need the
-command.
+steps, the generation of scenarios, the making of templates, and the dictionary conversion have a plain skill. The
+other task needs the command.
 
 ### Plain requests
 
@@ -296,6 +297,13 @@ Besides the client scenario, each session then has two more files:
 
 **Purpose.** Turns scenarios that you already generated into templates, without reading the steps again. Use it when you
 decide later that some values should be parameters.
+
+You can also ask in plain words, for example "make the subscriber number of the scenarios in
+C:\work\Seagull-Scenario\scenario a placeholder SUBSCRIBER_ID". The agent follows the skill
+`seagull-diameter-templatize-scenarios` and the rules in "Plain requests" above. It asks which AVP values become
+placeholders when you do not say. If a template or a values file of the same name already exists next to a scenario, it
+stops and asks for another folder or for your permission to replace it, because the script would overwrite it. It does
+not run the dry run unless you ask.
 
 **Arguments.**
 
