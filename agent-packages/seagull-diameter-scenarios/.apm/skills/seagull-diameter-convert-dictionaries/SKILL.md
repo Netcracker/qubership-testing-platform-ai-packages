@@ -12,9 +12,9 @@ takes one dictionary file for each run, so the result is one file, `diameter-dic
 dictionaries of the folder and its base protocol, plus a report of everything that looked inconsistent. When the user
 asks, it writes one file for each dictionary, or one file of only some of them.
 
-[seagull-diameter-scenario-generate](../seagull-diameter-scenario-generate/SKILL.md) already converts and merges the
-dictionaries it needs. Use this skill when the user wants the converted dictionaries themselves: to run a handwritten
-scenario with `-dico`, to read the conversion report before generating, or to check a dictionary in the image.
+This is a one-time job. [seagull-diameter-generate-scenarios](../seagull-diameter-generate-scenarios/SKILL.md) takes
+the one file that this skill writes and does not convert anything itself, so the user converts once and generates as
+often as needed. The file is also what a handwritten scenario passes to Seagull with `-dico`.
 
 The command [/seagull-diameter-dictionary-convert](../seagull-diameter-dictionary-convert/SKILL.md) runs the same steps
 with formal arguments. What this page says about a parameter holds for both.
@@ -125,6 +125,11 @@ user decide whether to list the dictionaries.
    ```bash
    seagull -conf <config> -dico <output folder>/diameter-dictionary.xml -scen <scenario> -log <log>
    ```
+
+   The scenario generator reads this one file too. Offer to keep its path as the setting `SEAGULL_DICTIONARY_PATH`,
+   so that the next generation finds it, as [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs)
+   does for the runner: save it only after the user agrees, with
+   `python <skill folder>/../seagull-diameter-common/scripts/seagull_config.py set SEAGULL_DICTIONARY_PATH <file>`.
 
    To compare a converted dictionary with one of the dictionaries that ship with Seagull, by AVP name:
 

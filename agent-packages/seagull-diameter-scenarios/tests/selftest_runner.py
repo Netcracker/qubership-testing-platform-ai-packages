@@ -167,8 +167,8 @@ class WindowsRunTest(unittest.TestCase):
         """Both generated scenarios end with 1 successful call and 0 failed calls."""
         with tempfile.TemporaryDirectory(prefix="seagull-selftest-") as folder:
             argv = ["--steps", str(FIXTURES / "steps")]
-            argv += ["--dictionaries-dir", str(FIXTURES / "dictionaries")]
-            argv += ["--dictionaries", "Gy", "--out", folder + "/out"]
+            dictionaries = importlib.import_module("selftest_dictionaries")
+            argv += ["--dictionary", str(dictionaries.converted_gy()), "--out", folder + "/out"]
             with redirect_stdout(io.StringIO()):
                 self.assertEqual(generate.main(argv), 0)
             status, output = self.run_runner("dry-run", folder + "/out")

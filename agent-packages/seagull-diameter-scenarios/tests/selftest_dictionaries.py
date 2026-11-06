@@ -12,6 +12,8 @@ Requires Python 3.9 or later.
 
 from __future__ import annotations
 
+import atexit
+import functools
 import importlib
 import io
 import os
@@ -41,6 +43,18 @@ def run_convert(argv: list[str]) -> tuple[int, str, str]:
     with redirect_stdout(stdout), redirect_stderr(stderr):
         status = convert.main(argv)
     return status, stdout.getvalue(), stderr.getvalue()
+
+
+@functools.cache
+def converted_gy(*extra: str) -> Path:
+    """Convert the fixture dictionaries once; return the Seagull dictionary made of Gy."""
+    folder = Path(tempfile.mkdtemp(prefix="seagull-selftest-dictionary-"))
+    atexit.register(shutil.rmtree, folder, ignore_errors=True)
+    argv = [str(FIXTURES / "dictionaries"), "--out", str(folder / "out"), "--combine", "Gy", *extra]
+    status, _, error = run_convert(argv)
+    if status != 0:
+        raise RuntimeError(error)
+    return folder / "out" / "Gy.xml"
 
 
 class ConvertDictionariesTest(unittest.TestCase):
@@ -237,12 +251,16 @@ class BaseProtocolTest(unittest.TestCase):
         self.assertIn("AVP 264 (Origin-Host)", error)
         self.assertFalse(out.exists())
 
-    def test_generation_works_without_the_base_file(self) -> None:
-        """The generator takes the missing base items from the Seagull dictionary too."""
+    def test_generation_works_from_a_dictionary_with_the_seagull_base(self) -> None:
+        """The scenarios are generated from a dictionary that got its base from Seagull."""
         source, out = self.folder("Gy.xml")
+        converted = out.parent / "converted"
+        argv = [str(source), "--out", str(converted), "--seagull-base", str(SEAGULL_BASE)]
+        self.assertEqual(run_convert(argv)[0], 0)
         generate = importlib.import_module("generate_scenarios")
-        argv = ["--steps", str(FIXTURES / "steps"), "--dictionaries-dir", str(source)]
-        argv += ["--dictionaries", "Gy", "--out", str(out), "--seagull-base", str(SEAGULL_BASE)]
+        dictionary = converted / "diameter-dictionary.xml"
+        argv = ["--steps", str(FIXTURES / "steps"), "--dictionary", str(dictionary)]
+        argv += ["--out", str(out)]
         with redirect_stdout(io.StringIO()):
             self.assertEqual(generate.main(argv), 0)
         self.assertEqual(defined_flags(out / "dictionary" / "diameter-dictionary.xml", "CER"), 128)

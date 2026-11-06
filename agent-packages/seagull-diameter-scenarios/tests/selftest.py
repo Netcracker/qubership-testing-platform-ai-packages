@@ -30,6 +30,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from unittest import mock
 from xml.etree import ElementTree
 
 sys.dont_write_bytecode = True  # keep __pycache__ out of the package
@@ -74,10 +75,12 @@ def run_generator(
     out: Path,
     steps: Path = FIXTURES / "steps",
     extra: tuple = (),
+    dictionary: Path | None = None,
 ) -> tuple[int, str, str]:
     """Run the generator; return the exit status, its output, and its error output."""
-    argv = ["--steps", str(steps), "--dictionaries-dir", str(FIXTURES / "dictionaries")]
-    argv += ["--dictionaries", "Gy", "--out", str(out), *extra]
+    path = dictionary or dictionary_tests.converted_gy()
+    argv = ["--steps", str(steps), "--dictionary", str(path)]
+    argv += ["--out", str(out), *extra]
     stdout, stderr = io.StringIO(), io.StringIO()
     with redirect_stdout(stdout), redirect_stderr(stderr):
         status = generate.main(argv)
@@ -456,8 +459,7 @@ class OutputFolderTest(unittest.TestCase):
     def test_out_auto_never_reuses_a_folder(self) -> None:
         """Without a named folder, the second run goes to Seagull-Scenario-2."""
         base = ["--steps", str(FIXTURES / "steps")]
-        base += ["--dictionaries-dir", str(FIXTURES / "dictionaries")]
-        base += ["--dictionaries", "Gy"]
+        base += ["--dictionary", str(dictionary_tests.converted_gy())]
         with tempfile.TemporaryDirectory(prefix="seagull-selftest-") as folder:
             for _ in range(2):
                 with redirect_stdout(io.StringIO()):
@@ -708,7 +710,7 @@ class FailureTest(unittest.TestCase):
             request.write_text(text.replace("</CCR>", extra), encoding="utf-8")
             status, _, error = run_generator(Path(folder) / "out", steps)
         self.assertEqual(status, 1)
-        self.assertIn("AVP No-Such-Avp is in none of the project dictionaries", error)
+        self.assertIn("AVP No-Such-Avp is not in the Seagull dictionary", error)
 
     def test_check_steps_reports_an_unpaired_file(self) -> None:
         """check_steps names a request that has no response."""
@@ -792,6 +794,62 @@ class DryRunTest(unittest.TestCase):
         """Native variables set once and restored in the next step run."""
         extra = ("--option", "mode=template", "--option", "substitution=native")
         self.dry_run((*extra, "--placeholder", "Origin-Realm=REALM"))
+
+
+class DictionaryInputTest(unittest.TestCase):
+    """The generator takes one Seagull dictionary, and stops when it has none."""
+
+    def run_without_setting(self, *extra: str) -> tuple[int, Path, str]:
+        """Generate with no setting; return the status, the output folder, and the error."""
+        out = Path(tempfile.mkdtemp(prefix="seagull-selftest-")) / "out"
+        self.addCleanup(shutil.rmtree, out.parent, ignore_errors=True)
+        argv = ["--steps", str(FIXTURES / "steps"), "--out", str(out), *extra]
+        stderr = io.StringIO()
+        patch = mock.patch.object(generate.seagull_config, "resolve", return_value=("", ""))
+        with patch, redirect_stdout(io.StringIO()), redirect_stderr(stderr):
+            status = generate.main(argv)
+        return status, out, stderr.getvalue()
+
+    def test_no_dictionary_stops_and_says_how_to_get_one(self) -> None:
+        """Without --dictionary and a setting nothing is written; the error names the way out."""
+        status, out, error = self.run_without_setting()
+        self.assertEqual(status, 1)
+        self.assertIn("there is no Seagull dictionary", error)
+        self.assertIn("/seagull-diameter-dictionary-convert", error)
+        self.assertFalse(out.exists())
+
+    def test_a_folder_is_not_a_dictionary(self) -> None:
+        """A folder stops the run: the generator takes one file."""
+        status, _, error = self.run_without_setting("--dictionary", str(FIXTURES))
+        self.assertEqual(status, 1)
+        self.assertIn("is a folder; give the one Seagull dictionary file", error)
+
+    def test_a_missing_file_stops_the_run(self) -> None:
+        """A path that is no file stops the run."""
+        status, out, error = self.run_without_setting("--dictionary", str(FIXTURES / "none.xml"))
+        self.assertEqual(status, 1)
+        self.assertIn("does not exist", error)
+        self.assertFalse(out.exists())
+
+    def test_the_setting_supplies_the_dictionary(self) -> None:
+        """SEAGULL_DICTIONARY_PATH is used when --dictionary is absent."""
+        out = Path(tempfile.mkdtemp(prefix="seagull-selftest-")) / "out"
+        self.addCleanup(shutil.rmtree, out.parent, ignore_errors=True)
+        path = str(dictionary_tests.converted_gy())
+        argv = ["--steps", str(FIXTURES / "steps"), "--out", str(out)]
+        patch = mock.patch.object(generate.seagull_config, "resolve", return_value=(path, "test"))
+        with patch, redirect_stdout(io.StringIO()):
+            self.assertEqual(generate.main(argv), 0)
+        self.assertTrue((out / "dictionary" / "diameter-dictionary.xml").is_file())
+
+    def test_enumeration_names_need_the_values_in_the_dictionary(self) -> None:
+        """A dictionary converted with --no-comments lists no values, so a name is refused."""
+        dictionary = dictionary_tests.converted_gy("--no-comments")
+        status, _, error = run_generator(
+            Path(tempfile.mkdtemp(prefix="seagull-selftest-")) / "out", dictionary=dictionary
+        )
+        self.assertEqual(status, 1)
+        self.assertIn("the dictionary lists no values for Enumerated", error)
 
 
 if __name__ == "__main__":

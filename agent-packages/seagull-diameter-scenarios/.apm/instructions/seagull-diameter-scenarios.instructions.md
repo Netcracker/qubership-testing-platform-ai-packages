@@ -21,6 +21,9 @@ These rules hold when the user asks for a Seagull Diameter task in plain languag
 - **The base protocol.** When the project's dictionaries lack the Diameter base protocol, stop and tell the user. Don't
   take the dictionary of the Seagull distribution, and don't look for another one on the disk, unless the user allowed
   it after you warned that it may be wrong in places.
+- **The Seagull dictionary for generation.** The scenario generator reads one ready Seagull dictionary file. When the
+  request and the setting `SEAGULL_DICTIONARY_PATH` give none, stop and tell the user to give a file or to convert the
+  project's dictionaries. Don't search the disk for one, and don't convert it as a step of the generation.
 
 ## What not to choose
 
