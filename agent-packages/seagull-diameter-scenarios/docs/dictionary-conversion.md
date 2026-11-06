@@ -109,8 +109,10 @@ protocol:
 
 `check=yes` runs `scripts/check-converted.sh` of the skill `seagull-diameter-convert-dictionaries`. It starts the
 Seagull image, mounts the converted dictionaries read-only, and for each one that defines `CCR` runs a stub OCS and a
-client with invented values. The client sends `CER` and one initial `CCR` for a data session, and the stub answers with
-result code 2001. A result passes if the statistics file reports 1 successful call and 0 failed calls.
+client with invented values. With a Seagull for Windows, `seagull_windows_run.py check-converted` does the same with
+`seagull.exe`; see [Where Seagull runs](user-guide.md#where-seagull-runs). The client sends `CER` and one initial `CCR`
+for a data session, and the stub answers with result code 2001. A result passes if the statistics file reports 1
+successful call and 0 failed calls.
 
 The check shows that Seagull loads the dictionary, finds the AVP names of the scenario in it, and can encode and decode
 the messages. It does not show that a real OCS accepts them, because the stub does not read the request. The client

@@ -8,10 +8,11 @@ choice between several definitions of an AVP, the value conversions, the checks 
 the answer, the dynamic tags, placeholders, templates, the conversion of a ready
 scenario into a template, and the failure on an AVP that no dictionary has. The tests
 of the dictionary conversion are in selftest_dictionaries.py, and those of the XSD
-validator (which need Java) in selftest_validator.py, and those of the SKILL.md files
-in selftest_skills.py; this file imports all three. The dry run and the check of the
-converted dictionaries in the Seagull image run only when the environment variable
-SEAGULL_IMAGE names an image and `sh` and `docker` work.
+validator (which need Java) in selftest_validator.py, those of the SKILL.md files in
+selftest_skills.py, and those of the settings and the Windows runner in selftest_runner.py;
+this file imports all four. The dry run and the check of the converted dictionaries in the
+Seagull image run only when the environment variable SEAGULL_IMAGE names an image and `sh`
+and `docker` work. The runs with Seagull for Windows need SEAGULL_EXE.
 
 Requires Python 3.9 or later.
 """
@@ -53,6 +54,10 @@ FlagOptionsTest = dictionary_tests.FlagOptionsTest
 CheckConvertedTest = dictionary_tests.CheckConvertedTest
 ValidatorTest = importlib.import_module("selftest_validator").ValidatorTest
 SkillStructureTest = importlib.import_module("selftest_skills").SkillStructureTest
+runner_tests = importlib.import_module("selftest_runner")
+ConfigTest = runner_tests.ConfigTest
+RunnerHelpersTest = runner_tests.RunnerHelpersTest
+WindowsRunTest = runner_tests.WindowsRunTest
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 IMAGE = os.environ.get("SEAGULL_IMAGE", "")
 CHECKED = (

@@ -15,16 +15,57 @@ and [seagull-diameter-scenario-generate](../seagull-diameter-scenario-generate/S
 because APM deploys the files of a skill folder next to each other, so the scripts of the other skills can import
 `../../seagull-diameter-common/scripts`.
 
-| Script                          | Purpose                                                                                                          |
-|---------------------------------|------------------------------------------------------------------------------------------------------------------|
-| `scripts/steps_format.py`       | Reads a folder of recorded steps; repairs and reports the faults of hand-edited text                             |
-| `scripts/check_steps.py`        | Checks a folder of recorded steps; run it before generating                                                      |
-| `scripts/dict2seagull.py`       | Converts the project's AVP dictionaries into Seagull dictionaries; the generate and convert skills use it        |
-| `scripts/dictionary_options.py` | Reads and writes the flag options of the dictionary conversion; dict2seagull.py applies them                     |
-| `scripts/scenario_options.py`   | Reads and writes the options file; matches AVPs to placeholders; fills templates in                              |
-| `scripts/apply_placeholders.py` | Replaces the `@@NAME@@` placeholders of a template with values                                                   |
-| `scripts/scenario_text.py`      | Reads the `<avp>` lines of a generated scenario, with their paths; the templatize and externalize scripts use it |
-| `scripts/output_folder.py`      | Picks the first free output folder (`next-free`) and describes a folder (`describe`)                             |
+| Script                           | Purpose                                                                                                          |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `scripts/steps_format.py`        | Reads a folder of recorded steps; repairs and reports the faults of hand-edited text                             |
+| `scripts/check_steps.py`         | Checks a folder of recorded steps; run it before generating                                                      |
+| `scripts/dict2seagull.py`        | Converts the project's AVP dictionaries into Seagull dictionaries; the generate and convert skills use it        |
+| `scripts/dictionary_options.py`  | Reads and writes the flag options of the dictionary conversion; dict2seagull.py applies them                     |
+| `scripts/scenario_options.py`    | Reads and writes the options file; matches AVPs to placeholders; fills templates in                              |
+| `scripts/apply_placeholders.py`  | Replaces the `@@NAME@@` placeholders of a template with values                                                   |
+| `scripts/scenario_text.py`       | Reads the `<avp>` lines of a generated scenario, with their paths; the templatize and externalize scripts use it |
+| `scripts/output_folder.py`       | Picks the first free output folder (`next-free`) and describes a folder (`describe`)                             |
+| `scripts/seagull_config.py`      | Reads and writes the settings that say where Seagull runs; see "Where Seagull runs"                              |
+| `scripts/seagull_windows_run.py` | Runs the dry run and the check of converted dictionaries with a Seagull for Windows                              |
+
+## Where Seagull runs
+
+The dry run of a generation and the check of converted dictionaries start Seagull. It runs in the Seagull image in
+Docker (`dry-run.sh`, `check-converted.sh`), or as `seagull.exe` of a Seagull for Windows
+(`seagull_windows_run.py`). The settings that choose are in one JSON file, `.seagull-diameter/config.json`.
+
+**Read exactly two paths, in this order:** the file in the folder the session works in, then the file in the user's
+home folder. Don't search the disk for the file or for Seagull.
+
+| Key                    | Meaning                                                                                   |
+| ---------------------- | ----------------------------------------------------------------------------------------- |
+| `SEAGULL_RUNNER`       | `docker` or `windows`                                                                     |
+| `SEAGULL_DOCKER_IMAGE` | The Seagull image for `docker`. Default `seagull:local`                                   |
+| `SEAGULL_WINDOWS_PATH` | The `seagull.exe` for `windows`, for example `C:\Program Files (x86)\Seagull\seagull.exe` |
+
+A value in the user's request wins, then the environment variable of the same name, then the file, then the default.
+Never put a password or a token in the file. Before any run:
+
+1. Read the runner: `python <skill folder>/scripts/seagull_config.py get SEAGULL_RUNNER`. Exit status 4 and no output
+   mean that it is not set.
+2. When it is not set, ask the user one question: Docker with a Seagull image, or Seagull for Windows (and where its
+   `seagull.exe` is, so don't guess a path; the usual place is `C:\Program Files (x86)\Seagull\seagull.exe`). Check the
+   answer by what the user says, and save it after the user confirms:
+
+   ```bash
+   python <skill folder>/scripts/seagull_config.py set SEAGULL_RUNNER windows
+   python <skill folder>/scripts/seagull_config.py set SEAGULL_WINDOWS_PATH "C:\Program Files (x86)\Seagull\seagull.exe"
+   ```
+
+   `set` writes the session folder; add `--home` when the user wants the answer for every folder. It refuses an unknown
+   runner and a path that is not a file.
+3. With `docker`, run the scripts as before, with the image from `SEAGULL_DOCKER_IMAGE`. With `windows`, run
+   `python <skill folder>/scripts/seagull_windows_run.py dry-run <output folder> --seagull-exe <path>`, or
+   `check-converted <converted folder>` for the dictionaries. They print the same lines as the scripts, and the exit
+   status is the same. `--logs <folder>` keeps the Seagull logs.
+
+Seagull for Windows uses the ports of the machine, so the runner gives the stub a free one in copies of the
+configurations. It stops only the processes that it started. Docker is not needed, and nothing is run in WSL.
 
 ## The folder of recorded steps
 
