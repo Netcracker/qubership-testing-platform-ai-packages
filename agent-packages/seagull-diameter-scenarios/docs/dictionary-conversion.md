@@ -132,12 +132,12 @@ this order:
 1. **The reference in the file.** The root element may carry `xsi:noNamespaceSchemaLocation` (or `xsi:schemaLocation`).
    The path is resolved against the folder of the file, so `xsd/diameter-command.xsd` means the `xsd` folder next to
    that file. If the file exists, it is the schema. A reference that is a URL is not downloaded and counts as not found.
-2. **The same file name in `xsd=`.** If the reference does not resolve and a folder was given in `xsd=`
+2. **The same filename in `xsd=`.** If the reference does not resolve and a folder was given in `xsd=`
    (`--xsd-dir`), the validator takes the file of the referenced name from that folder, but only if that schema
    declares the root element of the dictionary.
 3. **The root element.** If the file has no reference, or the name is not in the folder, the validator looks in the
    `xsd=` folder for the `.xsd` file that declares the root element of the dictionary. The root element is the outermost
-   tag: `<dictionary>` for an AVP dictionary and `<diameter-command-dictionary>` for a command dictionary. The file name
+   tag: `<dictionary>` for an AVP dictionary and `<diameter-command-dictionary>` for a command dictionary. The filename
    of the schema does not matter.
 
 In step 3 only global elements count, that is, the `xs:element` declarations directly under `xs:schema`. A schema for

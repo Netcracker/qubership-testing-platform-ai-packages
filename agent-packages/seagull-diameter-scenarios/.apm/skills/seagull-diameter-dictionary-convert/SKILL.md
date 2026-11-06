@@ -61,7 +61,7 @@ yourself.
    2. If that file does not exist and `--xsd-dir` is given, the file of the same name in that folder, when it declares
       the root element of the dictionary.
    3. If `--xsd-dir` is given and the file has no usable reference, the one `.xsd` file there that declares the root
-      element of the dictionary as a global element. The file name does not matter.
+      element of the dictionary as a global element. The filename does not matter.
 
    The exit status tells what happened:
    - 0: every file is valid. Print the result, which names the schema used for each file.

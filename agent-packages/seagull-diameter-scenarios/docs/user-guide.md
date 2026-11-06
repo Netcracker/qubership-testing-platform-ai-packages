@@ -460,7 +460,7 @@ several applications needs them in one file: name them in `combine=`.
 Most projects do not need this, so `validate=` is `no` and the agent never looks for XSD files then. With
 `validate=yes` the agent checks each dictionary against its schema before converting. It takes the schema from the
 reference inside the file, and for a file without a reference (AVP dictionaries usually have none) from the folder in
-`xsd=`, by the root element and not by the file name. The exact order is in
+`xsd=`, by the root element and not by the filename. The exact order is in
 [the dictionary conversion page](dictionary-conversion.md#validate-the-sources).
 
 ```text
