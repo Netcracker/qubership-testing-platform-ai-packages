@@ -7,9 +7,10 @@ and checks the result: the repairs, the grouping of steps into sessions, the
 choice between several definitions of an AVP, the value conversions, the checks of
 the answer, the dynamic tags, placeholders, templates, the conversion of a ready
 scenario into a template, and the failure on an AVP that no dictionary has. The tests
-of the dictionary conversion are in selftest_dictionaries.py, which this file imports.
-The dry run and the check of the converted dictionaries in the Seagull image run only
-when the environment variable SEAGULL_IMAGE names an image and `sh` and `docker` work.
+of the dictionary conversion are in selftest_dictionaries.py, and those of the XSD
+validator (which need Java) in selftest_validator.py; this file imports both. The dry
+run and the check of the converted dictionaries in the Seagull image run only when the
+environment variable SEAGULL_IMAGE names an image and `sh` and `docker` work.
 
 Requires Python 3.9 or later.
 """
@@ -49,6 +50,7 @@ dictionary_tests = importlib.import_module("selftest_dictionaries")
 ConvertDictionariesTest = dictionary_tests.ConvertDictionariesTest
 FlagOptionsTest = dictionary_tests.FlagOptionsTest
 CheckConvertedTest = dictionary_tests.CheckConvertedTest
+ValidatorTest = importlib.import_module("selftest_validator").ValidatorTest
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 IMAGE = os.environ.get("SEAGULL_IMAGE", "")
 CHECKED = (

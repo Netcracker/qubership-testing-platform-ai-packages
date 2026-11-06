@@ -175,6 +175,23 @@ class FlagOptionsTest(unittest.TestCase):
             (second / "Gy.xml").read_text(encoding="iso-8859-1"),
         )
 
+    def test_xsd_folder_is_kept_for_the_validation_step(self) -> None:
+        """--xsd-dir is written to the options file and kept by the next run; output is the same."""
+        _, first, _, _ = self.convert_with("--xsd-dir", "/data/xsd")
+        ini = first / "dictionary-options.ini"
+        _, second, _, _ = self.convert_with("--options", str(ini))
+        _, plain, _, _ = self.convert_with()
+        saved = ini.read_text(encoding="utf-8")
+        kept = (second / "dictionary-options.ini").read_text(encoding="utf-8")
+        default = (plain / "dictionary-options.ini").read_text(encoding="utf-8")
+        self.assertIn("[validate]\nxsd = /data/xsd\n", saved)
+        self.assertIn("xsd = /data/xsd", kept)
+        self.assertNotIn("[validate]", default)
+        self.assertEqual(
+            (first / "Gy.xml").read_text(encoding="iso-8859-1"),
+            (plain / "Gy.xml").read_text(encoding="iso-8859-1"),
+        )
+
     def test_a_name_that_matches_nothing_is_a_warning(self) -> None:
         """A misspelled AVP or command is reported and does not stop the conversion."""
         pairs = ("--avp-flags", "No-Such-Avp=64", "--command-flags", "XYZ=1")

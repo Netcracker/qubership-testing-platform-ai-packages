@@ -405,7 +405,7 @@ scenario with `-dico`, to read the conversion report before you generate, or to 
 What the conversion does is in [the dictionary conversion page](dictionary-conversion.md).
 
 ```text
-/seagull-diameter-dictionary-convert <dictionaries folder> [out=<folder>] [combine=<A,B> ...] [rename=<OLD>=<NEW> ...] [command-flags=<KEY>=<N> ...] [avp-flags=<AVP>=<N> ...] [vendor-mandatory=source|yes|no] [options=<file>] [keep-tgpp=yes] [no-comments=yes] [validate=yes] [check=yes]
+/seagull-diameter-dictionary-convert <dictionaries folder> [out=<folder>] [combine=<A,B> ...] [rename=<OLD>=<NEW> ...] [command-flags=<KEY>=<N> ...] [avp-flags=<AVP>=<N> ...] [vendor-mandatory=source|yes|no] [options=<file>] [keep-tgpp=yes] [no-comments=yes] [validate=yes] [xsd=<folder>] [check=yes]
 ```
 
 | Argument            | Meaning                                                                                                                                                                                                           |
@@ -420,7 +420,8 @@ What the conversion does is in [the dictionary conversion page](dictionary-conve
 | `options=`          | A `dictionary-options.ini` that an earlier run wrote, to start from. The pairs of the prompt win over it                                                                                                          |
 | `keep-tgpp=`        | `yes` keeps the `TGPP-` prefix of AVP names instead of writing `3GPP-`                                                                                                                                            |
 | `no-comments=`      | `yes` leaves the enumeration values and the group members out of the results                                                                                                                                      |
-| `validate=`         | `yes` first checks the sources against the XSD files in the `xsd` folder of the input folder (needs Java 11)                                                                                                      |
+| `validate=`         | `yes` first checks the sources against their XSD files (needs Java 11). Default `no`: then no schema is looked for                                                                                                |
+| `xsd=`              | The folder of the XSD files, for `validate=yes`. Without it only the schema references inside the files are used                                                                                                  |
 | `check=`            | `yes` then loads each result in the Seagull image and runs one Credit-Control exchange (needs Docker)                                                                                                             |
 
 Example:
@@ -453,6 +454,21 @@ and finds the AVP names of the check scenario in it. It does not prove that an O
 
 Pass one result to Seagull with `-dico`. Seagull loads one dictionary for each run, so a run that sends messages of
 several applications needs them in one file: name them in `combine=`.
+
+#### Validate the sources
+
+Most projects do not need this, so `validate=` is `no` and the agent never looks for XSD files then. With
+`validate=yes` the agent checks each dictionary against its schema before converting. It takes the schema from the
+reference inside the file, and for a file without a reference (AVP dictionaries usually have none) from the folder in
+`xsd=`, by the root element and not by the file name. The exact order is in
+[the dictionary conversion page](dictionary-conversion.md#validate-the-sources).
+
+```text
+/seagull-diameter-dictionary-convert C:\work\dictionaries validate=yes xsd=C:\work\schemas
+```
+
+If a schema cannot be found, nothing is validated, and the agent asks in one message where the XSD files are and whether
+to keep the answer in `dictionary-options.ini`. A file that fails its schema is reported and still converted.
 
 #### Flags of commands and AVPs
 
@@ -596,7 +612,7 @@ files of this run. Keep your own edits out of the generated files: they say `Do 
 ## When something goes wrong
 
 | Symptom                                                 | Cause and fix                                                                                   |
-|---------------------------------------------------------|-------------------------------------------------------------------------------------------------|
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `the output folder is not empty: ...`                   | The folder holds files. Use another folder, or `replace=yes` to move its contents aside         |
 | The agent does not know the command                     | The skills are not loaded. Check that `apm install` finished, then restart the session          |
 | `AVP <name> is in none of the project dictionaries`     | Add the dictionary that defines the AVP to `merge=`                                             |
@@ -611,6 +627,7 @@ files of this run. Keep your own edits out of the generated files: they say `Do 
 | A scenario fails with `Refused (new) call`              | A CCA arrived with a Session-Id that the call had not used. Check the recorded answers          |
 | A scenario fails by timeout                             | The OCS did not answer in `timeout=` milliseconds. Raise it, or check the OCS                   |
 | `DiameterBaseProtocol.xml is required`                  | The dictionaries folder lacks the base protocol; add it, as the conversion merges it in         |
+| `NO SCHEMA ...` with `validate=yes`                     | No XSD file was found for those dictionaries; tell the agent where they are, or use `xsd=`      |
 | A dictionary fails `check=yes`                          | Seagull could not load it, or it lacks an AVP that the check scenario sends; read the `E` lines |
 
 ## Limits

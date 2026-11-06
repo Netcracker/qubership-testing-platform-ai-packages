@@ -16,6 +16,12 @@ The options file, dictionary-options.ini:
   vendor-mandatory = source   source, yes, or no: the M bit of every vendor AVP
   PDP-Address = 128           flags of one AVP, by its name in the output
 
+  [validate]
+  xsd = /data/xsd             the folder of the XSD files, for the validation step
+
+The conversion does not read schemas. The xsd key is only kept here so that the next run of the
+validation step finds the folder again.
+
 Requires Python 3.9 or later.
 """
 
@@ -30,6 +36,7 @@ POLICIES = ("source", "yes", "no")
 REQUEST_KEY = "request"
 ANSWER_KEY = "answer"
 POLICY_KEY = "vendor-mandatory"
+SECTIONS = ("command-flags", "avp-flags", "validate")
 HEAD = "# Read by dict2seagull.py (--options). Delete a line to restore the default.\n"
 
 
@@ -57,6 +64,7 @@ class FlagOptions:
     commands: dict[str, int] = field(default_factory=dict)
     vendor_mandatory: str = "source"
     avps: dict[str, int] = field(default_factory=dict)
+    xsd: str = ""
 
     def command_flags(self, name: str, answer: bool) -> int:
         """Return the flags of the request or answer with the Seagull name, such as CCR."""
@@ -133,13 +141,16 @@ def load_options(path: Path | None) -> FlagOptions:
             section = line[1:-1].strip()
             continue
         key, separator, text = line.partition("=")
-        if not separator or section not in ("command-flags", "avp-flags"):
-            expected = "[command-flags], [avp-flags], or KEY = VALUE"
+        known = section in SECTIONS and (section != "validate" or key.strip() == "xsd")
+        if not separator or not known:
+            expected = "[command-flags], [avp-flags], [validate] with xsd, or KEY = VALUE"
             raise DictionaryOptionsError(f"{path}:{number}: expected {expected}")
         if section == "command-flags":
             options.set_command(key.strip(), text)
-        else:
+        elif section == "avp-flags":
             options.set_avp(key.strip(), text)
+        else:
+            options.xsd = text.strip()
     return options
 
 
@@ -150,4 +161,6 @@ def save_options(path: Path, options: FlagOptions) -> None:
     lines += [f"{key} = {value}" for key, value in options.commands.items()]
     lines += ["", "[avp-flags]", f"{POLICY_KEY} = {options.vendor_mandatory}"]
     lines += [f"{key} = {value}" for key, value in options.avps.items()]
+    if options.xsd:
+        lines += ["", "[validate]", f"xsd = {options.xsd}"]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")

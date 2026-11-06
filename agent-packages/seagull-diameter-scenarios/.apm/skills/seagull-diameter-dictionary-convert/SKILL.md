@@ -2,7 +2,7 @@
 name: seagull-diameter-dictionary-convert
 description: Use only when the user types /seagull-diameter-dictionary-convert. Converts the project's Diameter dictionaries into Seagull dictionaries, each merged with the base protocol, and can validate the sources against their XSD files and check the result in the Seagull image.
 disable-model-invocation: true
-argument-hint: "<dictionaries folder> [out=<folder>] [combine=<A,B> ...] [rename=<OLD>=<NEW> ...] [command-flags=<KEY>=<N> ...] [avp-flags=<AVP>=<N> ...] [vendor-mandatory=source|yes|no] [options=<file>] [keep-tgpp=yes] [no-comments=yes] [validate=yes] [check=yes]"
+argument-hint: "<dictionaries folder> [out=<folder>] [combine=<A,B> ...] [rename=<OLD>=<NEW> ...] [command-flags=<KEY>=<N> ...] [avp-flags=<AVP>=<N> ...] [vendor-mandatory=source|yes|no] [options=<file>] [keep-tgpp=yes] [no-comments=yes] [validate=yes] [xsd=<folder>] [check=yes]"
 metadata:
   opencode/slash: "true"
   opencode/autoinvoke: "false"
@@ -22,11 +22,11 @@ scenario with `-dico`, to read the conversion report before generating, or to ch
 ## Arguments
 
 ```text
-/seagull-diameter-dictionary-convert <dictionaries folder> [out=<folder>] [combine=<A,B> ...] [rename=<OLD>=<NEW> ...] [command-flags=<KEY>=<N> ...] [avp-flags=<AVP>=<N> ...] [vendor-mandatory=source|yes|no] [options=<file>] [keep-tgpp=yes] [no-comments=yes] [validate=yes] [check=yes]
+/seagull-diameter-dictionary-convert <dictionaries folder> [out=<folder>] [combine=<A,B> ...] [rename=<OLD>=<NEW> ...] [command-flags=<KEY>=<N> ...] [avp-flags=<AVP>=<N> ...] [vendor-mandatory=source|yes|no] [options=<file>] [keep-tgpp=yes] [no-comments=yes] [validate=yes] [xsd=<folder>] [check=yes]
 ```
 
 | Argument            | Meaning                                                                                                                                                                               | Default                                                                                    |
-| ------------------- |---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------| ------------------------------------------------------------------------------------------ |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | first argument      | The folder with the project's AVP dictionaries. `DiameterBaseProtocol.xml` must be among them                                                                                         | required                                                                                   |
 | `out=`              | The folder to write to. It must be new or empty                                                                                                                                       | a new folder, `Seagull-Dictionary` or `Seagull-Dictionary-2`, ... next to the input folder |
 | `combine=`          | Filenames without `.xml`, separated by commas and without spaces; repeat for more combinations. Writes one merged file for each, named after its parts joined with `+`                | none                                                                                       |
@@ -37,7 +37,8 @@ scenario with `-dico`, to read the conversion report before generating, or to ch
 | `options=`          | A `dictionary-options.ini` that an earlier run wrote, to start from. The pairs of the prompt win over it                                                                              | none                                                                                       |
 | `keep-tgpp=`        | `yes` keeps the `TGPP-` prefix of AVP names instead of writing `3GPP-`                                                                                                                | no                                                                                         |
 | `no-comments=`      | `yes` leaves the enumeration values and the group members out of the output                                                                                                           | no                                                                                         |
-| `validate=`         | `yes` first checks the sources against the XSD files in the input folder's `xsd` subfolder                                                                                            | no                                                                                         |
+| `validate=`         | `yes` first checks the sources against their XSD files. Without `yes`, no schema is looked for or opened                                                                              | no                                                                                         |
+| `xsd=`              | The folder of the XSD files, for `validate=yes`. Without it only the schema references inside the files are used                                                                      | `[validate] xsd` of the `options=` file, else none                                         |
 | `check=`            | `yes` then loads each result in the Seagull image and runs one Credit-Control exchange with it                                                                                        | no                                                                                         |
 
 Seagull loads one dictionary for each run, so a run that sends messages of several applications needs them in one file.
@@ -46,22 +47,40 @@ yourself.
 
 ## Run
 
-1. **Validate (only when `validate=yes`).** Needs Java 11 or later and the files `xsd/diameter-dictionary.xsd` and
-   `xsd/diameter-command.xsd` in the input folder.
+1. **Validate (only when `validate=yes`).** Needs Java 11 or later. With any other value, do not look for schema
+   files at all. Never search the disk for them; the validator takes the schema of each file only from the places below.
 
    ```bash
-   sh <skill folder>/scripts/validate.sh <dictionaries folder>
+   sh <skill folder>/scripts/validate.sh [--xsd-dir <folder>] <dictionaries folder>
    ```
 
-   It prints `valid`, or the number of errors for a file and each distinct message once. An invalid file does not stop
-   the conversion: tell the user which files failed and what the messages say, then continue. The validator checks the
-   structure that the XSD files describe, not that a code or a flag is right.
+   Pass `--xsd-dir` when the user gave `xsd=`, or the `options=` file has `[validate] xsd`. The validator chooses the
+   schema of each file in this order:
+   1. The reference in the file itself (`xsi:noNamespaceSchemaLocation` or `xsi:schemaLocation`), resolved against the
+      folder of the file.
+   2. If that file does not exist and `--xsd-dir` is given, the file of the same name in that folder, when it declares
+      the root element of the dictionary.
+   3. If `--xsd-dir` is given and the file has no usable reference, the one `.xsd` file there that declares the root
+      element of the dictionary as a global element. The file name does not matter.
+
+   The exit status tells what happened:
+   - 0: every file is valid. Print the result, which names the schema used for each file.
+   - 1: some file is invalid. Tell the user which files failed and what the messages say, then continue with the
+     conversion. The validator checks the structure that the XSD files describe, not that a code or a flag is right.
+   - 3: for some files no schema was found, and nothing was validated. The output lists the distinct problems, each
+     with the number of files it affects. Stop, show them to the user, and ask two questions in one message: where the
+     XSD files are, and whether to keep the answer in `dictionary-options.ini` (the default is no). Run the validator
+     again with `--xsd-dir <answer>`. If the user cannot say, skip the validation, say so, and continue with the
+     conversion. When the user wants the answer kept, add `--xsd-dir <answer>` to the conversion command in step 2.
+   - 2: wrong arguments or a folder without `.xml` files.
+
+   `--plan` prints the schema chosen for each file without validating.
 2. **Convert.**
 
    ```bash
    python <skill folder>/scripts/convert_dictionaries.py <dictionaries folder> (--out <folder> | --out-auto) \
        [--combine A,B ...] [--rename OLD=NEW ...] [--command-flags KEY=N ...] [--avp-flags AVP=N ...] \
-       [--vendor-mandatory source|yes|no] [--options FILE] [--keep-tgpp] [--no-comments]
+       [--vendor-mandatory source|yes|no] [--options FILE] [--xsd-dir FOLDER] [--keep-tgpp] [--no-comments]
    ```
 
    Pass `--out-auto` when the user gave no `out=`. A folder that is not empty is refused (`the output folder is not
@@ -74,9 +93,9 @@ yourself.
      (the second is written as `<name>-v<vendor>c<code>`, so a scenario that uses the plain name gets the first
      definition), and an application command that replaced a base command of the same abbreviation. The script
      reports what looks inconsistent and corrects nothing: the dictionary's owners decide which definition is intended.
-   - Every `NOTE` line: a flags byte that differs from the default, such as `CCR: flags 192 (the converter's default is
-     128)`, `PDP-Address: flags 128 (the source gives 192)`, or the number of vendor AVPs whose M bit `vendor-mandatory=`
-     changed. A name in `command-flags=` or `avp-flags=` that matches nothing is a `WARNING`.
+   - Every `NOTE` line: a flags byte that differs from the default. It names the command or AVP and both values, or
+     gives the number of vendor AVPs whose M bit `vendor-mandatory=` changed. A name in `command-flags=` or
+     `avp-flags=` that matches nothing is a `WARNING`.
    - That the multiplicities, the enumeration values, and the group members are dropped or kept only as comments, so
      Seagull cannot check that a message is complete.
    - That the options in effect are in `dictionary-options.ini` in the output folder. Pass it as `options=` to repeat
