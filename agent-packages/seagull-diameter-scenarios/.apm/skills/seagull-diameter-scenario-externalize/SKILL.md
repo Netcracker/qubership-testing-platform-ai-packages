@@ -63,7 +63,7 @@ user specifies no pair, ask which AVPs should come from the data file; never pic
 4. **Run the dry run** on the new folder, as the generate skill describes:
 
    ```bash
-   sh <skill folder>/../seagull-diameter-scenario-generate/scripts/dry-run.sh <out folder> [<image>]
+   sh <skill folder>/../seagull-diameter-generate-scenarios/scripts/dry-run.sh <out folder> [<image>]
    ```
 
    The dry-run configuration reads the data file from `/work/scenario/` inside the Seagull image. The stub OCS answers

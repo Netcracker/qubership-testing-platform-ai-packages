@@ -33,7 +33,7 @@ from xml.etree import ElementTree
 
 sys.dont_write_bytecode = True  # keep __pycache__ out of the package
 SKILLS = Path(__file__).resolve().parents[1] / ".apm" / "skills"
-GENERATE_DIR = SKILLS / "seagull-diameter-scenario-generate" / "scripts"
+GENERATE_DIR = SKILLS / "seagull-diameter-generate-scenarios" / "scripts"
 TEMPLATIZE_DIR = SKILLS / "seagull-diameter-scenario-templatize" / "scripts"
 sys.path.insert(0, str(SKILLS / "seagull-diameter-common" / "scripts"))
 sys.path.insert(0, str(GENERATE_DIR))

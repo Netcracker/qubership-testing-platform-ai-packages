@@ -23,6 +23,7 @@ INSTRUCTIONS = PACKAGE / ".apm" / "instructions"
 PLAIN_SKILLS = {
     "seagull-diameter-dictionary-convert": "seagull-diameter-convert-dictionaries",
     "seagull-diameter-steps-extract": "seagull-diameter-extract-steps",
+    "seagull-diameter-scenario-generate": "seagull-diameter-generate-scenarios",
 }
 LINK = re.compile(r"\]\(([^)\s]+)\)")
 

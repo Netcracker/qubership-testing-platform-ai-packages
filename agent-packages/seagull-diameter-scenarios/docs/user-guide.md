@@ -68,12 +68,14 @@ package. After an upgrade, generate once with the same arguments and compare the
 | `/seagull-diameter-scenario-externalize` | command | Make chosen AVPs read their values from a CSV data file, one row for each call                   |
 | `/seagull-diameter-dictionary-convert`   | command | Convert the project's dictionaries into Seagull dictionaries, and check them                     |
 | `seagull-diameter-extract-steps`         | plain   | Do the same as the steps command, from a request in your own words                               |
+| `seagull-diameter-generate-scenarios`    | plain   | Do the same as the generate command, from a request in your own words                            |
 | `seagull-diameter-convert-dictionaries`  | plain   | Do the same as the dictionary command, from a request in your own words                          |
 | `seagull-diameter-common`                | support | Hold the shared scripts and the formats. You never invoke it                                     |
 
 The commands run only when you type their name, and they take their arguments literally. A plain skill is picked by the
 agent from an ordinary request, such as "convert the dictionaries in C:\work\dictionaries". For now the extraction of
-steps and the dictionary conversion have a plain skill. The other tasks need the command.
+steps, the generation of scenarios, and the dictionary conversion have a plain skill. The other tasks need the
+command.
 
 ### Plain requests
 
@@ -161,6 +163,13 @@ A source folder that already has the files skips the extraction; the agent only 
 
 **Purpose.** Reads the steps folder and writes the client scenarios, a stub OCS for the dry run, the configuration, and
 a Seagull dictionary merged from your project dictionaries. Then it runs the dry run.
+
+You can also ask in plain words, for example "generate scenarios from C:\work\Diameter-Steps, the dictionaries are in
+C:\work\dictionaries, merge RoSCP and Gy, and log every step". The agent follows the skill
+`seagull-diameter-generate-scenarios` and the rules in "Plain requests" above. It generates, but it runs the dry run
+only when you ask for it, with "and run it against the stub" in the request or with a yes to its offer; until then it
+says that the scenarios are not verified. It asks which dictionaries to merge and which AVPs become placeholders when
+you do not say, and a generation into a folder that has files stops until you choose another folder or `replace=yes`.
 
 **Arguments.**
 
@@ -256,7 +265,7 @@ answer, and runs each client scenario against it. It never calls the scenarios w
 it yourself:
 
 ```bash
-sh .apm/skills/seagull-diameter-scenario-generate/scripts/dry-run.sh <out folder> [<image>]
+sh .apm/skills/seagull-diameter-generate-scenarios/scripts/dry-run.sh <out folder> [<image>]
 ```
 
 Expected, one line for each scenario:
@@ -418,7 +427,7 @@ The dry run runs the new folder as it is. It makes `calls=` calls and reads one 
 reads the file and sends the values. The line shows the number of calls (`successful calls: 50, failed calls: 0`):
 
 ```bash
-sh .apm/skills/seagull-diameter-scenario-generate/scripts/dry-run.sh C:\work\Seagull-Scenario-external
+sh .apm/skills/seagull-diameter-generate-scenarios/scripts/dry-run.sh C:\work\Seagull-Scenario-external
 ```
 
 ### /seagull-diameter-dictionary-convert
