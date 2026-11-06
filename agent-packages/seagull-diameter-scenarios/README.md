@@ -11,14 +11,15 @@ To install the package and run the skills, follow the [user guide](docs/user-gui
 
 The first five skills are commands: the agent runs them only when you type their name, and takes their arguments
 literally. A task can also have a skill that the agent picks from a plain request. That skill does the work, and the
-command is a frontend for it with formal arguments. The plain skills so far:
+command is a frontend for it with formal arguments. Every task has one:
 
-| Plain-language skill                                                                                | The command it serves                   |
-| --------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| [seagull-diameter-extract-steps](.apm/skills/seagull-diameter-extract-steps/SKILL.md)               | `/seagull-diameter-steps-extract`       |
-| [seagull-diameter-generate-scenarios](.apm/skills/seagull-diameter-generate-scenarios/SKILL.md)     | `/seagull-diameter-scenario-generate`   |
-| [seagull-diameter-templatize-scenarios](.apm/skills/seagull-diameter-templatize-scenarios/SKILL.md) | `/seagull-diameter-scenario-templatize` |
-| [seagull-diameter-convert-dictionaries](.apm/skills/seagull-diameter-convert-dictionaries/SKILL.md) | `/seagull-diameter-dictionary-convert`  |
+| Plain-language skill                                                                                  | The command it serves                    |
+| ----------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| [seagull-diameter-extract-steps](.apm/skills/seagull-diameter-extract-steps/SKILL.md)                 | `/seagull-diameter-steps-extract`        |
+| [seagull-diameter-generate-scenarios](.apm/skills/seagull-diameter-generate-scenarios/SKILL.md)       | `/seagull-diameter-scenario-generate`    |
+| [seagull-diameter-templatize-scenarios](.apm/skills/seagull-diameter-templatize-scenarios/SKILL.md)   | `/seagull-diameter-scenario-templatize`  |
+| [seagull-diameter-externalize-scenarios](.apm/skills/seagull-diameter-externalize-scenarios/SKILL.md) | `/seagull-diameter-scenario-externalize` |
+| [seagull-diameter-convert-dictionaries](.apm/skills/seagull-diameter-convert-dictionaries/SKILL.md)   | `/seagull-diameter-dictionary-convert`   |
 
 When a plain request starts a task, the package instruction
 [seagull-diameter-scenarios](.apm/instructions/seagull-diameter-scenarios.instructions.md) applies: the agent does not
