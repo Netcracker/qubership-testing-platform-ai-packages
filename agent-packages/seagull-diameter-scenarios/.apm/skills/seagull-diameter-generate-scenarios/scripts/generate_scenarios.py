@@ -41,8 +41,8 @@ import argparse
 import calendar
 import copy
 import importlib
-import os
 import ipaddress
+import os
 import re
 import sys
 import time

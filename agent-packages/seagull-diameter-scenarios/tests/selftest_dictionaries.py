@@ -45,7 +45,7 @@ def run_convert(argv: list[str]) -> tuple[int, str, str]:
     return status, stdout.getvalue(), stderr.getvalue()
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def converted_gy(*extra: str) -> Path:
     """Convert the fixture dictionaries once; return the Seagull dictionary made of Gy."""
     folder = Path(tempfile.mkdtemp(prefix="seagull-selftest-dictionary-"))

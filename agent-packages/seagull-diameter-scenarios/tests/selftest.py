@@ -805,9 +805,9 @@ class DictionaryInputTest(unittest.TestCase):
         self.addCleanup(shutil.rmtree, out.parent, ignore_errors=True)
         argv = ["--steps", str(FIXTURES / "steps"), "--out", str(out), *extra]
         stderr = io.StringIO()
-        with mock.patch.object(generate.seagull_config, "resolve", return_value=("", "")):
-            with redirect_stdout(io.StringIO()), redirect_stderr(stderr):
-                status = generate.main(argv)
+        patch = mock.patch.object(generate.seagull_config, "resolve", return_value=("", ""))
+        with patch, redirect_stdout(io.StringIO()), redirect_stderr(stderr):
+            status = generate.main(argv)
         return status, out, stderr.getvalue()
 
     def test_no_dictionary_stops_and_says_how_to_get_one(self) -> None:
@@ -837,9 +837,9 @@ class DictionaryInputTest(unittest.TestCase):
         self.addCleanup(shutil.rmtree, out.parent, ignore_errors=True)
         path = str(dictionary_tests.converted_gy())
         argv = ["--steps", str(FIXTURES / "steps"), "--out", str(out)]
-        with mock.patch.object(generate.seagull_config, "resolve", return_value=(path, "test")):
-            with redirect_stdout(io.StringIO()):
-                self.assertEqual(generate.main(argv), 0)
+        patch = mock.patch.object(generate.seagull_config, "resolve", return_value=(path, "test"))
+        with patch, redirect_stdout(io.StringIO()):
+            self.assertEqual(generate.main(argv), 0)
         self.assertTrue((out / "dictionary" / "diameter-dictionary.xml").is_file())
 
     def test_enumeration_names_need_the_values_in_the_dictionary(self) -> None:
