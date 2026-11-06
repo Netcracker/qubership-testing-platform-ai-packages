@@ -22,6 +22,7 @@ INSTRUCTIONS = PACKAGE / ".apm" / "instructions"
 # command skill -> the plain-language skill whose steps it runs
 PLAIN_SKILLS = {
     "seagull-diameter-dictionary-convert": "seagull-diameter-convert-dictionaries",
+    "seagull-diameter-steps-extract": "seagull-diameter-extract-steps",
 }
 LINK = re.compile(r"\]\(([^)\s]+)\)")
 

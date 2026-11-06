@@ -67,12 +67,13 @@ package. After an upgrade, generate once with the same arguments and compare the
 | `/seagull-diameter-scenario-templatize`  | command | Turn generated scenarios into templates, without reading the steps again                         |
 | `/seagull-diameter-scenario-externalize` | command | Make chosen AVPs read their values from a CSV data file, one row for each call                   |
 | `/seagull-diameter-dictionary-convert`   | command | Convert the project's dictionaries into Seagull dictionaries, and check them                     |
+| `seagull-diameter-extract-steps`         | plain   | Do the same as the steps command, from a request in your own words                               |
 | `seagull-diameter-convert-dictionaries`  | plain   | Do the same as the dictionary command, from a request in your own words                          |
 | `seagull-diameter-common`                | support | Hold the shared scripts and the formats. You never invoke it                                     |
 
 The commands run only when you type their name, and they take their arguments literally. A plain skill is picked by the
-agent from an ordinary request, such as "convert the dictionaries in C:\work\dictionaries". For now the dictionary
-conversion is the only task with a plain skill. The other tasks need the command.
+agent from an ordinary request, such as "convert the dictionaries in C:\work\dictionaries". For now the extraction of
+steps and the dictionary conversion have a plain skill. The other tasks need the command.
 
 ### Plain requests
 
@@ -93,6 +94,12 @@ The command is the place for many exact parameters. Both ways give the same resu
 **Purpose.** Reads a recorded run and writes each Diameter request and each response to its own file. The structure of
 your file differs from every other, so the skill has none built-in. You describe it in the prompt and the skill does
 what you said.
+
+You can also ask in plain words, for example "extract the Diameter steps from C:\work\Steps.xlsx: the sheet is Main,
+column F holds the request, column G the response". The agent follows the skill `seagull-diameter-extract-steps` and
+the rules in "Plain requests" above. If your description leaves one of the questions of the skill open, it asks them all
+in one message, and when you described the file in running text it restates the rules as it understood them before it
+writes anything.
 
 **Arguments.**
 
