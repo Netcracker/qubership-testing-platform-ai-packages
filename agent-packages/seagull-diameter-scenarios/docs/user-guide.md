@@ -70,13 +70,13 @@ package. After an upgrade, generate once with the same arguments and compare the
 | `seagull-diameter-extract-steps`         | plain   | Do the same as the steps command, from a request in your own words                               |
 | `seagull-diameter-generate-scenarios`    | plain   | Do the same as the generate command, from a request in your own words                            |
 | `seagull-diameter-templatize-scenarios`  | plain   | Do the same as the templatize command, from a request in your own words                          |
+| `seagull-diameter-externalize-scenarios` | plain   | Do the same as the externalize command, from a request in your own words                         |
 | `seagull-diameter-convert-dictionaries`  | plain   | Do the same as the dictionary command, from a request in your own words                          |
 | `seagull-diameter-common`                | support | Hold the shared scripts and the formats. You never invoke it                                     |
 
 The commands run only when you type their name, and they take their arguments literally. A plain skill is picked by the
-agent from an ordinary request, such as "convert the dictionaries in C:\work\dictionaries". For now the extraction of
-steps, the generation of scenarios, the making of templates, and the dictionary conversion have a plain skill. The
-other task needs the command.
+agent from an ordinary request, such as "convert the dictionaries in C:\work\dictionaries". Every task has a plain
+skill, and the command is the place for many exact parameters.
 
 ### Plain requests
 
@@ -358,6 +358,12 @@ error: no value for placeholder(s) RATING_GROUP
 **Purpose.** Makes chosen AVPs read their values from a CSV file while Seagull runs. Seagull picks one row for each
 call, so one scenario can send many subscribers or Session-Ids without a new scenario for each. Use it after generation,
 when you want the values outside the scenario and outside the command line.
+
+You can also ask in plain words, for example "read the subscriber number of the scenarios in
+C:\work\Seagull-Scenario\scenario from a data file, column MSISDN, and make 50 calls at random". The agent follows the
+skill `seagull-diameter-externalize-scenarios` and the rules in "Plain requests" above. It asks which AVPs come from
+the file when you do not say, proposes names for the columns if you give none, and says how it understood the numbers
+before it runs. The result always goes to a new folder. It does not run the dry run unless you ask.
 
 **Arguments.**
 

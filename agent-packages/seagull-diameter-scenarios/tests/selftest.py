@@ -38,7 +38,7 @@ TEMPLATIZE_DIR = SKILLS / "seagull-diameter-templatize-scenarios" / "scripts"
 sys.path.insert(0, str(SKILLS / "seagull-diameter-common" / "scripts"))
 sys.path.insert(0, str(GENERATE_DIR))
 sys.path.insert(0, str(TEMPLATIZE_DIR))
-sys.path.insert(0, str(SKILLS / "seagull-diameter-scenario-externalize" / "scripts"))
+sys.path.insert(0, str(SKILLS / "seagull-diameter-externalize-scenarios" / "scripts"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 check_steps = importlib.import_module("check_steps")
 generate = importlib.import_module("generate_scenarios")
