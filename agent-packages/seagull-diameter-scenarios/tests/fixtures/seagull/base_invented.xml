@@ -1,0 +1,85 @@
+<!-- Invented test data for selftest.py: a Seagull dictionary with the base protocol, not a real one. -->
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<protocol name="diameter-v1" type="binary" padding="4">
+
+  <dictionary>
+    <avp>
+      <define name="Host-IP-Address" type="OctetString">
+        <setfield name="avp-code" value="257"></setfield>
+        <setfield name="flags" value="64"></setfield>
+      </define>
+      <define name="Auth-Application-Id" type="Integer32">
+        <setfield name="avp-code" value="258"></setfield>
+        <setfield name="flags" value="64"></setfield>
+      </define>
+      <define name="Session-Id" type="OctetString">
+        <setfield name="avp-code" value="263"></setfield>
+        <setfield name="flags" value="64"></setfield>
+      </define>
+      <define name="Origin-Host" type="OctetString">
+        <setfield name="avp-code" value="264"></setfield>
+        <setfield name="flags" value="64"></setfield>
+      </define>
+      <define name="Vendor-Id" type="Unsigned32">
+        <setfield name="avp-code" value="266"></setfield>
+        <setfield name="flags" value="64"></setfield>
+      </define>
+      <define name="Result-Code" type="Unsigned32">
+        <setfield name="avp-code" value="268"></setfield>
+        <setfield name="flags" value="64"></setfield>
+      </define>
+      <define name="Product-Name" type="OctetString">
+        <setfield name="avp-code" value="269"></setfield>
+        <setfield name="flags" value="64"></setfield>
+      </define>
+      <define name="Origin-Realm" type="OctetString">
+        <setfield name="avp-code" value="296"></setfield>
+        <setfield name="flags" value="64"></setfield>
+      </define>
+      <define name="Destination-Realm" type="OctetString">
+        <setfield name="avp-code" value="283"></setfield>
+        <setfield name="flags" value="64"></setfield>
+      </define>
+      <define name="Destination-Host" type="OctetString">
+        <setfield name="avp-code" value="293"></setfield>
+        <setfield name="flags" value="64"></setfield>
+      </define>
+      <define name="Event-Timestamp" type="OctetString">
+        <setfield name="avp-code" value="55"></setfield>
+        <setfield name="flags" value="64"></setfield>
+      </define>
+      <define name="User-Name" type="OctetString">
+        <setfield name="avp-code" value="1"></setfield>
+        <setfield name="flags" value="64"></setfield>
+      </define>
+      <define name="Invented-Extra" type="Unsigned32">
+        <setfield name="avp-code" value="9001"></setfield>
+        <setfield name="flags" value="64"></setfield>
+      </define>
+    </avp>
+
+    <command session-id="Session-Id" out-of-session-id="HbH-id">
+      <define name="CER">
+        <setfield name="flags" value="128"></setfield>
+        <setfield name="cmd-code" value="257"></setfield>
+        <setfield name="protocol-version" value="1"></setfield>
+      </define>
+      <define name="CEA">
+        <setfield name="flags" value="0"></setfield>
+        <setfield name="cmd-code" value="257"></setfield>
+        <setfield name="protocol-version" value="1"></setfield>
+      </define>
+      <define name="DWR">
+        <setfield name="flags" value="128"></setfield>
+        <setfield name="cmd-code" value="280"></setfield>
+        <setfield name="protocol-version" value="1"></setfield>
+      </define>
+      <define name="DWA">
+        <setfield name="flags" value="0"></setfield>
+        <setfield name="cmd-code" value="280"></setfield>
+        <setfield name="protocol-version" value="1"></setfield>
+      </define>
+    </command>
+  </dictionary>
+
+</protocol>

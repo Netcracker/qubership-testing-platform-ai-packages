@@ -22,8 +22,10 @@ You need:
   the repository that holds the Seagull `Dockerfile`; on Windows, Docker works in WSL, and you run the shell scripts as
   `wsl sh <script> ...`), or a Seagull for Windows, with its `seagull.exe`. See
   [Where Seagull runs](#where-seagull-runs).
-- The project's Diameter dictionaries in the project format, in one folder, with `DiameterBaseProtocol.xml` among them.
-  Seagull reads its own format, so the generator converts them.
+- The project's Diameter dictionaries in the project format, in one folder. They must define the
+  Diameter base protocol (`CER`, `DWR`, and the AVPs of the handshake), in any file; see
+  [The base protocol](dictionary-conversion.md#the-base-protocol). Seagull reads its own format, so the generator
+  converts them.
 - The recorded run: either a file you can describe (an `xlsx` export of a test database, for example) or a folder that
   already has the `Step-NNN-request.txt` and `Step-NNN-response.txt` files.
 
@@ -194,6 +196,7 @@ you do not say, and a generation into a folder that has files stops until you ch
 | `mode=`          | `scenario` for fixed values, `template` for placeholders                                                  | the options file, else `scenario`                            |
 | `placeholder=`   | One `<AVP>=<NAME>` pair; repeat it. An empty `<NAME>` removes the pair                                    | the pairs in the options file                                |
 | `option=`        | One `<key>=<value>` option, see [Options and tags](#options-and-tags)                                     | the options file                                             |
+| `seagull-base=`  | A `base_draft08.xml` of Seagull for a folder without the base protocol. Your definitions win              | none: such a folder is refused                               |
 | `options=`       | An older options file to start from; it is only read. The result goes to the output folder                | `scenario-options.ini` in the output folder                  |
 
 When you leave out `dictionaries=` or `merge=`, the agent lists the files of the dictionary folder and asks which to
@@ -464,7 +467,7 @@ one file". The agent then follows the skill `seagull-diameter-convert-dictionari
 
 | Argument            | Meaning                                                                                                                                                                                                           |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| first argument      | The folder with the project's AVP dictionaries. It must hold `DiameterBaseProtocol.xml`                                                                                                                           |
+| first argument      | The folder with the project's AVP dictionaries. It must define the base protocol, in any file                                                                                                                     |
 | `out=`              | The folder to write to. It must be new or empty. Default: `Seagull-Dictionary`, `Seagull-Dictionary-2`, ... next to the input folder                                                                              |
 | `combine=`          | Names of dictionaries, without `.xml` and separated by commas, to merge into one file; repeat for more files                                                                                                      |
 | `rename=`           | `OLD=NEW`: renames an AVP in every result, to match the name a scenario uses; repeat for more pairs                                                                                                               |
@@ -476,6 +479,7 @@ one file". The agent then follows the skill `seagull-diameter-convert-dictionari
 | `no-comments=`      | `yes` leaves the enumeration values and the group members out of the results                                                                                                                                      |
 | `validate=`         | `yes` first checks the sources against their XSD files (needs Java 11). Default `no`: then no schema is looked for                                                                                                |
 | `xsd=`              | The folder of the XSD files, for `validate=yes`. Without it only the schema references inside the files are used                                                                                                  |
+| `seagull-base=`     | A `base_draft08.xml` of Seagull that supplies the base protocol the folder lacks. Your definitions win; the agent asks first                                                                                      |
 | `check=`            | `yes` then loads each result in Seagull and runs one Credit-Control exchange (Docker or Seagull for Windows)                                                                                                      |
 
 Example:
@@ -712,7 +716,7 @@ files of this run. Keep your own edits out of the generated files: they say `Do 
 | `no statistics file` in the dry run                     | Seagull did not start. Look for a carriage return in a generated file, and for a missing image  |
 | A scenario fails with `Refused (new) call`              | A CCA arrived with a Session-Id that the call had not used. Check the recorded answers          |
 | A scenario fails by timeout                             | The OCS did not answer in `timeout=` milliseconds. Raise it, or check the OCS                   |
-| `DiameterBaseProtocol.xml is required`                  | The dictionaries folder lacks the base protocol; add it, as the conversion merges it in         |
+| `do not define the base protocol`                       | Add the files that define it, or allow the Seagull dictionary (`seagull-base=`)                 |
 | `NO SCHEMA ...` with `validate=yes`                     | No XSD file was found for those dictionaries; tell the agent where they are, or use `xsd=`      |
 | A dictionary fails `check=yes`                          | Seagull could not load it, or it lacks an AVP that the check scenario sends; read the `E` lines |
 

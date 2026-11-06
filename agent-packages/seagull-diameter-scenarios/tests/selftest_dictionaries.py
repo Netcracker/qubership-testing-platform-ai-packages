@@ -29,6 +29,7 @@ SKILLS = Path(__file__).resolve().parents[1] / ".apm" / "skills"
 CONVERT_DIR = SKILLS / "seagull-diameter-convert-dictionaries" / "scripts"
 sys.path.insert(0, str(SKILLS / "seagull-diameter-common" / "scripts"))
 sys.path.insert(0, str(CONVERT_DIR))
+sys.path.insert(0, str(SKILLS / "seagull-diameter-generate-scenarios" / "scripts"))
 convert = importlib.import_module("convert_dictionaries")
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 IMAGE = os.environ.get("SEAGULL_IMAGE", "")
@@ -87,18 +88,118 @@ class ConvertDictionariesTest(unittest.TestCase):
         self.assertIn('name="3GPP-Charging-Id"', texts["plain"])
         self.assertIn('name="TGPP-Charging-Id"', texts["kept"])
 
-    def test_missing_base_protocol_writes_nothing(self) -> None:
-        """Without DiameterBaseProtocol.xml the status is 2 and no folder is created."""
-        with tempfile.TemporaryDirectory(prefix="seagull-selftest-") as folder:
-            source = Path(folder) / "dictionaries"
-            source.mkdir()
-            shutil.copy(FIXTURES / "dictionaries" / "Gy.xml", source)
-            out = Path(folder) / "out"
-            status, _, error = run_convert([str(source), "--out", str(out)])
-            created = out.exists()
+
+SEAGULL_BASE = FIXTURES / "seagull" / "base_invented.xml"
+MINE = """<dictionary><vendor id="0" name="base">
+  <avp name="Sess-Id" code="263" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="no">
+    <type type-name="UTF8String"/>
+  </avp>
+  <avp name="Invented-Extra" code="5555" mandatory="may" protected="may" may-encrypt="yes" vendor-specific="no">
+    <type type-name="Unsigned32"/>
+  </avp>
+</vendor></dictionary>
+"""
+
+
+class BaseProtocolTest(unittest.TestCase):
+    """The base protocol is found by its content, and missing items can come from Seagull."""
+
+    def folder(self, *names: str) -> tuple[Path, Path]:
+        """Return a new folder with the named fixture dictionaries, and the path of an output."""
+        root = Path(tempfile.mkdtemp(prefix="seagull-selftest-"))
+        self.addCleanup(shutil.rmtree, root, ignore_errors=True)
+        source = root / "dictionaries"
+        source.mkdir()
+        for name in names:
+            shutil.copy(FIXTURES / "dictionaries" / name, source)
+        return source, root / "out"
+
+    def test_base_is_found_by_its_content_and_not_by_its_name(self) -> None:
+        """A base protocol in a file with another name is used, and the report says so."""
+        source, out = self.folder("DiameterBaseProtocol.xml", "Gy.xml")
+        (source / "DiameterBaseProtocol.xml").rename(source / "Base.xml")
+        status, text, error = run_convert([str(source), "--out", str(out)])
+        self.assertEqual(status, 0, error)
+        self.assertIn("NOTE the base protocol is taken from Base (found by its commands)", text)
+        self.assertEqual(defined_flags(out / "Gy.xml", "CER"), 128)
+
+    def test_missing_base_lists_the_codes_and_offers_the_choice(self) -> None:
+        """Without the base protocol nothing is written; the message names codes and options."""
+        source, out = self.folder("Gy.xml")
+        status, _, error = run_convert([str(source), "--out", str(out)])
         self.assertEqual(status, 2)
-        self.assertIn("DiameterBaseProtocol.xml is required", error)
-        self.assertFalse(created)
+        self.assertIn("missing AVP 257 (Host-IP-Address)", error)
+        self.assertIn("command 280 (DWR/DWA)", error)
+        self.assertIn("--seagull-base", error)
+        self.assertFalse(out.exists())
+
+    def test_seagull_dictionary_supplies_the_base_protocol(self) -> None:
+        """The base protocol of the Seagull dictionary is added, and the report says so."""
+        source, out = self.folder("Gy.xml")
+        argv = [str(source), "--out", str(out), "--seagull-base", str(SEAGULL_BASE)]
+        status, text, error = run_convert(argv)
+        self.assertEqual(status, 0, error)
+        self.assertIn("added 13 AVPs and 2 command pairs from base_invented.xml", text)
+        self.assertIn("may be wrong in places", text)
+        gy = out / "Gy.xml"
+        self.assertEqual((defined_flags(gy, "CER"), defined_flags(gy, "Origin-Host")), (128, 64))
+        self.assertEqual(defined_flags(gy, "Destination-Realm"), 64)
+
+    def test_the_users_dictionary_wins_over_the_seagull_one(self) -> None:
+        """A name or a code defined by the user keeps the user's definition; nothing is renamed."""
+        source, out = self.folder("Gy.xml")
+        (source / "Mine.xml").write_text(MINE, encoding="utf-8")
+        argv = [str(source), "--out", str(out), "--combine", "Gy,Mine"]
+        argv += ["--seagull-base", str(SEAGULL_BASE)]
+        status, _, error = run_convert(argv)
+        text = (out / "Gy+Mine.xml").read_text(encoding="iso-8859-1")
+        self.assertEqual(status, 0, error)
+        self.assertIn('name="Sess-Id"', text)
+        self.assertNotIn('name="Session-Id"', text)
+        self.assertIn('name="Invented-Extra" type="Unsigned32">', text)
+        self.assertIn('value="5555"', text)
+        self.assertNotIn('value="9001"', text)
+
+    def test_a_name_taken_with_another_code_is_not_filled(self) -> None:
+        """A user's AVP with the name of a required base AVP under another code leaves the gap."""
+        source, out = self.folder("Gy.xml")
+        taken = MINE.replace('name="Sess-Id" code="263"', 'name="Origin-Host" code="9999"')
+        (source / "Mine.xml").write_text(taken, encoding="utf-8")
+        argv = [str(source), "--out", str(out), "--seagull-base", str(SEAGULL_BASE)]
+        status, _, error = run_convert(argv)
+        self.assertEqual(status, 2)
+        self.assertIn("does not supply them either", error)
+        self.assertIn("AVP 264 (Origin-Host)", error)
+        self.assertFalse(out.exists())
+
+    def test_generation_works_without_the_base_file(self) -> None:
+        """The generator takes the missing base items from the Seagull dictionary too."""
+        source, out = self.folder("Gy.xml")
+        generate = importlib.import_module("generate_scenarios")
+        argv = ["--steps", str(FIXTURES / "steps"), "--dictionaries-dir", str(source)]
+        argv += ["--dictionaries", "Gy", "--out", str(out), "--seagull-base", str(SEAGULL_BASE)]
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(generate.main(argv), 0)
+        self.assertEqual(defined_flags(out / "dictionary" / "diameter-dictionary.xml", "CER"), 128)
+
+    def test_exporter_copies_the_file_from_a_windows_installation(self) -> None:
+        """export_seagull_base.py copies base_draft08.xml from next to seagull.exe."""
+        exporter = importlib.import_module("export_seagull_base")
+        root = Path(tempfile.mkdtemp(prefix="seagull-selftest-"))
+        self.addCleanup(shutil.rmtree, root, ignore_errors=True)
+        config = root / "Seagull" / "diameter-env" / "config"
+        config.mkdir(parents=True)
+        (root / "Seagull" / "seagull.exe").write_bytes(b"")
+        shutil.copy(SEAGULL_BASE, config / "base_draft08.xml")
+        out = root / "base.xml"
+        exe = root / "Seagull" / "seagull.exe"
+        argv = ["--runner", "windows", "--seagull-exe", str(exe), "--out", str(out)]
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(exporter.main(argv), 0)
+        self.assertEqual(out.read_bytes(), SEAGULL_BASE.read_bytes())
+        (config / "base_draft08.xml").unlink()
+        with redirect_stderr(io.StringIO()):
+            self.assertEqual(exporter.main(argv), 2)
 
 
 def defined_flags(path: Path, name: str) -> int:

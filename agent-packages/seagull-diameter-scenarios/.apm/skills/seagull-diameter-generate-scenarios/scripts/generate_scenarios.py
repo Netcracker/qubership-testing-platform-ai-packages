@@ -4,12 +4,15 @@ Usage:
   python generate_scenarios.py --steps STEPS_DIR --dictionaries-dir DIR
       --dictionaries A,B,C (--out OUT_DIR | --out-auto PARENT) [--replace]
       [--timeout-ms 5000] [--dest HOST:PORT]
-      [--host-ip IP] [--check-avps LIST] [--seagull-dictionary FILE]
+      [--host-ip IP] [--check-avps LIST] [--seagull-dictionary FILE] [--seagull-base FILE]
       [--options FILE] [--option KEY=VALUE ...] [--placeholder AVP=NAME ...]
 
 STEPS_DIR holds Step-NNN-request.txt and Step-NNN-response.txt (see the
-seagull-diameter-common skill). DIR holds the project's AVP dictionaries:
-DiameterBaseProtocol.xml and the files named in --dictionaries, merged in that order.
+seagull-diameter-common skill). DIR holds the project's AVP dictionaries: the files named
+in --dictionaries, merged in that order, and the file with the base protocol (by default
+DiameterBaseProtocol.xml, else the dictionary that defines the handshake commands). When
+the folder lacks part of the base protocol, --seagull-base FILE (base_draft08.xml of
+Seagull) supplies the missing items; see dict2seagull.py.
 
 Seagull ties an answer to its call by the Session-Id, so a scenario holds one
 Diameter session. The steps are cut into sessions at each change of Session-Id.
@@ -60,7 +63,6 @@ scenario_options = importlib.import_module("scenario_options")
 output_folder = importlib.import_module("output_folder")
 
 NTP_OFFSET = 2208988800
-BASE = "DiameterBaseProtocol"
 NUMERIC = {"Unsigned32", "Unsigned64", "Integer32", "Integer64", "Enumerated"}
 CHECKS = "Result-Code,Session-Id,Auth-Application-Id,CC-Request-Type,CC-Request-Number"
 STUB_ADDRESS = "127.0.0.1:3868"  # where the stub OCS of the dry run listens
@@ -175,6 +177,25 @@ def load_project(paths: list[Path]) -> dict[str, list[Any]]:
             if (avp.vendor_id, avp.code) not in {(k.vendor_id, k.code) for k in known}:
                 known.append(avp)
     return by_name
+
+
+def load_project_dictionaries(options: argparse.Namespace) -> dict[str, list[Any]]:
+    """Load the AVPs of the base protocol and of the named dictionaries.
+
+    The base protocol is the dictionary that dict2seagull.py takes as such. AVPs that only the
+    Seagull dictionary of --seagull-base has, such as a base AVP the folder lacks, are added
+    last, so every AVP of the project wins over it.
+    """
+    folder = options.dictionaries_dir
+    base = dict2seagull.base_sources(dict2seagull.load_dictionaries(folder))
+    names = [*base, *[n for n in options.dictionaries.split(",") if n not in base]]
+    project = load_project([folder / f"{n}.xml" for n in names])
+    if options.seagull_base:
+        for avp in dict2seagull.load_seagull_dictionary(options.seagull_base)[0]:
+            known = project.setdefault(avp.name, [])
+            if not known:
+                known.append(avp)
+    return project
 
 
 def read_seagull_dictionary(path: Path) -> ElementTree.Element:
@@ -749,21 +770,20 @@ def build_dictionary(options: argparse.Namespace) -> Path:
     argv = [str(options.dictionaries_dir), str(folder), "--combine", ",".join(names)]
     for pair in options.rename:
         argv += ["--rename", pair]
-    report = io.StringIO()
-    with contextlib.redirect_stdout(report):
+    if options.seagull_base:
+        argv += ["--seagull-base", str(options.seagull_base)]
+    report, errors = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(report), contextlib.redirect_stderr(errors):
         status = dict2seagull.main(argv)
     if status != 0:
-        raise GenerationError(f"the dictionary converter failed: {report.getvalue()}")
+        details = errors.getvalue() + report.getvalue()
+        raise GenerationError(f"the dictionary converter failed: {details}")
     final = folder / "diameter-dictionary.xml"
     final.write_bytes((folder / ("+".join(names) + ".xml")).read_bytes())
     for leftover in folder.glob("*.xml"):
         if leftover != final:
             leftover.unlink()
-    (folder / "conversion-report.txt").write_text(
-        report.getvalue(),
-        encoding="utf-8",
-        newline="\n",
-    )
+    (folder / "conversion-report.txt").write_text(report.getvalue(), encoding="utf-8", newline="\n")
     return final
 
 
@@ -786,6 +806,11 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
         help="move the old contents of a non-empty --out aside, then generate",
     )
     parser.add_argument("--seagull-dictionary", type=Path, help="already converted")
+    parser.add_argument(
+        "--seagull-base",
+        type=Path,
+        help="base_draft08.xml of Seagull, if the base is missing",
+    )
     parser.add_argument("--timeout-ms", type=int, default=5000)
     parser.add_argument("--dest", default="127.0.0.1:3868", help="address of the OCS")
     parser.add_argument("--host-ip", default="192.0.2.10", help="the CER announces it")
@@ -893,8 +918,7 @@ def prepare(
         final.write_bytes(options.seagull_dictionary.read_bytes())
     else:
         final = build_dictionary(options)
-    names = [BASE, *options.dictionaries.split(",")]
-    project = load_project([options.dictionaries_dir / f"{n}.xml" for n in names])
+    project = load_project_dictionaries(options)
     root = read_seagull_dictionary(final)
     defined = command_names_of(root)
     for step in steps:
