@@ -7,9 +7,10 @@ user-invocable: false
 # Convert the project's Diameter dictionaries for Seagull
 
 Seagull reads AVP and command definitions from a dictionary in its own XML format, and the project keeps its
-dictionaries in another one. This skill converts a folder of project dictionaries into Seagull dictionaries. It writes
-one file for each AVP dictionary, merged with `DiameterBaseProtocol.xml`, one more for each combination the user asks
-for, and a report of everything that looked inconsistent.
+dictionaries in another one. This skill converts a folder of project dictionaries into a Seagull dictionary. Seagull
+takes one dictionary file for each run, so the result is one file, `diameter-dictionary.xml`, made of all the AVP
+dictionaries of the folder and its base protocol, plus a report of everything that looked inconsistent. When the user
+asks, it writes one file for each dictionary, or one file of only some of them.
 
 [seagull-diameter-scenario-generate](../seagull-diameter-scenario-generate/SKILL.md) already converts and merges the
 dictionaries it needs. Use this skill when the user wants the converted dictionaries themselves: to run a handwritten
@@ -26,7 +27,7 @@ Take each parameter from the user's words, and apply the rule in the last column
 | ------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
 | dictionaries folder | "convert the dictionaries in C:\work\dictionaries"     | Required. Ask for it when missing. Never look for the folder yourself                     |
 | `out=`              | "write them to C:\work\out"                            | Optional. The folder must be new or empty. Without it, use `--out-auto`                   |
-| `combine=`          | "I need Gy and Sy together", "one file for all"        | Only dictionaries that the user specifies. Never pick a combination yourself              |
+| `combine=`          | "one file for each", "only Gy and Sy together"         | Default: one file of all. `no`: one for each. A list: only if the user specifies one      |
 | `rename=`           | "call the AVP Foo Bar instead"                         | Only pairs that the user gives                                                            |
 | flags               | "CCR flags 192", "set the M bit on vendor AVPs"        | Only values that the user gives. See "Flags"                                              |
 | `options=`          | "start from the options of the earlier run"            | The `dictionary-options.ini` of that run                                                  |
@@ -35,10 +36,14 @@ Take each parameter from the user's words, and apply the rule in the last column
 | `check=yes`         | "check that Seagull loads them", "try them in Seagull" | Starts Seagull. Run it only when the user asked; otherwise offer it at the end            |
 
 When you had to interpret the wording to fill a parameter, say how you understood it before you run anything, for
-example `combine=Gy,Sy`, and let the user correct it. When the folder or the combination is unclear, ask.
+example `combine=Gy,Sy`, and let the user correct it. When the folder or the list of dictionaries is unclear, ask.
 
-Seagull loads one dictionary for each run, so a run that sends messages of several applications needs them in one file.
-When the user specifies the dictionaries they use together, pass them in `combine=`.
+Seagull loads one dictionary for each run, so without `combine=` all the AVP dictionaries of the folder go into one
+file, in the alphabetical order of their filenames. For an AVP name that several of them define, the first one keeps the
+name. When the user specifies the dictionaries to use, or an order, pass them in `combine=`; the result is then only that
+file. Pass `combine=no` only when the user asks for one file for each dictionary. A folder may hold a dictionary that
+already merges the others, for example `CombinedDictionary.xml`. Do not drop it on your own; mention it, and let the
+user decide whether to list the dictionaries.
 
 ## Run
 
@@ -75,14 +80,15 @@ When the user specifies the dictionaries they use together, pass them in `combin
 
    ```bash
    python <skill folder>/scripts/convert_dictionaries.py <dictionaries folder> (--out <folder> | --out-auto) \
-       [--combine A,B ...] [--rename OLD=NEW ...] [--command-flags KEY=N ...] [--avp-flags AVP=N ...] \
-       [--vendor-mandatory source|yes|no] [--options FILE] [--xsd-dir FOLDER] [--keep-tgpp] [--no-comments]
+       [--combine yes|no|A,B ...] [--rename OLD=NEW ...] [--command-flags KEY=N ...] [--avp-flags AVP=N ...] \
+       [--vendor-mandatory source|yes|no] [--options FILE] [--xsd-dir FOLDER] [--keep-tgpp] [--no-comments] \
+       [--seagull-base FILE]
    ```
 
    Pass `--out-auto` when the user gave no output folder. A folder that is not empty is refused (`the output folder is
    not empty: ...`) and nothing is written; tell the user what the message says and ask for another folder. Never
-   delete or empty a folder to get past the refusal. Exit status 2 means `DiameterBaseProtocol.xml` is missing or a
-   combination names a file that is not in the input folder.
+   delete or empty a folder to get past the refusal. Exit status 2 means that a combination names a file that is not in
+   the input folder, or that the folder lacks the base protocol; see "The base protocol".
 3. **Read the report** (the script prints it and writes `conversion-report.txt`) and tell the user:
    - How many AVPs and command pairs each file has.
    - Every `WARNING` line. The usual ones are an AVP name that the sources define twice with another vendor or code
@@ -117,7 +123,7 @@ When the user specifies the dictionaries they use together, pass them in `combin
 5. **Say how to use the result.** Pass one file to Seagull with `-dico`:
 
    ```bash
-   seagull -conf <config> -dico <output folder>/Gy.xml -scen <scenario> -log <log>
+   seagull -conf <config> -dico <output folder>/diameter-dictionary.xml -scen <scenario> -log <log>
    ```
 
    To compare a converted dictionary with one of the dictionaries that ship with Seagull, by AVP name:
@@ -125,6 +131,39 @@ When the user specifies the dictionaries they use together, pass them in `combin
    ```bash
    python <skill folder>/scripts/compare_with_seagull.py <converted>.xml <seagull dictionary>.xml
    ```
+
+## The base protocol
+
+Seagull needs the commands `CER`/`CEA` (code 257) and `DWR`/`DWA` (code 280) and the AVPs 257, 258, 263, 264, 266,
+268, 269, and 296 in the dictionary it loads. The converter looks for them by code in every `.xml` dictionary of the
+folder, whatever the files are called. Nothing else supplies them: the project's service does not have a built-in base
+protocol for Seagull, and Seagull reads only the dictionary file it is given.
+
+When the folder lacks any of them, the converter writes nothing and exits with status 2; the message lists the missing
+codes. Then stop, show the message to the user, and offer two ways, without choosing one yourself:
+
+1. The user puts the files that define the base protocol into the folder, and you run the conversion again.
+2. The user allows the dictionary that ships with Seagull (`base_draft08.xml`). Warn that the dictionaries of the
+   Seagull distribution can be wrong in places and have not been checked against the project's OCS. Where the user's
+   dictionaries define the same name or code, the user's definition wins and nothing is renamed. Every item the
+   converter takes from Seagull is named in the report.
+
+Run the second way only after the user said yes to it. Get the file from the Seagull that the user runs, and ask where
+Seagull runs when the setting is missing, as [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs)
+describes:
+
+```bash
+python <skill folder>/scripts/export_seagull_base.py --runner windows --seagull-exe <path> --out <scratch>/base_draft08.xml
+python <skill folder>/scripts/export_seagull_base.py --runner docker [--image IMAGE] --out <scratch>/base_draft08.xml
+```
+
+The script prints the path of the file; pass it to the conversion as `--seagull-base <file>`. Write the file to a
+scratch folder, never into the user's dictionaries folder. Never use a Seagull dictionary that the user did not allow,
+and never look for one on the disk by yourself.
+
+The Seagull dictionary does not define every base AVP. `Event-Timestamp` (code 55), for one, is missing. A scenario or
+the check of step 4 that uses such an AVP then fails with `No definition found for [Event-Timestamp]`. Tell the user
+which AVP it is and that their own dictionaries have to define it.
 
 ## Flags
 

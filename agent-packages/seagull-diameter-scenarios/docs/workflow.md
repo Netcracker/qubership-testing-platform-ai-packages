@@ -69,7 +69,7 @@ dictionaries it merges itself.
 stateDiagram-v2
     direction LR
 
-    state "Project dictionaries<br/>folder with DiameterBaseProtocol.xml" as Project
+    state "Project dictionaries<br/>folder that defines the base protocol" as Project
     state "Converted dictionaries<br/>new folder, conversion-report.txt" as Converted
     state "Dictionaries that Seagull loads" as Loaded
 
@@ -83,7 +83,7 @@ stateDiagram-v2
 
 | Transition                        | Moved by                  | Needs                                        | Produces                                                             |
 | --------------------------------- | ------------------------- | -------------------------------------------- | -------------------------------------------------------------------- |
-| Project to Converted dictionaries | `convert_dictionaries.py` | The folder, and a new or empty output folder | One Seagull file for each AVP dictionary, the combinations, a report |
+| Project to Converted dictionaries | `convert_dictionaries.py` | The folder, and a new or empty output folder | One Seagull file of all the dictionaries, a report                   |
 | Converted to Loaded               | `check-converted.sh`      | Docker and the image `seagull:local`         | One line for each file: `successful calls: 1, failed calls: 0`       |
 | Project, validated                | `validate.sh`             | `validate=yes`, and schemas found            | A verdict and the schema used for each file; status 0, 1, or 3       |
 
@@ -112,7 +112,7 @@ A prompt wins over the file for the keys it names. A key that the prompt does no
 | Generation                      | `the command <X> is not in ...`                     | Add the dictionary of the application that defines the command                                         |
 | Generation                      | `generated-timestamp needs time-method`             | Name a time method, or leave the option off                                                            |
 | Generation, template            | `no value for placeholder(s) NAME`                  | Give the value in the values file, with `--set`, or with `--env`                                       |
-| Conversion                      | `DiameterBaseProtocol.xml is required`              | Add the base protocol dictionary to the input folder                                                   |
+| Conversion                      | `do not define the base protocol`                   | Add the files that define it to the folder, or allow the Seagull dictionary (`seagull-base=`)          |
 | Validation, before any file     | `NO SCHEMA ...`, exit status 3                      | Say where the XSD files are (`xsd=`), or skip the validation                                           |
 | Conversion, before any file     | `the output folder is not empty: ...`               | Use another folder; the skill never empties one                                                        |
 | Dictionary check                | `successful calls: 0, failed calls: 1`              | Read the `E` lines: Seagull could not load the dictionary, or it lacks an AVP that the check sends     |

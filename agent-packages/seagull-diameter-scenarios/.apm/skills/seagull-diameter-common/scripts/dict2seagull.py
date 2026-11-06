@@ -3,9 +3,20 @@
 The project keeps its Diameter dictionaries in a folder. AVP dictionaries have the
 root element <dictionary>. Command dictionaries have the root element
 <diameter-command-dictionary>. Seagull reads one dictionary file per run, in its own
-format (<protocol> with <dictionary><avp><define> and <command><define>). The script
-writes one Seagull dictionary for each AVP dictionary, merged with
-DiameterBaseProtocol.xml, and one more for each --combine argument.
+format (<protocol> with <dictionary><avp><define> and <command><define>), and takes one
+dictionary file for each run. So by default the script writes ONE Seagull dictionary,
+diameter-dictionary.xml, made of all the AVP dictionaries and the base protocol.
+--combine no writes one dictionary for each AVP dictionary instead, and --combine A,B
+writes only one merged from the named dictionaries, in that order, as A+B.xml. When
+several dictionaries define the same AVP name, the first one keeps it.
+
+The base protocol is DiameterBaseProtocol.xml when the folder has it; otherwise it is the
+dictionary that defines the handshake commands, whatever its file is called. Either way
+the folder must define by code the commands 257 (CER) and 280 (DWR) and the AVPs 257, 258,
+263, 264, 266, 268, 269, and 296. If something is missing, nothing is written and the exit
+status is 2. --seagull-base FILE (base_draft08.xml of Seagull) lets the missing items come
+from that Seagull dictionary; the user's dictionaries win wherever they define the name or
+the code, and the report says what was added.
 
 Converted:
   * Each <avp> becomes a <define> with avp-code and flags. The V bit comes from
@@ -50,7 +61,23 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 dictionary_options = importlib.import_module("dictionary_options")
 
 BASE_NAME = "DiameterBaseProtocol"
+ALL_NAME = "diameter-dictionary"  # the output made of all the dictionaries
+Job = tuple[str, list[str]]  # the name of an output, and the dictionaries it is made from
 OPTIONS_NAME = "dictionary-options.ini"
+# What the handshake and the header of a Seagull dictionary need of the base protocol (RFC 6733).
+# They are found by code, because the file that holds them may have any name.
+BASE_AVPS = {
+    257: "Host-IP-Address",
+    258: "Auth-Application-Id",
+    263: "Session-Id",
+    264: "Origin-Host",
+    266: "Vendor-Id",
+    268: "Result-Code",
+    269: "Product-Name",
+    296: "Origin-Realm",
+}
+BASE_COMMANDS = {257: "CER/CEA", 280: "DWR/DWA"}
+BUNDLED_BASE = "base_draft08.xml"  # in diameter-env/config of Seagull
 
 # The six types that the dictionaries shipped with Seagull define. The string-like
 # types differ in meaning only, not in how they are encoded.
@@ -226,6 +253,44 @@ def load_command_codes(path: Path) -> set[int]:
     """Return the command codes that a *Commands.xml file describes."""
     root = ElementTree.parse(path).getroot()
     return {int(command.get("code", "0")) for command in root.iter("command")}
+
+
+def load_seagull_dictionary(path: Path) -> tuple[list[Avp], list[Command]]:
+    """Read a dictionary in the Seagull format, such as one that ships with Seagull.
+
+    The AVPs come with the flags they have there. Of each request and answer pair, only the
+    request is returned, as a command named by its two letters, such as CE for CER and CEA.
+    """
+    text = path.read_text(encoding="iso-8859-1")
+    _, marker, body = text.partition("<protocol")  # a comment may come before the declaration
+    root = ElementTree.fromstring(marker + body)
+    avps = []
+    for define in root.findall("./dictionary/avp/define"):
+        fields = {s.get("name", ""): int(s.get("value") or 0) for s in define.findall("setfield")}
+        flags = fields.get("flags", 0)
+        kind = define.get("type", "")
+        avps.append(
+            Avp(
+                vendor_id=fields.get("Vendor-ID", 0),
+                name=define.get("name", ""),
+                code=fields.get("avp-code", -1),
+                source=path.name,
+                vendor_specific=bool(flags & dictionary_options.VENDOR_BIT),
+                mandatory=bool(flags & dictionary_options.MANDATORY_BIT),
+                protected=bool(flags & 32),
+                type_name=None if kind == "Grouped" else kind,
+                members=[] if kind == "Grouped" else None,
+                enums=[],
+            )
+        )
+    commands = []
+    for define in root.findall("./dictionary/command/define"):
+        fields = {s.get("name", ""): int(s.get("value") or 0) for s in define.findall("setfield")}
+        name = define.get("name", "")
+        if name.endswith("R"):
+            application, code = fields.get("application-id", 0), fields.get("cmd-code", 0)
+            commands.append(Command(application, name[:-1], code))
+    return avps, commands
 
 
 def apply_renames(
@@ -438,6 +503,117 @@ def check_command_files(
             )
 
 
+@dataclass
+class Base:
+    """Where the base protocol comes from: the dictionaries that hold it, and a fallback."""
+
+    names: list[str]
+    fallback: tuple[list[Avp], list[Command]] | None = None
+    fallback_name: str = ""
+
+    def sources(self, names: list[str]) -> list[str]:
+        """Return the base dictionaries first, then the named ones that are not among them."""
+        return self.names + [name for name in names if name not in self.names]
+
+
+def base_sources(loaded: dict[str, tuple[list[Avp], list[Command]]]) -> list[str]:
+    """Return the dictionaries that hold the base protocol, found by their content.
+
+    The file named DiameterBaseProtocol.xml is the base when there is one. Without it, the
+    base is every dictionary that defines a command of the handshake in <base>, whatever
+    the file is called.
+    """
+    if BASE_NAME in loaded:
+        return [BASE_NAME]
+    return [
+        name
+        for name, (_, commands) in loaded.items()
+        if any(c.application_id == 0 and c.code in BASE_COMMANDS for c in commands)
+    ]
+
+
+def base_gaps(avps: list[Avp], commands: list[Command]) -> tuple[list[int], list[int]]:
+    """Return the codes of the base AVPs and of the base commands that the lists lack."""
+    have_avps = {avp.code for avp in avps if avp.vendor_id == 0}
+    have_commands = {command.code for command in commands if command.application_id == 0}
+    return sorted(set(BASE_AVPS) - have_avps), sorted(set(BASE_COMMANDS) - have_commands)
+
+
+def describe_gaps(gaps: tuple[list[int], list[int]]) -> str:
+    """Return the missing items as text: the codes with their standard names."""
+    items = [f"AVP {code} ({BASE_AVPS[code]})" for code in gaps[0]]
+    return ", ".join(items + [f"command {code} ({BASE_COMMANDS[code]})" for code in gaps[1]])
+
+
+def fill_base(
+    avps: list[Avp],
+    commands: list[Command],
+    base: Base,
+    warnings: list[str],
+) -> tuple[list[int], list[int]]:
+    """Add the base protocol of the Seagull dictionary where the sources lack it; return the gaps.
+
+    It acts when the sources lack a required item. Then it adds every AVP and command of the
+    Seagull dictionary, because the messages use more of the base protocol than the handshake.
+    The dictionaries of the user win: an item is skipped when its name, or its code, is already
+    defined, so a clash never renames or replaces anything of the user's.
+    """
+    gaps = base_gaps(avps, commands)
+    if base.fallback is None or not (gaps[0] or gaps[1]):
+        return gaps
+    added_avps, added_commands = new_base_items(avps, commands, base.fallback)
+    avps[0:0] = added_avps
+    commands[0:0] = added_commands
+    if added_avps or added_commands:
+        source = f"{base.fallback_name} of the Seagull distribution"
+        count = f"{len(added_avps)} AVPs and {len(added_commands)} command pairs"
+        incomplete = f"the base protocol is incomplete ({describe_gaps(gaps)} missing)"
+        warnings.append(f"{incomplete}; added {count} from {source}")
+        warnings.append("the dictionaries of the Seagull distribution may be wrong in places")
+    return base_gaps(avps, commands)
+
+
+def new_base_items(
+    avps: list[Avp],
+    commands: list[Command],
+    fallback: tuple[list[Avp], list[Command]],
+) -> tuple[list[Avp], list[Command]]:
+    """Return the items of the fallback whose name and code the sources do not define yet."""
+    names = {avp.name for avp in avps}
+    keys = {(avp.vendor_id, avp.code) for avp in avps}
+    added_avps: list[Avp] = []
+    for avp in fallback[0]:
+        if avp.name not in names and (avp.vendor_id, avp.code) not in keys:
+            added_avps.append(avp)
+            names.add(avp.name)
+            keys.add((avp.vendor_id, avp.code))
+    shorts = {command.short for command in commands}
+    codes = {(command.application_id, command.code) for command in commands}
+    added_commands = [
+        command
+        for command in fallback[1]
+        if command.short not in shorts and (command.application_id, command.code) not in codes
+    ]
+    return added_avps, added_commands
+
+
+def base_problem(
+    jobs: list[Job],
+    loaded: dict[str, tuple[list[Avp], list[Command]]],
+    base: Base,
+) -> str:
+    """Return what no output can get, as text, or an empty string when every output is complete."""
+    missing: set[tuple[tuple[int, ...], tuple[int, ...]]] = set()
+    for _, names in jobs:
+        sources = base.sources(names)
+        avps, _ = merge_avps([loaded[name][0] for name in sources], [])
+        commands = merge_commands([loaded[name][1] for name in sources], [])
+        gaps = fill_base(avps, commands, base, [])
+        if gaps[0] or gaps[1]:
+            missing.add((tuple(gaps[0]), tuple(gaps[1])))
+    return "; ".join(describe_gaps((list(a), list(c))) for a, c in sorted(missing))
+
+
 def flag_notes(avps: list[Avp], commands: list[Command], options: Any) -> list[str]:
     """List where the flags of the output differ from what the converter writes without options."""
     notes = []
@@ -460,29 +636,30 @@ def flag_notes(avps: list[Avp], commands: list[Command], options: Any) -> list[s
 
 
 def convert(
-    names: list[str],
+    job: Job,
     loaded: dict[str, tuple[list[Avp], list[Command]]],
     directories: tuple[Path, Path],
     render: Render,
+    base: Base,
 ) -> tuple[str, int, int, list[str], list[str]]:
-    """Write one dictionary built from the named sources plus the base protocol.
+    """Write one dictionary built from the sources of the job plus the base protocol.
 
     Returns the name of the output, the number of AVPs and of command pairs, the warnings
     about the sources, and the notes about flags that differ from the defaults.
     """
+    out_name, names = job
     input_dir, output_dir = directories
     warnings: list[str] = []
-    sources = [BASE_NAME] + [name for name in names if name != BASE_NAME]
+    sources = base.sources(names)
     avps, _ = merge_avps([loaded[name][0] for name in sources], warnings)
     commands = merge_commands([loaded[name][1] for name in sources], warnings)
+    fill_base(avps, commands, base, warnings)
     for avp in avps:
         check_avp(avp, warnings)
     check_command_files(sources, input_dir, commands, warnings)
-    out_name = "+".join(names)
-    files = [name + ".xml" for name in sources]
-    write_dictionary(output_dir / f"{out_name}.xml", files, avps, commands, render)
-    notes = flag_notes(avps, commands, render.flags)
-    return out_name, len(avps), len(commands), warnings, notes
+    target = output_dir / f"{out_name}.xml"
+    write_dictionary(target, [n + ".xml" for n in sources], avps, commands, render)
+    return out_name, len(avps), len(commands), warnings, flag_notes(avps, commands, render.flags)
 
 
 def parse_arguments(argv: list[str]) -> argparse.Namespace:
@@ -494,8 +671,11 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
         "--combine",
         action="append",
         default=[],
-        metavar="A,B",
-        help="also write one dictionary merged from the named ones, e.g. Gy,Sy",
+        metavar="yes|no|A,B",
+        help=(
+            "yes (the default) writes one dictionary of all the AVP dictionaries; no writes one "
+            "for each; A,B writes only one merged from the named ones, in that order (repeatable)"
+        ),
     )
     parser.add_argument(
         "--rename",
@@ -540,6 +720,12 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
         help="the M bit of every vendor AVP: as the source says (default), always set, or clear",
     )
     parser.add_argument(
+        "--seagull-base",
+        type=Path,
+        metavar="FILE",
+        help=f"a Seagull dictionary ({BUNDLED_BASE}) to take missing base items from; yours win",
+    )
+    parser.add_argument(
         "--xsd-dir",
         metavar="DIR",
         help="the folder of the XSD files; recorded in the options file for the validation step",
@@ -578,6 +764,86 @@ def check_flag_names(
             )
 
 
+def load_fallback(path: Path | None) -> tuple[tuple[list[Avp], list[Command]] | None, str]:
+    """Read the Seagull dictionary given by --seagull-base; return it and its file name."""
+    if path is None:
+        return None, ""
+    return load_seagull_dictionary(path), path.name
+
+
+def base_message(problem: str, base: Base, folder: Path) -> str:
+    """Return the message for a folder whose dictionaries lack the base protocol."""
+    lines = [
+        f"error: the dictionaries in {folder} do not define the base protocol: missing {problem}.",
+        "The check is by code, over every .xml dictionary of the folder; file names do not matter.",
+    ]
+    if base.fallback is None:
+        lines += [
+            "Put the files that define them into the folder, or allow the dictionary of the",
+            "Seagull distribution for the missing items with --seagull-base FILE",
+            f"({BUNDLED_BASE} of Seagull; it may be wrong in places, and your dictionaries win",
+            "wherever they define the same name or code).",
+        ]
+    else:
+        lines.append(f"The Seagull dictionary {base.fallback_name} does not supply them either.")
+    return "\n".join(lines) + "\n"
+
+
+def choose_base(
+    args: argparse.Namespace,
+    loaded: dict[str, tuple[list[Avp], list[Command]]],
+    jobs: list[Job],
+    report: list[str],
+) -> Base | None:
+    """Find the base protocol; return None, after the message, when an output cannot get it."""
+    base = Base(base_sources(loaded), *load_fallback(args.seagull_base))
+    problem = base_problem(jobs, loaded, base)
+    if problem:
+        sys.stderr.write(base_message(problem, base, args.input_dir))
+        return None
+    if base.names and base.names != [BASE_NAME]:
+        found = ", ".join(base.names)
+        report.append(f"NOTE the base protocol is taken from {found} (found by its commands)")
+    return base
+
+
+def write_outputs(
+    jobs: list[Job],
+    loaded: dict[str, tuple[list[Avp], list[Command]]],
+    directories: tuple[Path, Path],
+    how: tuple[Render, Base],
+) -> list[str]:
+    """Write one dictionary for each job; return the lines of the report."""
+    report: list[str] = []
+    for job in jobs:
+        result = convert(job, loaded, directories, *how)
+        out_name, avp_count, command_count, warnings, notes = result
+        counts = f"{avp_count} AVPs, {command_count} command pairs"
+        report.append(f"{out_name}.xml: {counts}, {len(warnings)} warnings")
+        report += [f"    WARNING {warning}" for warning in warnings]
+        report += [f"    NOTE {note}" for note in notes]
+    return report
+
+
+def plan_jobs(combine: list[str], loaded: dict[str, tuple[list[Avp], list[Command]]]) -> list[Job]:
+    """Return the outputs to write, each as its name and the dictionaries it is made from.
+
+    Without --combine, or with yes, every AVP dictionary goes into one output. With no, each
+    goes into its own, and a list of names makes one output from them, in that order.
+    """
+    if not combine or combine == ["yes"]:
+        return [(ALL_NAME, list(loaded))]
+    if combine == ["no"]:
+        separate = [(name, [name]) for name in loaded if name != BASE_NAME]
+        return separate or [(BASE_NAME, [BASE_NAME])]
+    jobs = [(spec.replace(",", "+"), spec.split(",")) for spec in combine]
+    unknown = [name for _, names in jobs for name in names if name not in loaded]
+    if unknown:
+        message = f"unknown dictionary in --combine: {unknown}"
+        raise dictionary_options.DictionaryOptionsError(message)
+    return jobs
+
+
 def convert_all(
     args: argparse.Namespace,
     loaded: dict[str, tuple[list[Avp], list[Command]]],
@@ -588,20 +854,12 @@ def convert_all(
     renames = dict(pair.split("=", 1) for pair in args.rename)
     apply_renames(loaded, renames, args.keep_tgpp, report)
     check_flag_names(loaded, render.flags, report)
-    jobs = [[name] for name in loaded] + [c.split(",") for c in args.combine]
-    unknown = [name for names in jobs for name in names if name not in loaded]
-    if unknown:
-        sys.stderr.write(f"unknown dictionary in --combine: {unknown}\n")
+    jobs = plan_jobs(args.combine, loaded)
+    base = choose_base(args, loaded, jobs, report)
+    if base is None:
         return 2
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    for names in jobs:
-        out_name, avp_count, command_count, warnings, notes = convert(
-            names, loaded, (args.input_dir, args.output_dir), render
-        )
-        counts = f"{avp_count} AVPs, {command_count} command pairs"
-        report.append(f"{out_name}.xml: {counts}, {len(warnings)} warnings")
-        report += [f"    WARNING {warning}" for warning in warnings]
-        report += [f"    NOTE {note}" for note in notes]
+    report += write_outputs(jobs, loaded, (args.input_dir, args.output_dir), (render, base))
     text = "\n".join(report) + "\n"
     (args.output_dir / "conversion-report.txt").write_text(text, encoding="utf-8")
     dictionary_options.save_options(args.output_dir / OPTIONS_NAME, render.flags)
@@ -613,8 +871,8 @@ def main(argv: list[str]) -> int:
     """Convert every AVP dictionary of the input folder; return the exit status."""
     args = parse_arguments(argv)
     loaded = load_dictionaries(args.input_dir)
-    if BASE_NAME not in loaded:
-        sys.stderr.write(f"{BASE_NAME}.xml is required: it holds the base protocol\n")
+    if not loaded:
+        sys.stderr.write(f"error: no AVP dictionary in {args.input_dir}\n")
         return 2
     try:
         flags = dictionary_options.load_options(args.options)

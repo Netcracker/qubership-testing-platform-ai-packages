@@ -32,9 +32,35 @@ is the whole update.
 | Two AVPs with one name and different vendor or code                 | The first keeps the name. The second is written as `<name>-v<vendor>c<code>`, for example `MSC-Address-v13421c281`, and the report says so                                                                                                                                                       |
 | An application command with the same abbreviation as a base command | The application command replaces the base command                                                                                                                                                                                                                                                |
 
-Each result is merged with `DiameterBaseProtocol.xml`, so that `CER`, `DWR`, and the other base commands are always
-defined. The script reports what looks inconsistent and corrects nothing, because it cannot tell which of two names for
-an AVP is the intended one.
+Each result is merged with the base protocol of the folder, so that `CER`, `DWR`, and the other base commands are always
+defined; see [The base protocol](#the-base-protocol). The script reports what looks inconsistent and corrects nothing,
+because it cannot tell which of two names for an AVP is the intended one.
+
+## The base protocol
+
+Seagull loads one dictionary file and nothing else, so that file has to define the Diameter base protocol: the commands
+`CER`/`CEA` (code 257) and `DWR`/`DWA` (code 280), and the AVPs with the codes 257, 258, 263, 264, 266, 268, 269, and 296.
+The project's service does not supply them to Seagull.
+
+The converter looks for these items by code in every `.xml` dictionary of the folder; the filename does not matter. If
+the folder contains `DiameterBaseProtocol.xml`, it is the base. Otherwise the base is made of the files that define the
+handshake commands. When something is missing, the converter writes nothing, exits with status 2, and lists the missing
+codes. There are two ways on:
+
+1. Add the files that define the base protocol to the folder and convert again.
+2. Allow the dictionary that ships with Seagull, `base_draft08.xml`. It can be wrong in places, for example with an AVP
+   code or a flags byte that differs from the RFC, and it was not checked against your OCS. Pass it as
+   `seagull-base=<file>`. The skill gets the file from your Seagull with `scripts/export_seagull_base.py` after you say
+   yes.
+
+With the Seagull dictionary, the converter adds every AVP and command pair that your dictionaries do not define yet,
+because messages use more of the base protocol than the handshake. Your dictionaries win: an item is skipped when its
+name or its code is already defined, and nothing of yours is renamed or replaced. The report names the number of added
+items and the file they came from.
+
+The Seagull dictionary does not define every base AVP; `Event-Timestamp` (code 55) is missing in `base_draft08.xml` of
+Seagull 1.8.3. A message that uses an AVP like that fails in Seagull with `No definition found for [Event-Timestamp]`,
+so define such an AVP in your own dictionaries.
 
 ## Flags of commands and AVPs
 
@@ -90,15 +116,21 @@ command whose flags differ from the default, an AVP whose flags differ from its 
 
 Seagull loads one dictionary for each run, and two `-dico` options do not add up: Seagull 1.8.3 stops with
 `protocol with name [diameter-v1] already defined`, whichever file comes first. A run that uses several dictionaries
-together needs them in one file. Name them in `combine=`:
+together needs them in one file, so the converter writes one by default: `diameter-dictionary.xml`, made of every AVP
+dictionary of the folder and the base protocol. `combine=yes` means the same.
 
 ```text
-/seagull-diameter-dictionary-convert C:\work\dictionaries combine=Gy,Integration,RoIMS,RoSCP,RoSMSMMS,Sy
+/seagull-diameter-dictionary-convert C:\work\dictionaries
 ```
 
-`DiameterBaseProtocol` is always merged in, so it need not be listed. The merged file is named after its parts, joined
-with `+`; copy it under a shorter name such as `All.xml`. The dictionaries are merged in the order given, after the base
-protocol:
+Two other forms exist:
+
+- `combine=no` writes one file for each dictionary, each merged with the base protocol, for example to compare them.
+- `combine=Gy,Sy` writes only one file, `Gy+Sy.xml`, made of the named dictionaries. Use it to leave a dictionary out,
+  or to set the order. Without a list, the dictionaries are merged in alphabetical order of their filenames.
+
+The base protocol is always merged in, so it need not be listed. The dictionaries are merged in the order given, after
+the base protocol:
 
 - An AVP that several files define in the same way, with one name, vendor, and code, appears once.
 - An AVP name that a later file uses for another vendor or code does not replace the first definition. The later one is

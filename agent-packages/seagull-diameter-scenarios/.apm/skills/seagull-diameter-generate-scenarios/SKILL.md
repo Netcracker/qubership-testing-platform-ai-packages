@@ -20,7 +20,7 @@ from formal arguments, and the dry run is part of it. What this page says holds 
 | Parameter       | How the user says it                                                 | Rule                                                                                            |
 | --------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | steps folder    | "generate scenarios from C:\work\Diameter-Steps"                     | Required. Ask when missing                                                                      |
-| dictionaries    | "the dictionaries are in C:\work\dictionaries"                       | Required: the folder of the project's AVP dictionaries. It must hold `DiameterBaseProtocol.xml` |
+| dictionaries    | "the dictionaries are in C:\work\dictionaries"                       | Required: the folder of the project's AVP dictionaries. It must define the base protocol        |
 | `merge=`        | "use RoSCP, Gy and Integration"                                      | Required: the dictionaries to merge, names without `.xml`. Never guess. See below               |
 | `out=`          | "write them to C:\work\Seagull-Scenario"                             | Optional. The folder must be new or empty                                                       |
 | `replace=yes`   | "generate again into the same folder", "replace the old output"      | Only when the user asked, or answered your question. Never to get past the refusal              |
@@ -86,6 +86,12 @@ several of the merged dictionaries, the first one in `merge=` keeps the name.
 
    The first line of the report names the folder when the script chose it (`output folder: ... (new)`). Use that folder
    in the later steps and tell the user where it is.
+
+   When the message says that the dictionaries do not define the base protocol, nothing was written. Stop, show the
+   message, and offer the two ways that
+   [The base protocol](../seagull-diameter-convert-dictionaries/SKILL.md#the-base-protocol) describes: the user adds the
+   files to the folder, or allows the dictionary of the Seagull distribution with a warning that it may be wrong in
+   places. Only after a yes, export it and add `--seagull-base <file>` to the command.
 
    The parameters `mode=`, `placeholder=`, `option=`, and `options=` become `--option mode=<value>`,
    `--placeholder <AVP>=<NAME>`, `--option <key>=<value>`, and `--options <file>`; repeat a flag for each pair.

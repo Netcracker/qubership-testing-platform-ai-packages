@@ -50,6 +50,7 @@ output_folder = importlib.import_module("output_folder")
 to_external = importlib.import_module("scenario_to_external")
 dictionary_tests = importlib.import_module("selftest_dictionaries")
 ConvertDictionariesTest = dictionary_tests.ConvertDictionariesTest
+BaseProtocolTest = dictionary_tests.BaseProtocolTest
 FlagOptionsTest = dictionary_tests.FlagOptionsTest
 CheckConvertedTest = dictionary_tests.CheckConvertedTest
 ValidatorTest = importlib.import_module("selftest_validator").ValidatorTest

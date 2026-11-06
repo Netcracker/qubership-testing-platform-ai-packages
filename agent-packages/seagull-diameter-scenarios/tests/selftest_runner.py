@@ -184,6 +184,7 @@ class WindowsRunTest(unittest.TestCase):
             (source / "Extra.xml").write_text(dictionaries.extra_dictionary(), encoding="utf-8")
             out = Path(folder) / "converted"
             argv = [str(source), "--out", str(out), "--combine", "Gy,Extra"]
+            argv += ["--combine", "DiameterBaseProtocol"]
             with redirect_stdout(io.StringIO()):
                 self.assertEqual(convert.main(argv), 0)
             checked = Path(folder) / "checked"

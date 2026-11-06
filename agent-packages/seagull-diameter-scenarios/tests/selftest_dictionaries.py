@@ -29,6 +29,7 @@ SKILLS = Path(__file__).resolve().parents[1] / ".apm" / "skills"
 CONVERT_DIR = SKILLS / "seagull-diameter-convert-dictionaries" / "scripts"
 sys.path.insert(0, str(SKILLS / "seagull-diameter-common" / "scripts"))
 sys.path.insert(0, str(CONVERT_DIR))
+sys.path.insert(0, str(SKILLS / "seagull-diameter-generate-scenarios" / "scripts"))
 convert = importlib.import_module("convert_dictionaries")
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 IMAGE = os.environ.get("SEAGULL_IMAGE", "")
@@ -55,13 +56,8 @@ class ConvertDictionariesTest(unittest.TestCase):
             files = sorted(p.name for p in (Path(folder) / "Seagull-Dictionary").iterdir())
         self.assertEqual(statuses, [0, 0])
         self.assertEqual(names, ["Seagull-Dictionary", "Seagull-Dictionary-2", "dictionaries"])
-        expected = [
-            "DiameterBaseProtocol.xml",
-            "Gy.xml",
-            "conversion-report.txt",
-            "dictionary-options.ini",
-        ]
-        self.assertEqual(files, expected)
+        expected = ["conversion-report.txt", "dictionary-options.ini", "diameter-dictionary.xml"]
+        self.assertEqual(files, sorted(expected))
 
     def test_non_empty_folder_is_refused(self) -> None:
         """A named folder that holds files stops the run and keeps the files."""
@@ -83,22 +79,166 @@ class ConvertDictionariesTest(unittest.TestCase):
                 out = Path(folder) / name
                 argv = [str(FIXTURES / "dictionaries"), "--out", str(out), *extra]
                 self.assertEqual(run_convert(argv)[0], 0)
-                texts[name] = (out / "Gy.xml").read_text(encoding="utf-8")
+                texts[name] = (out / "diameter-dictionary.xml").read_text(encoding="utf-8")
         self.assertIn('name="3GPP-Charging-Id"', texts["plain"])
         self.assertIn('name="TGPP-Charging-Id"', texts["kept"])
 
-    def test_missing_base_protocol_writes_nothing(self) -> None:
-        """Without DiameterBaseProtocol.xml the status is 2 and no folder is created."""
-        with tempfile.TemporaryDirectory(prefix="seagull-selftest-") as folder:
-            source = Path(folder) / "dictionaries"
-            source.mkdir()
-            shutil.copy(FIXTURES / "dictionaries" / "Gy.xml", source)
-            out = Path(folder) / "out"
-            status, _, error = run_convert([str(source), "--out", str(out)])
-            created = out.exists()
+
+SEAGULL_BASE = FIXTURES / "seagull" / "base_invented.xml"
+MINE = """<dictionary><vendor id="0" name="base">
+  <avp name="Sess-Id" code="263" mandatory="must" protected="may" may-encrypt="yes" vendor-specific="no">
+    <type type-name="UTF8String"/>
+  </avp>
+  <avp name="Invented-Extra" code="5555" mandatory="may" protected="may" may-encrypt="yes" vendor-specific="no">
+    <type type-name="Unsigned32"/>
+  </avp>
+</vendor></dictionary>
+"""
+
+
+class BaseProtocolTest(unittest.TestCase):
+    """The base protocol is found by its content, and missing items can come from Seagull."""
+
+    def folder(self, *names: str) -> tuple[Path, Path]:
+        """Return a new folder with the named fixture dictionaries, and the path of an output."""
+        root = Path(tempfile.mkdtemp(prefix="seagull-selftest-"))
+        self.addCleanup(shutil.rmtree, root, ignore_errors=True)
+        source = root / "dictionaries"
+        source.mkdir()
+        for name in names:
+            shutil.copy(FIXTURES / "dictionaries" / name, source)
+        return source, root / "out"
+
+    def test_base_is_found_by_its_content_and_not_by_its_name(self) -> None:
+        """A base protocol in a file with another name is used, and the report says so."""
+        source, out = self.folder("DiameterBaseProtocol.xml", "Gy.xml")
+        (source / "DiameterBaseProtocol.xml").rename(source / "Base.xml")
+        status, text, error = run_convert([str(source), "--out", str(out)])
+        self.assertEqual(status, 0, error)
+        self.assertIn("NOTE the base protocol is taken from Base (found by its commands)", text)
+        self.assertEqual(defined_flags(out / "diameter-dictionary.xml", "CER"), 128)
+
+    def two_dictionaries(self) -> tuple[Path, Path]:
+        """Return a folder with the base protocol, Gy, and Mine, and the path of an output."""
+        source, out = self.folder("DiameterBaseProtocol.xml", "Gy.xml")
+        (source / "Mine.xml").write_text(MINE, encoding="utf-8")
+        return source, out
+
+    def test_by_default_all_dictionaries_go_into_one_file(self) -> None:
+        """Without --combine, and with yes, one file holds every dictionary and the base."""
+        for extra in ([], ["--combine", "yes"]):
+            source, out = self.two_dictionaries()
+            status, _, error = run_convert([str(source), "--out", str(out), *extra])
+            self.assertEqual(status, 0, error)
+            self.assertEqual(
+                sorted(p.name for p in out.glob("*.xml")),
+                ["diameter-dictionary.xml"],
+            )
+            text = (out / "diameter-dictionary.xml").read_text(encoding="iso-8859-1")
+            self.assertIn('name="Sess-Id"', text)
+            self.assertIn('name="3GPP-Charging-Id"', text)
+            self.assertEqual(defined_flags(out / "diameter-dictionary.xml", "CER"), 128)
+
+    def test_combine_no_writes_one_file_for_each_dictionary(self) -> None:
+        """With no, each AVP dictionary is its own file, and the base protocol alone is not."""
+        source, out = self.two_dictionaries()
+        status, _, error = run_convert([str(source), "--out", str(out), "--combine", "no"])
+        self.assertEqual(status, 0, error)
+        self.assertEqual(sorted(p.name for p in out.glob("*.xml")), ["Gy.xml", "Mine.xml"])
+        self.assertEqual(defined_flags(out / "Gy.xml", "CER"), 128)
+
+    def test_a_list_writes_only_the_merged_file_in_that_order(self) -> None:
+        """A list of names makes one file from those dictionaries, and nothing else."""
+        source, out = self.two_dictionaries()
+        argv = [str(source), "--out", str(out), "--combine", "Mine,Gy"]
+        status, _, error = run_convert(argv)
+        self.assertEqual(status, 0, error)
+        self.assertEqual(sorted(p.name for p in out.glob("*.xml")), ["Mine+Gy.xml"])
+
+    def test_an_unknown_name_in_a_list_is_refused(self) -> None:
+        """A name that is no dictionary of the folder stops the run before any file."""
+        source, out = self.two_dictionaries()
+        status, _, error = run_convert([str(source), "--out", str(out), "--combine", "Gy,Nope"])
         self.assertEqual(status, 2)
-        self.assertIn("DiameterBaseProtocol.xml is required", error)
-        self.assertFalse(created)
+        self.assertIn("unknown dictionary in --combine: ['Nope']", error)
+
+    def test_missing_base_lists_the_codes_and_offers_the_choice(self) -> None:
+        """Without the base protocol nothing is written; the message names codes and options."""
+        source, out = self.folder("Gy.xml")
+        status, _, error = run_convert([str(source), "--out", str(out)])
+        self.assertEqual(status, 2)
+        self.assertIn("missing AVP 257 (Host-IP-Address)", error)
+        self.assertIn("command 280 (DWR/DWA)", error)
+        self.assertIn("--seagull-base", error)
+        self.assertFalse(out.exists())
+
+    def test_seagull_dictionary_supplies_the_base_protocol(self) -> None:
+        """The base protocol of the Seagull dictionary is added, and the report says so."""
+        source, out = self.folder("Gy.xml")
+        argv = [str(source), "--out", str(out), "--seagull-base", str(SEAGULL_BASE)]
+        status, text, error = run_convert(argv)
+        self.assertEqual(status, 0, error)
+        self.assertIn("added 13 AVPs and 2 command pairs from base_invented.xml", text)
+        self.assertIn("may be wrong in places", text)
+        gy = out / "diameter-dictionary.xml"
+        self.assertEqual((defined_flags(gy, "CER"), defined_flags(gy, "Origin-Host")), (128, 64))
+        self.assertEqual(defined_flags(gy, "Destination-Realm"), 64)
+
+    def test_the_users_dictionary_wins_over_the_seagull_one(self) -> None:
+        """A name or a code defined by the user keeps the user's definition; nothing is renamed."""
+        source, out = self.folder("Gy.xml")
+        (source / "Mine.xml").write_text(MINE, encoding="utf-8")
+        argv = [str(source), "--out", str(out), "--combine", "Gy,Mine"]
+        argv += ["--seagull-base", str(SEAGULL_BASE)]
+        status, _, error = run_convert(argv)
+        text = (out / "Gy+Mine.xml").read_text(encoding="iso-8859-1")
+        self.assertEqual(status, 0, error)
+        self.assertIn('name="Sess-Id"', text)
+        self.assertNotIn('name="Session-Id"', text)
+        self.assertIn('name="Invented-Extra" type="Unsigned32">', text)
+        self.assertIn('value="5555"', text)
+        self.assertNotIn('value="9001"', text)
+
+    def test_a_name_taken_with_another_code_is_not_filled(self) -> None:
+        """A user's AVP with the name of a required base AVP under another code leaves the gap."""
+        source, out = self.folder("Gy.xml")
+        taken = MINE.replace('name="Sess-Id" code="263"', 'name="Origin-Host" code="9999"')
+        (source / "Mine.xml").write_text(taken, encoding="utf-8")
+        argv = [str(source), "--out", str(out), "--seagull-base", str(SEAGULL_BASE)]
+        status, _, error = run_convert(argv)
+        self.assertEqual(status, 2)
+        self.assertIn("does not supply them either", error)
+        self.assertIn("AVP 264 (Origin-Host)", error)
+        self.assertFalse(out.exists())
+
+    def test_generation_works_without_the_base_file(self) -> None:
+        """The generator takes the missing base items from the Seagull dictionary too."""
+        source, out = self.folder("Gy.xml")
+        generate = importlib.import_module("generate_scenarios")
+        argv = ["--steps", str(FIXTURES / "steps"), "--dictionaries-dir", str(source)]
+        argv += ["--dictionaries", "Gy", "--out", str(out), "--seagull-base", str(SEAGULL_BASE)]
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(generate.main(argv), 0)
+        self.assertEqual(defined_flags(out / "dictionary" / "diameter-dictionary.xml", "CER"), 128)
+
+    def test_exporter_copies_the_file_from_a_windows_installation(self) -> None:
+        """export_seagull_base.py copies base_draft08.xml from next to seagull.exe."""
+        exporter = importlib.import_module("export_seagull_base")
+        root = Path(tempfile.mkdtemp(prefix="seagull-selftest-"))
+        self.addCleanup(shutil.rmtree, root, ignore_errors=True)
+        config = root / "Seagull" / "diameter-env" / "config"
+        config.mkdir(parents=True)
+        (root / "Seagull" / "seagull.exe").write_bytes(b"")
+        shutil.copy(SEAGULL_BASE, config / "base_draft08.xml")
+        out = root / "base.xml"
+        exe = root / "Seagull" / "seagull.exe"
+        argv = ["--runner", "windows", "--seagull-exe", str(exe), "--out", str(out)]
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(exporter.main(argv), 0)
+        self.assertEqual(out.read_bytes(), SEAGULL_BASE.read_bytes())
+        (config / "base_draft08.xml").unlink()
+        with redirect_stderr(io.StringIO()):
+            self.assertEqual(exporter.main(argv), 2)
 
 
 def defined_flags(path: Path, name: str) -> int:
@@ -127,7 +267,7 @@ class FlagOptionsTest(unittest.TestCase):
         """Requests get 128, answers 0, and an AVP gets the V and M bits of its source."""
         status, out, text, _ = self.convert_with()
         self.assertEqual(status, 0)
-        gy = out / "Gy.xml"
+        gy = out / "diameter-dictionary.xml"
         self.assertEqual((defined_flags(gy, "CCR"), defined_flags(gy, "CCA")), (128, 0))
         self.assertEqual(defined_flags(gy, "3GPP-Charging-Id"), 192)
         self.assertNotIn("NOTE", text)
@@ -136,7 +276,7 @@ class FlagOptionsTest(unittest.TestCase):
         """CCR=192 changes one request; answer=64 changes every answer that is not named."""
         pairs = ("--command-flags", "CCR=192", "--command-flags", "answer=64")
         _, out, text, _ = self.convert_with(*pairs)
-        gy = out / "Gy.xml"
+        gy = out / "diameter-dictionary.xml"
         self.assertEqual((defined_flags(gy, "CCR"), defined_flags(gy, "CER")), (192, 128))
         self.assertEqual((defined_flags(gy, "CCA"), defined_flags(gy, "CEA")), (64, 64))
         self.assertIn("NOTE CCR: flags 192 (the converter's default is 128)", text)
@@ -144,14 +284,14 @@ class FlagOptionsTest(unittest.TestCase):
     def test_avp_flags_by_name(self) -> None:
         """An AVP named in --avp-flags gets those flags; the report says what the source gave."""
         _, out, text, _ = self.convert_with("--avp-flags", "3GPP-Charging-Id=128")
-        self.assertEqual(defined_flags(out / "Gy.xml", "3GPP-Charging-Id"), 128)
-        self.assertEqual(defined_flags(out / "Gy.xml", "Subscription-Id"), 64)
+        self.assertEqual(defined_flags(out / "diameter-dictionary.xml", "3GPP-Charging-Id"), 128)
+        self.assertEqual(defined_flags(out / "diameter-dictionary.xml", "Subscription-Id"), 64)
         self.assertIn("NOTE 3GPP-Charging-Id: flags 128 (the source gives 192)", text)
 
     def test_vendor_mandatory_no_clears_m_on_vendor_avps_only(self) -> None:
         """The policy changes the M bit of vendor AVPs and leaves the others as they are."""
         _, out, text, _ = self.convert_with("--vendor-mandatory", "no")
-        gy = out / "Gy.xml"
+        gy = out / "diameter-dictionary.xml"
         self.assertEqual(defined_flags(gy, "3GPP-Charging-Id"), 128)
         self.assertEqual(defined_flags(gy, "Subscription-Id"), 64)
         self.assertIn("NOTE vendor-mandatory=no: changed the M bit of 7 of 7 vendor AVPs", text)
@@ -160,7 +300,7 @@ class FlagOptionsTest(unittest.TestCase):
         """A named AVP keeps its own flags whatever the policy says."""
         pairs = ("--vendor-mandatory", "no", "--avp-flags", "3GPP-Charging-Id=192")
         _, out, _, _ = self.convert_with(*pairs)
-        gy = out / "Gy.xml"
+        gy = out / "diameter-dictionary.xml"
         flags = [defined_flags(gy, name) for name in ("3GPP-Charging-Id", "SGSN-Address")]
         self.assertEqual(flags, [192, 128])
 
@@ -171,8 +311,8 @@ class FlagOptionsTest(unittest.TestCase):
         _, second, _, _ = self.convert_with("--options", str(first / "dictionary-options.ini"))
         self.assertIn("CCR = 192", saved)
         self.assertEqual(
-            (first / "Gy.xml").read_text(encoding="iso-8859-1"),
-            (second / "Gy.xml").read_text(encoding="iso-8859-1"),
+            (first / "diameter-dictionary.xml").read_text(encoding="iso-8859-1"),
+            (second / "diameter-dictionary.xml").read_text(encoding="iso-8859-1"),
         )
 
     def test_xsd_folder_is_kept_for_the_validation_step(self) -> None:
@@ -188,8 +328,8 @@ class FlagOptionsTest(unittest.TestCase):
         self.assertIn("xsd = /data/xsd", kept)
         self.assertNotIn("[validate]", default)
         self.assertEqual(
-            (first / "Gy.xml").read_text(encoding="iso-8859-1"),
-            (plain / "Gy.xml").read_text(encoding="iso-8859-1"),
+            (first / "diameter-dictionary.xml").read_text(encoding="iso-8859-1"),
+            (plain / "diameter-dictionary.xml").read_text(encoding="iso-8859-1"),
         )
 
     def test_a_name_that_matches_nothing_is_a_warning(self) -> None:
