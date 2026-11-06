@@ -1,18 +1,18 @@
 """Generate Seagull scenarios from a folder of recorded Diameter requests and answers.
 
 Usage:
-  python generate_scenarios.py --steps STEPS_DIR --dictionaries-dir DIR
-      --dictionaries A,B,C (--out OUT_DIR | --out-auto PARENT) [--replace]
+  python generate_scenarios.py --steps STEPS_DIR [--dictionary FILE]
+      (--out OUT_DIR | --out-auto PARENT) [--replace]
       [--timeout-ms 5000] [--dest HOST:PORT]
-      [--host-ip IP] [--check-avps LIST] [--seagull-dictionary FILE] [--seagull-base FILE]
+      [--host-ip IP] [--check-avps LIST]
       [--options FILE] [--option KEY=VALUE ...] [--placeholder AVP=NAME ...]
 
 STEPS_DIR holds Step-NNN-request.txt and Step-NNN-response.txt (see the
-seagull-diameter-common skill). DIR holds the project's AVP dictionaries: the files named
-in --dictionaries, merged in that order, and the file with the base protocol (by default
-DiameterBaseProtocol.xml, else the dictionary that defines the handshake commands). When
-the folder lacks part of the base protocol, --seagull-base FILE (base_draft08.xml of
-Seagull) supplies the missing items; see dict2seagull.py.
+seagull-diameter-common skill). FILE is the one dictionary in the Seagull format that
+the scenarios use; convert_dictionaries.py writes it. Without --dictionary the path is the
+setting SEAGULL_DICTIONARY_PATH (see seagull_config.py). With neither the script stops with
+exit status 1 and says so. The dictionary gives the vendor, the code, and the type of every
+AVP, and the values of an enumeration where a comment above the AVP lists them.
 
 Seagull ties an answer to its call by the Session-Id, so a scenario holds one
 Diameter session. The steps are cut into sessions at each change of Session-Id.
@@ -39,10 +39,9 @@ from __future__ import annotations
 
 import argparse
 import calendar
-import contextlib
 import copy
 import importlib
-import io
+import os
 import ipaddress
 import re
 import sys
@@ -58,13 +57,14 @@ sys.dont_write_bytecode = True  # keep __pycache__ out of the skill folder
 COMMON = Path(__file__).resolve().parents[2] / "seagull-diameter-common" / "scripts"
 sys.path.insert(0, str(COMMON))
 steps_format = importlib.import_module("steps_format")
-dict2seagull = importlib.import_module("dict2seagull")
+seagull_config = importlib.import_module("seagull_config")
 scenario_options = importlib.import_module("scenario_options")
 output_folder = importlib.import_module("output_folder")
 seagull_dictionary = importlib.import_module("seagull_dictionary")
 
 NTP_OFFSET = 2208988800
 NUMERIC = {"Unsigned32", "Unsigned64", "Integer32", "Integer64", "Enumerated"}
+ADDRESS_TYPES = {"Address", "IPAddress"}
 CHECKS = "Result-Code,Session-Id,Auth-Application-Id,CC-Request-Type,CC-Request-Number"
 STUB_ADDRESS = "127.0.0.1:3868"  # where the stub OCS of the dry run listens
 XML_HEAD = '<?xml version="1.0" encoding="ISO-8859-1" ?>\n'
@@ -129,45 +129,37 @@ class Substitution:
 
 @dataclass
 class Resolver:
-    """Find the Seagull name and the project definition of an AVP in a message."""
+    """Find the definition of an AVP of a message in the Seagull dictionary."""
 
-    project: dict[str, list[Any]]
-    seagull_names: dict[tuple[int, int], list[str]]
-    first: dict[str, tuple[int, int]] = field(default_factory=dict)
+    definitions: dict[str, list[Any]]
     notes: set[str] = field(default_factory=set)
     counters: Counter = field(default_factory=Counter)
 
     def resolve(self, name: str, parent_vendor: int | None) -> tuple[str, Any]:
-        """Return the Seagull name and the project definition of an AVP name.
+        """Return the name in the dictionary and the definition of an AVP name.
 
-        When the project has several definitions of the name, the one with the
-        vendor of the enclosing group wins, and the first one otherwise.
+        The recorded name TGPP-X is found as 3GPP-X. When the dictionary has several
+        definitions of the name, the one with the vendor of the enclosing group is meant,
+        and the first one otherwise. Seagull sends the first one for every use of the name.
         """
-        candidates = self.project.get(name)
+        key = name if name in self.definitions else name.replace("TGPP-", "3GPP-", 1)
+        candidates = self.definitions.get(key)
         if not candidates:
-            message = f"AVP {name} is in none of the project dictionaries given"
-            raise GenerationError(message)
+            raise GenerationError(f"AVP {name} is not in the Seagull dictionary")
         chosen = candidates[0]
         if len(candidates) > 1:
             same = [c for c in candidates if c.vendor_id == parent_vendor]
             chosen = same[0] if same else chosen
-            self.notes.add(describe_choice(name, candidates, chosen, bool(same)))
-        names = self.seagull_names.get((chosen.vendor_id, chosen.code))
-        if not names:
-            where = f"vendor {chosen.vendor_id}, code {chosen.code}"
-            message = f"AVP {name} ({where}) is not in the Seagull dictionary"
-            raise GenerationError(message)
-        wanted = name.replace("TGPP-", "3GPP-", 1)
-        result = wanted if wanted in names else names[0]
-        sent = self.first.get(result)
-        if sent is not None and sent != (chosen.vendor_id, chosen.code):
-            needed = f"vendor {chosen.vendor_id} code {chosen.code}"
-            self.notes.add(
-                f"{result}: the message needs {needed}, "
-                f"but Seagull sends vendor {sent[0]} code {sent[1]}, "
-                "the first definition of the name in the Seagull dictionary"
-            )
-        return result, chosen
+            self.notes.add(describe_choice(key, candidates, chosen, bool(same)))
+            first = candidates[0]
+            if chosen is not first:
+                needed = f"vendor {chosen.vendor_id} code {chosen.code}"
+                sent = f"vendor {first.vendor_id} code {first.code}"
+                self.notes.add(
+                    f"{key}: the message needs {needed}, but Seagull sends {sent}, "
+                    "the first definition of the name in the Seagull dictionary"
+                )
+        return key, chosen
 
 
 def describe_choice(name: str, candidates: list[Any], chosen: Any, same: bool) -> str:
@@ -176,37 +168,6 @@ def describe_choice(name: str, candidates: list[Any], chosen: Any, same: bool) -
     why = "the vendor of the enclosing group" if same else "the first definition"
     used = f"vendor {chosen.vendor_id} code {chosen.code}"
     return f"{name}: definitions (vendor, code) {keys}; used {used}, chosen by {why}"
-
-
-def load_project(paths: list[Path]) -> dict[str, list[Any]]:
-    """Return {AVP name: [definitions]} of the project dictionaries, in file order."""
-    by_name: dict[str, list[Any]] = {}
-    for path in paths:
-        avps, _ = dict2seagull.load_avp_dictionary(path)
-        for avp in avps:
-            known = by_name.setdefault(avp.name, [])
-            if (avp.vendor_id, avp.code) not in {(k.vendor_id, k.code) for k in known}:
-                known.append(avp)
-    return by_name
-
-
-def load_project_dictionaries(options: argparse.Namespace) -> dict[str, list[Any]]:
-    """Load the AVPs of the base protocol and of the named dictionaries.
-
-    The base protocol is the dictionary that dict2seagull.py takes as such. AVPs that only the
-    Seagull dictionary of --seagull-base has, such as a base AVP the folder lacks, are added
-    last, so every AVP of the project wins over it.
-    """
-    folder = options.dictionaries_dir
-    base = dict2seagull.base_sources(dict2seagull.load_dictionaries(folder))
-    names = [*base, *[n for n in options.dictionaries.split(",") if n not in base]]
-    project = load_project([folder / f"{n}.xml" for n in names])
-    if options.seagull_base:
-        for avp in dict2seagull.load_seagull_dictionary(options.seagull_base)[0]:
-            known = project.setdefault(avp.name, [])
-            if not known:
-                known.append(avp)
-    return project
 
 
 def to_ntp_hex(text: str) -> str:
@@ -234,7 +195,7 @@ def encode_value(avp: Any, text: str, counters: Counter) -> str:
     if avp.type_name == "Time":
         counters["time converted to NTP hex"] += 1
         return to_ntp_hex(text)
-    if avp.type_name == "Address":
+    if avp.type_name in ADDRESS_TYPES:
         if stripped.lower().startswith("0x"):
             return stripped
         counters["IP address converted to Address hex"] += 1
@@ -246,7 +207,8 @@ def encode_value(avp: Any, text: str, counters: Counter) -> str:
             return codes[stripped]
         if re.fullmatch(r"-?\d+|0x[0-9a-fA-F]+", stripped):
             return stripped
-        raise GenerationError(f"AVP {avp.name}: {text!r} is not a number or a name")
+        listed = "" if codes else f"; the dictionary lists no values for {avp.type_name} {avp.name}"
+        raise GenerationError(f"AVP {avp.name}: {text!r} is not a number or a listed name{listed}")
     if "$(" in text:
         raise GenerationError(f"{text!r} would be read as a Seagull variable")
     return text
@@ -751,28 +713,38 @@ def session_kind(session_id: str) -> str:
     return match.group(0).lower() if match else "session"
 
 
-def build_dictionary(options: argparse.Namespace) -> Path:
-    """Convert and merge the project dictionaries; return the Seagull dictionary."""
-    names = options.dictionaries.split(",")
-    folder = options.out / "dictionary"
-    folder.mkdir(parents=True, exist_ok=True)
-    argv = [str(options.dictionaries_dir), str(folder), "--combine", ",".join(names)]
-    for pair in options.rename:
-        argv += ["--rename", pair]
-    if options.seagull_base:
-        argv += ["--seagull-base", str(options.seagull_base)]
-    report, errors = io.StringIO(), io.StringIO()
-    with contextlib.redirect_stdout(report), contextlib.redirect_stderr(errors):
-        status = dict2seagull.main(argv)
-    if status != 0:
-        details = errors.getvalue() + report.getvalue()
-        raise GenerationError(f"the dictionary converter failed: {details}")
-    final = folder / "diameter-dictionary.xml"
-    final.write_bytes((folder / ("+".join(names) + ".xml")).read_bytes())
-    for leftover in folder.glob("*.xml"):
-        if leftover != final:
-            leftover.unlink()
-    (folder / "conversion-report.txt").write_text(report.getvalue(), encoding="utf-8", newline="\n")
+NO_DICTIONARY = (
+    "there is no Seagull dictionary. Give the path of one file with --dictionary FILE, or set "
+    "SEAGULL_DICTIONARY_PATH in .seagull-diameter/config.json. A dictionary of the project in "
+    "its own format has to be converted into one first, with /seagull-diameter-dictionary-convert"
+)
+
+
+def find_dictionary(options: argparse.Namespace) -> Path:
+    """Return the Seagull dictionary: --dictionary, else the setting; stop when there is none."""
+    path = options.dictionary
+    if path is None:
+        key = "SEAGULL_DICTIONARY_PATH"
+        try:
+            value, _ = seagull_config.resolve(key, Path.cwd(), Path.home(), dict(os.environ))
+        except seagull_config.ConfigError as error:
+            raise GenerationError(str(error)) from error
+        path = Path(value) if value else None
+    if path is None:
+        raise GenerationError(NO_DICTIONARY)
+    if path.is_dir():
+        raise GenerationError(f"{path} is a folder; give the one Seagull dictionary file")
+    if not path.is_file():
+        raise GenerationError(f"the Seagull dictionary {path} does not exist")
+    return path
+
+
+def copy_dictionary(options: argparse.Namespace) -> Path:
+    """Copy the Seagull dictionary into the output folder, where the scenarios expect it."""
+    source = find_dictionary(options)
+    final = options.out / "dictionary" / "diameter-dictionary.xml"
+    final.parent.mkdir(parents=True, exist_ok=True)
+    final.write_bytes(source.read_bytes())
     return final
 
 
@@ -780,8 +752,7 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
     """Parse the command line."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", maxsplit=1)[0])
     parser.add_argument("--steps", type=Path, required=True)
-    parser.add_argument("--dictionaries-dir", type=Path, required=True)
-    parser.add_argument("--dictionaries", required=True, help="names, in merge order")
+    parser.add_argument("--dictionary", type=Path, help="the one Seagull dictionary file")
     parser.add_argument("--out", type=Path, help="a folder that is new or empty")
     parser.add_argument(
         "--out-auto",
@@ -794,17 +765,10 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="move the old contents of a non-empty --out aside, then generate",
     )
-    parser.add_argument("--seagull-dictionary", type=Path, help="already converted")
-    parser.add_argument(
-        "--seagull-base",
-        type=Path,
-        help="base_draft08.xml of Seagull, if the base is missing",
-    )
     parser.add_argument("--timeout-ms", type=int, default=5000)
     parser.add_argument("--dest", default="127.0.0.1:3868", help="address of the OCS")
     parser.add_argument("--host-ip", default="192.0.2.10", help="the CER announces it")
     parser.add_argument("--check-avps", default=CHECKS, type=lambda s: s.split(","))
-    parser.add_argument("--rename", action="append", default=[], metavar="OLD=NEW")
     parser.add_argument(
         "--options",
         type=Path,
@@ -901,13 +865,7 @@ def prepare(
     if problems or not steps:
         raise GenerationError("the steps folder has problems: " + "; ".join(problems))
     notes = repair_notes(steps)
-    if options.seagull_dictionary:
-        final = options.out / "dictionary" / "diameter-dictionary.xml"
-        final.parent.mkdir(parents=True, exist_ok=True)
-        final.write_bytes(options.seagull_dictionary.read_bytes())
-    else:
-        final = build_dictionary(options)
-    project = load_project_dictionaries(options)
+    final = copy_dictionary(options)
     root = seagull_dictionary.read_dictionary(final)
     defined = seagull_dictionary.command_names_of(root)
     for step in steps:
@@ -917,8 +875,7 @@ def prepare(
     if scenario_settings.tags.default_dwr and not {"DWR", "DWA"} <= defined:
         scenario_settings.tags.default_dwr = False
         notes.append("default-dwr is off: the dictionary has no DWR and DWA")
-    names, first = seagull_dictionary.avp_names_of(root), seagull_dictionary.first_definitions(root)
-    return steps, Resolver(project, names, first), notes
+    return steps, Resolver(seagull_dictionary.read_definitions(final)), notes
 
 
 def choose_output(options: argparse.Namespace) -> list[str]:

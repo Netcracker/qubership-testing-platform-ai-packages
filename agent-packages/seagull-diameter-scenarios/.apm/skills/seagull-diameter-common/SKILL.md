@@ -37,11 +37,12 @@ Docker (`dry-run.sh`, `check-converted.sh`), or as `seagull.exe` of a Seagull fo
 **Read exactly two paths, in this order:** the file in the folder the session works in, then the file in the user's
 home folder. Don't search the disk for the file or for Seagull.
 
-| Key                    | Meaning                                                                                   |
-| ---------------------- | ----------------------------------------------------------------------------------------- |
-| `SEAGULL_RUNNER`       | `docker` or `windows`                                                                     |
-| `SEAGULL_DOCKER_IMAGE` | The Seagull image for `docker`. Default `seagull:local`                                   |
-| `SEAGULL_WINDOWS_PATH` | The `seagull.exe` for `windows`, for example `C:\Program Files (x86)\Seagull\seagull.exe` |
+| Key                       | Meaning                                                                                   |
+| ------------------------- | ----------------------------------------------------------------------------------------- |
+| `SEAGULL_RUNNER`          | `docker` or `windows`                                                                     |
+| `SEAGULL_DOCKER_IMAGE`    | The Seagull image for `docker`. Default `seagull:local`                                   |
+| `SEAGULL_WINDOWS_PATH`    | The `seagull.exe` for `windows`, e.g. `C:\Program Files (x86)\Seagull\seagull.exe`        |
+| `SEAGULL_DICTIONARY_PATH` | The one Seagull dictionary file for the generator, e.g. `C:\work\diameter-dictionary.xml` |
 
 A value in the user's request wins, then the environment variable of the same name, then the file, then the default.
 Never put a password or a token in the file. Before any run:

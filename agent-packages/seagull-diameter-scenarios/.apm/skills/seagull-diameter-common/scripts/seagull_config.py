@@ -13,6 +13,7 @@ of the same name first, then from the file, then from the default of the key.
   SEAGULL_RUNNER        docker or windows: where the dry run and the dictionary check start Seagull
   SEAGULL_DOCKER_IMAGE  the Seagull image for docker (default seagull:local)
   SEAGULL_WINDOWS_PATH  the seagull.exe of Seagull for Windows, for windows
+  SEAGULL_DICTIONARY_PATH  the one Seagull dictionary file that the scenario generator reads
 
 "get" prints the value and exits with 0, or exits with 4 and prints nothing when the key has no
 value, which is the signal to ask the user. "set" writes to the session folder, or to the home
@@ -33,7 +34,7 @@ CONFIG_DIR = ".seagull-diameter"
 CONFIG_NAME = "config.json"
 RUNNERS = ("docker", "windows")
 DEFAULTS = {"SEAGULL_DOCKER_IMAGE": "seagull:local"}
-KEYS = ("SEAGULL_RUNNER", "SEAGULL_DOCKER_IMAGE", "SEAGULL_WINDOWS_PATH")
+KEYS = ("SEAGULL_RUNNER", "SEAGULL_DOCKER_IMAGE", "SEAGULL_WINDOWS_PATH", "SEAGULL_DICTIONARY_PATH")
 EXIT_UNSET = 4
 
 
@@ -86,6 +87,8 @@ def check_value(key: str, value: str) -> None:
         raise ConfigError(f"SEAGULL_RUNNER must be one of {', '.join(RUNNERS)}, not {value!r}")
     if key == "SEAGULL_WINDOWS_PATH" and not Path(value).is_file():
         raise ConfigError(f"SEAGULL_WINDOWS_PATH: no file {value}")
+    if key == "SEAGULL_DICTIONARY_PATH" and not Path(value).is_file():
+        raise ConfigError(f"SEAGULL_DICTIONARY_PATH: no file {value}; it must be one file")
     if not value.strip():
         raise ConfigError(f"{key}: the value is empty")
 

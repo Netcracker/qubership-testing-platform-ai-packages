@@ -22,7 +22,7 @@ stateDiagram-v2
     Source --> Steps: /seagull-diameter-steps-extract
     [*] --> Steps: you already have the folder
     Steps --> Steps: check_steps.py reports a PROBLEM,<br/>fix the source or the extraction
-    Steps --> Output: /seagull-diameter-scenario-generate<br/>+ project dictionaries
+    Steps --> Output: /seagull-diameter-scenario-generate<br/>+ one Seagull dictionary
 
     Output --> Ready: mode=scenario
     Output --> Templates: mode=template, substitution=text
@@ -52,7 +52,7 @@ dry run, so the dry run always sees a filled-in scenario.
 | Transition                       | Moved by                                 | Needs                                                                  | Produces                                                                                                                        |
 |----------------------------------|------------------------------------------|------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------|
 | Source to Steps folder           | `/seagull-diameter-steps-extract`        | The source file and your description of its structure                  | `Step-NNN-request.txt`, `Step-NNN-response.txt`, `Steps-index.csv`                                                              |
-| Steps folder to Generated output | `/seagull-diameter-scenario-generate`    | The folder, the project dictionaries, and the names to merge           | Client and stub scenarios, three configurations, the merged Seagull dictionary, `generation-report.txt`, `scenario-options.ini` |
+| Steps folder to Generated output | `/seagull-diameter-scenario-generate`    | The folder, and one Seagull dictionary file                            | Client and stub scenarios, three configurations, a copy of the dictionary, `generation-report.txt`, `scenario-options.ini`      |
 | Ready scenarios to Templates     | `/seagull-diameter-scenario-templatize`  | Generated `*.client.xml`, and placeholder pairs                        | `*.client.xml.tpl`, `*.client.xml.values`                                                                                       |
 | Ready scenarios to Data file     | `/seagull-diameter-scenario-externalize` | Generated `*.client.xml`, and `AVP=column` pairs                       | A new folder: changed scenarios, `scenario/external-data.csv`, configurations that name the file                                |
 | Templates to Ready scenarios     | `apply_placeholders.py`                  | A template, and values from `--set`, the environment, or a values file | A filled-in `*.client.xml`                                                                                                      |
@@ -61,9 +61,10 @@ dry run, so the dry run always sees a filled-in scenario.
 
 ## Dictionaries on their own
 
-`/seagull-diameter-dictionary-convert` works apart from the scenarios. It takes the folder of the project's dictionaries
-and writes a new folder of Seagull dictionaries. The generate skill does not need it, because it converts the
-dictionaries it merges itself.
+`/seagull-diameter-dictionary-convert` works apart from the scenarios, and you run it once. It takes the folder of the
+project's dictionaries and writes the one Seagull dictionary file. The generate skill needs that file, from the request
+or from the setting `SEAGULL_DICTIONARY_PATH`. Without it, the generate skill stops and tells you to convert the
+dictionaries or to give a ready file.
 
 ```mermaid
 stateDiagram-v2
@@ -108,8 +109,9 @@ A prompt wins over the file for the keys it names. A key that the prompt does no
 |---------------------------------|-----------------------------------------------------|--------------------------------------------------------------------------------------------------------|
 | Steps folder, before generation | A `PROBLEM` line from `check_steps.py`              | Fix the extraction, or the source text, and extract again                                              |
 | Generation, before any file     | `the output folder is not empty: ...`               | Use another folder, or `replace=yes` to move the old contents to a `.previous-<time>` folder           |
-| Generation                      | `AVP <name> is in none of the project dictionaries` | Add the dictionary that defines the AVP to `merge=`                                                    |
-| Generation                      | `the command <X> is not in ...`                     | Add the dictionary of the application that defines the command                                         |
+| Generation, before any file     | `there is no Seagull dictionary`                    | Give a dictionary file or set SEAGULL_DICTIONARY_PATH; convert the dictionaries first                  |
+| Generation                      | `AVP <name> is not in the Seagull dictionary`       | Ask the owners of the dictionary to add the AVP, or convert a fuller set of dictionaries               |
+| Generation                      | `the command <X> is not in ...`                     | Convert dictionaries that define the command                                                           |
 | Generation                      | `generated-timestamp needs time-method`             | Name a time method, or leave the option off                                                            |
 | Generation, template            | `no value for placeholder(s) NAME`                  | Give the value in the values file, with `--set`, or with `--env`                                       |
 | Conversion                      | `do not define the base protocol`                   | Add the files that define it to the folder, or allow the Seagull dictionary (`seagull-base=`)          |

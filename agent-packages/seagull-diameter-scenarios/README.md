@@ -29,7 +29,7 @@ your wording before it runs.
 | Skill                                                                                                | Purpose                                                                                                            |
 |------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
 | [/seagull-diameter-steps-extract](.apm/skills/seagull-diameter-steps-extract/SKILL.md)               | Turns a recorded run (an `xlsx` export, for example) into a folder of request and response files                   |
-| [/seagull-diameter-scenario-generate](.apm/skills/seagull-diameter-scenario-generate/SKILL.md)       | Turns that folder into Seagull scenarios or templates, configuration, and a merged dictionary, then runs a dry run |
+| [/seagull-diameter-scenario-generate](.apm/skills/seagull-diameter-scenario-generate/SKILL.md)       | Turns that folder and one Seagull dictionary into scenarios or templates and configuration, then runs a dry run    |
 | [/seagull-diameter-scenario-templatize](.apm/skills/seagull-diameter-scenario-templatize/SKILL.md)   | Replaces the values of chosen AVPs in generated scenarios with `@@NAME@@` placeholders                             |
 | [/seagull-diameter-scenario-externalize](.apm/skills/seagull-diameter-scenario-externalize/SKILL.md) | Makes chosen AVPs read their values from an external CSV data file, one row for each call                          |
 | [/seagull-diameter-dictionary-convert](.apm/skills/seagull-diameter-dictionary-convert/SKILL.md)     | Converts the project's Diameter dictionaries into Seagull dictionaries, and can check them in the image            |
@@ -38,7 +38,7 @@ your wording before it runs.
 ```mermaid
 flowchart LR
     Source["Recorded run<br/>(xlsx, csv, log)"] -->|"/seagull-diameter-steps-extract<br/>+ your description of the file"| Folder["Folder of<br/>Step-NNN-request/response.txt"]
-    Folder -->|"/seagull-diameter-scenario-generate<br/>+ the project dictionaries"| Output["Scenarios, configuration,<br/>merged dictionary"]
+    Folder -->|"/seagull-diameter-scenario-generate<br/>+ one Seagull dictionary"| Output["Scenarios,<br/>configuration"]
     Output -->|"dry-run.sh"| Stub["Stub OCS in the Seagull image"]
     Output -->|"seagull -scen ..."| OCS["The OCS under test"]
 ```
@@ -80,10 +80,11 @@ The format of the file is in [the common skill](.apm/skills/seagull-diameter-com
 
 ## Dictionaries
 
-Seagull cannot read the project's dictionary format. The generate skill converts what it needs.
-`/seagull-diameter-dictionary-convert` converts a whole folder of dictionaries into a new folder, merges the ones you
-name into one file, reports what looks inconsistent, and can validate the sources and check each result in the Seagull
-image. What the conversion does and drops is in [the dictionary conversion page](docs/dictionary-conversion.md).
+Seagull cannot read the project's dictionary format, and it loads one dictionary file for each run.
+`/seagull-diameter-dictionary-convert` converts a folder of dictionaries into one Seagull dictionary, once, reports what
+looks inconsistent, and can validate the sources and check the result in the Seagull image. The scenario generator
+reads that file, from the request or from the setting `SEAGULL_DICTIONARY_PATH`, and stops when it has none. What the
+conversion does and drops is in [the dictionary conversion page](docs/dictionary-conversion.md).
 
 ## Requirements
 

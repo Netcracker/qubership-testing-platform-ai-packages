@@ -1,6 +1,6 @@
 ---
 name: seagull-diameter-generate-scenarios
-description: Use when the user asks to generate Seagull scenarios or templates from a folder of recorded Diameter requests and responses, for example to replay a recorded run. Writes client scenarios, a merged Seagull dictionary, configuration, and a stub OCS into a new folder, and runs the dry run against the stub only when the user asks for it.
+description: Use when the user asks to generate Seagull scenarios or templates from a folder of recorded Diameter requests and responses, for example to replay a recorded run. Reads one ready Seagull dictionary and writes client scenarios, configuration, and a stub OCS into a new folder, and runs the dry run against the stub only when the user asks for it.
 user-invocable: false
 ---
 
@@ -20,8 +20,7 @@ from formal arguments, and the dry run is part of it. What this page says holds 
 | Parameter       | How the user says it                                                 | Rule                                                                                            |
 | --------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | steps folder    | "generate scenarios from C:\work\Diameter-Steps"                     | Required. Ask when missing                                                                      |
-| dictionaries    | "the dictionaries are in C:\work\dictionaries"                       | Required: the folder of the project's AVP dictionaries. It must define the base protocol        |
-| `merge=`        | "use RoSCP, Gy and Integration"                                      | Required: the dictionaries to merge, names without `.xml`. Never guess. See below               |
+| dictionary      | "the dictionary is C:\work\diameter-dictionary.xml"                  | One Seagull dictionary file. From the request, else the setting. Without it, stop. See below    |
 | `out=`          | "write them to C:\work\Seagull-Scenario"                             | Optional. The folder must be new or empty                                                       |
 | `replace=yes`   | "generate again into the same folder", "replace the old output"      | Only when the user asked, or answered your question. Never to get past the refusal              |
 | `timeout=`      | "wait 10 seconds for an answer"                                      | Milliseconds. Default 5000                                                                      |
@@ -34,7 +33,7 @@ from formal arguments, and the dry run is part of it. What this page says holds 
 | dry run         | "and run it against the stub", "check that it works in Seagull"      | Starts Seagull. Run it only when the user asked; otherwise offer it at the end                  |
 
 When you had to interpret the wording to fill a parameter, say how you understood it before you run anything, for
-example `merge=RoSCP,Gy,Integration` or `option=log=true`, and let the user correct it.
+example `option=log=true`, and let the user correct it.
 
 **The output folder is never reused silently.** Without `out=` the script takes the first free
 `Seagull-Scenario[-N]` next to the steps folder (`--out-auto <parent>`), so an earlier output stays as it was. With
@@ -53,10 +52,31 @@ when the user states them in the request. A later run without them uses what the
 placeholder once and changes it only by naming it again. When the user asks for placeholders but gives none, ask which
 AVP values should become placeholders; never pick them.
 
-When the dictionaries or `merge=` are missing, list the `.xml` files of the dictionary folder and ask the user which to
-merge. Never guess. Start with the dictionary of the interface the messages use, and add another only when the
-generator reports `AVP <name> is in none of the project dictionaries that were given`. For an AVP name defined in
-several of the merged dictionaries, the first one in `merge=` keeps the name.
+## The dictionary
+
+The generator reads **one** dictionary file in the Seagull format. Converting the project's dictionaries is a separate,
+one-time job, done by [seagull-diameter-convert-dictionaries](../seagull-diameter-convert-dictionaries/SKILL.md); this
+skill never converts, merges, or looks for dictionaries.
+
+Take the path in this order:
+
+1. The path in the request, as `--dictionary <file>`.
+2. The setting: `python <skill folder>/../seagull-diameter-common/scripts/seagull_config.py get SEAGULL_DICTIONARY_PATH`.
+   Exit status 4 and no output mean that it is not set. The script reads the same setting itself when `--dictionary`
+   is absent.
+
+When there is neither, **stop and tell the user**: there is no Seagull dictionary, and they either give the path of a
+ready file, or convert the project's dictionaries with `/seagull-diameter-dictionary-convert` and give the result. Do
+not search the disk for a dictionary, do not convert one yourself, and do not take one of Seagull's own. A path to a
+folder is an error: the generator takes one file. When the user gives a path that the setting does not hold, offer to
+save it with `seagull_config.py set SEAGULL_DICTIONARY_PATH <file>`, and save it only after they agree.
+
+The file gives the vendor, the code, and the type of each AVP, so a time, an IP address, and a number are written
+right. A name of an enumeration value, such as `INITIAL_REQUEST`, becomes its number only when the dictionary lists the
+values in a comment above the AVP, which the converter writes. A dictionary without them, such as one from the project
+or one converted with `no-comments=yes`, makes the generator stop on a value name with
+`the dictionary lists no values`. Tell the user, and let them write the numbers in the steps or use a converted
+dictionary.
 
 ## Prerequisites
 
@@ -79,34 +99,32 @@ several of the merged dictionaries, the first one in `merge=` keeps the name.
 2. **Generate.**
 
    ```bash
-   python <skill folder>/scripts/generate_scenarios.py --steps <steps folder> --dictionaries-dir <dictionaries folder> \
-       --dictionaries <A,B,C> (--out <out folder> | --out-auto <parent of the steps folder>) [--replace] \
+   python <skill folder>/scripts/generate_scenarios.py --steps <steps folder> [--dictionary <file>] \
+       (--out <out folder> | --out-auto <parent of the steps folder>) [--replace] \
        [--timeout-ms <ms>] [--dest <host:port>] [--host-ip <ip>]
    ```
 
    The first line of the report names the folder when the script chose it (`output folder: ... (new)`). Use that folder
    in the later steps and tell the user where it is.
 
-   When the message says that the dictionaries do not define the base protocol, nothing was written. Stop, show the
-   message, and offer the two ways that
-   [The base protocol](../seagull-diameter-convert-dictionaries/SKILL.md#the-base-protocol) describes: the user adds the
-   files to the folder, or allows the dictionary of the Seagull distribution with a warning that it may be wrong in
-   places. Only after a yes, export it and add `--seagull-base <file>` to the command.
+   When the script says `there is no Seagull dictionary`, nothing was written. Stop and tell the user as "The dictionary"
+   describes.
 
    The parameters `mode=`, `placeholder=`, `option=`, and `options=` become `--option mode=<value>`,
    `--placeholder <AVP>=<NAME>`, `--option <key>=<value>`, and `--options <file>`; repeat a flag for each pair.
    Options that the table does not list: `--check-avps <A,B,...>` sets the AVPs that the scenario compares in each
    answer (default `Result-Code,Session-Id,Auth-Application-Id,CC-Request-Type,CC-Request-Number`; an AVP that the
-   recorded answer lacks is skipped and named in the report), `--rename OLD=NEW` renames an AVP for the converter, and
-   `--seagull-dictionary <file>` uses a dictionary that is already converted.
+   recorded answer lacks is skipped and named in the report).
 3. **Read the report** that the script prints and saves as `generation-report.txt`, and tell the user:
    - The scenarios that were written, one for each Diameter session.
    - Every AVP name with several definitions in the dictionaries (`<name>: definitions (vendor, code) ...; used ...`).
      The generator picks the one with the vendor of the enclosing group, else the first. The user knows the real AVP;
-     ask for a confirmation, and rerun with another `merge=` order if the choice is wrong.
+     ask for a confirmation.
+   - Every line `<name>: the message needs vendor V code C, but Seagull sends vendor ... code ...`. Seagull finds an AVP
+     by name and sends the first definition of the name wherever a scenario uses it, so the scenario sends a different
+     AVP than the recorded one, and Seagull reports no error. Tell the user which AVP it is; only a change of the
+     dictionary, which the owners of the dictionary decide, can fix it.
    - The repairs of the recorded messages, and the checks that were skipped.
-   - The conversion warnings in `dictionary/conversion-report.txt`: names defined twice, a command replaced by the
-     application's. They matter only when a scenario uses the name.
    - The lines about the options: `default-dwr is off` (the dictionary has no DWR and DWA), `<NAME>: values 'a' and
      'b'; used the first` (one placeholder stands for one value, so two AVPs with different values lose the
      difference), and `placeholder <AVP>: matched no AVP` (a misspelled name or an AVP that is not in the steps).
@@ -148,7 +166,7 @@ several of the merged dictionaries, the first one in `merge=` keeps the name.
 | `config/conf.client.xml`                    | The client configuration with `dest` and the response timeout                                                     |
 | `config/conf.dry-run.client.xml`            | The same, pointing at the stub OCS                                                                                |
 | `config/conf.stub-server.xml`               | The stub OCS configuration                                                                                        |
-| `dictionary/diameter-dictionary.xml`        | The merged Seagull dictionary, used by the scenarios and the stub                                                 |
+| `dictionary/diameter-dictionary.xml`        | A copy of the Seagull dictionary that the scenarios and the stub use                                              |
 | `generation-report.txt`                     | What the generator did and what to review                                                                         |
 
 ## What the scenarios do
