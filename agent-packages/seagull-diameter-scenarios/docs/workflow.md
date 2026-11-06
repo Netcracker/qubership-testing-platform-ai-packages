@@ -83,7 +83,7 @@ stateDiagram-v2
 
 | Transition                        | Moved by                  | Needs                                        | Produces                                                             |
 | --------------------------------- | ------------------------- | -------------------------------------------- | -------------------------------------------------------------------- |
-| Project to Converted dictionaries | `convert_dictionaries.py` | The folder, and a new or empty output folder | One Seagull file for each AVP dictionary, the combinations, a report |
+| Project to Converted dictionaries | `convert_dictionaries.py` | The folder, and a new or empty output folder | One Seagull file of all the dictionaries, a report                   |
 | Converted to Loaded               | `check-converted.sh`      | Docker and the image `seagull:local`         | One line for each file: `successful calls: 1, failed calls: 0`       |
 | Project, validated                | `validate.sh`             | `validate=yes`, and schemas found            | A verdict and the schema used for each file; status 0, 1, or 3       |
 

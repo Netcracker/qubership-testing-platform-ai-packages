@@ -457,19 +457,19 @@ for the dictionaries it merges. Use this command when you want the dictionaries 
 scenario with `-dico`, to read the conversion report before you generate, or to check that Seagull loads a result.
 What the conversion does is in [the dictionary conversion page](dictionary-conversion.md).
 
-You can also ask in plain words, for example "convert the dictionaries in C:\work\dictionaries and merge Gy and Sy into
-one file". The agent then follows the skill `seagull-diameter-convert-dictionaries` and the rules in
+You can also ask in plain words, for example "convert the dictionaries in C:\work\dictionaries" (one file), "... one
+file for each dictionary", or "... and merge only Gy and Sy". The agent then follows the skill `seagull-diameter-convert-dictionaries` and the rules in
 "Plain requests" above; it validates the sources only when you ask for it.
 
 ```text
-/seagull-diameter-dictionary-convert <dictionaries folder> [out=<folder>] [combine=<A,B> ...] [rename=<OLD>=<NEW> ...] [command-flags=<KEY>=<N> ...] [avp-flags=<AVP>=<N> ...] [vendor-mandatory=source|yes|no] [options=<file>] [keep-tgpp=yes] [no-comments=yes] [validate=yes] [xsd=<folder>] [check=yes]
+/seagull-diameter-dictionary-convert <dictionaries folder> [out=<folder>] [combine=yes|no|<A,B> ...] [rename=<OLD>=<NEW> ...] [command-flags=<KEY>=<N> ...] [avp-flags=<AVP>=<N> ...] [vendor-mandatory=source|yes|no] [options=<file>] [keep-tgpp=yes] [no-comments=yes] [validate=yes] [xsd=<folder>] [seagull-base=<file>] [check=yes]
 ```
 
 | Argument            | Meaning                                                                                                                                                                                                           |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | first argument      | The folder with the project's AVP dictionaries. It must define the base protocol, in any file                                                                                                                     |
 | `out=`              | The folder to write to. It must be new or empty. Default: `Seagull-Dictionary`, `Seagull-Dictionary-2`, ... next to the input folder                                                                              |
-| `combine=`          | Names of dictionaries, without `.xml` and separated by commas, to merge into one file; repeat for more files                                                                                                      |
+| `combine=`          | `yes` (the default) writes one file, `diameter-dictionary.xml`, of all the dictionaries and the base protocol; `no` writes one file for each; `A,B` writes only one file of the named ones, in that order         |
 | `rename=`           | `OLD=NEW`: renames an AVP in every result, to match the name a scenario uses; repeat for more pairs                                                                                                               |
 | `command-flags=`    | `<KEY>=<N>`: the flags byte, 0 to 255, of every request (`request=`), every answer (`answer=`), or one request or answer by its Seagull name (`CCR=192`); repeat for more pairs. Default: requests 128, answers 0 |
 | `avp-flags=`        | `<AVP>=<N>`: the flags byte of one AVP, by its name in the result; repeat for more pairs. Default: what the source gives                                                                                          |
@@ -488,11 +488,12 @@ Example:
 /seagull-diameter-dictionary-convert C:\work\dictionaries combine=Gy,Sy check=yes
 ```
 
-Expected: a new folder next to `C:\work\dictionaries` with one file for each AVP dictionary, `Gy+Sy.xml`, and
-`conversion-report.txt`. The agent tells you the number of AVPs and commands in each file and every warning:
+Expected: a new folder next to `C:\work\dictionaries` with the file `Gy+Sy.xml`, `conversion-report.txt`, and
+`dictionary-options.ini`. Without `combine=`, the file is `diameter-dictionary.xml` and holds every dictionary of the
+folder. The agent tells you the number of AVPs and commands in each file and every warning:
 
 ```text
-Gy.xml: 25 AVPs, 3 command pairs, 1 warnings
+Gy+Sy.xml: 25 AVPs, 3 command pairs, 1 warnings
     WARNING AVP name Node-Id is defined twice with different identity: vendor 10415 code 2064 (Gy.xml) and vendor 99999 code 5 (Gy.xml); the second is written as Node-Id-v99999c5
 ```
 
@@ -510,8 +511,9 @@ Gy+Sy: successful calls: 1, failed calls: 0
 A result without `CCR`, such as the base protocol alone, is skipped. The check proves that Seagull loads the dictionary
 and finds the AVP names of the check scenario in it. It does not prove that an OCS accepts the messages.
 
-Pass one result to Seagull with `-dico`. Seagull loads one dictionary for each run, so a run that sends messages of
-several applications needs them in one file: name them in `combine=`.
+Pass one result to Seagull with `-dico`. Seagull loads one dictionary for each run, so the default is one file with all
+the dictionaries. Use `combine=no` for one file for each dictionary, and `combine=Gy,Sy` to merge only some, or to set
+the order in which the first definition of an AVP name wins.
 
 #### Validate the sources
 

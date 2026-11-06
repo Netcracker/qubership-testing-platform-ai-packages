@@ -116,15 +116,21 @@ command whose flags differ from the default, an AVP whose flags differ from its 
 
 Seagull loads one dictionary for each run, and two `-dico` options do not add up: Seagull 1.8.3 stops with
 `protocol with name [diameter-v1] already defined`, whichever file comes first. A run that uses several dictionaries
-together needs them in one file. Name them in `combine=`:
+together needs them in one file, so the converter writes one by default: `diameter-dictionary.xml`, made of every AVP
+dictionary of the folder and the base protocol. `combine=yes` means the same.
 
 ```text
-/seagull-diameter-dictionary-convert C:\work\dictionaries combine=Gy,Integration,RoIMS,RoSCP,RoSMSMMS,Sy
+/seagull-diameter-dictionary-convert C:\work\dictionaries
 ```
 
-The base protocol is always merged in, so it need not be listed. The merged file is named after its parts, joined
-with `+`; copy it under a shorter name such as `All.xml`. The dictionaries are merged in the order given, after the base
-protocol:
+Two other forms exist:
+
+- `combine=no` writes one file for each dictionary, each merged with the base protocol, for example to compare them.
+- `combine=Gy,Sy` writes only one file, `Gy+Sy.xml`, made of the named dictionaries. Use it to leave a dictionary out,
+  or to set the order. Without a list, the dictionaries are merged in alphabetical order of their filenames.
+
+The base protocol is always merged in, so it need not be listed. The dictionaries are merged in the order given, after
+the base protocol:
 
 - An AVP that several files define in the same way, with one name, vendor, and code, appears once.
 - An AVP name that a later file uses for another vendor or code does not replace the first definition. The later one is

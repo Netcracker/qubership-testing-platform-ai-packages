@@ -56,13 +56,8 @@ class ConvertDictionariesTest(unittest.TestCase):
             files = sorted(p.name for p in (Path(folder) / "Seagull-Dictionary").iterdir())
         self.assertEqual(statuses, [0, 0])
         self.assertEqual(names, ["Seagull-Dictionary", "Seagull-Dictionary-2", "dictionaries"])
-        expected = [
-            "DiameterBaseProtocol.xml",
-            "Gy.xml",
-            "conversion-report.txt",
-            "dictionary-options.ini",
-        ]
-        self.assertEqual(files, expected)
+        expected = ["conversion-report.txt", "dictionary-options.ini", "diameter-dictionary.xml"]
+        self.assertEqual(files, sorted(expected))
 
     def test_non_empty_folder_is_refused(self) -> None:
         """A named folder that holds files stops the run and keeps the files."""
@@ -84,7 +79,7 @@ class ConvertDictionariesTest(unittest.TestCase):
                 out = Path(folder) / name
                 argv = [str(FIXTURES / "dictionaries"), "--out", str(out), *extra]
                 self.assertEqual(run_convert(argv)[0], 0)
-                texts[name] = (out / "Gy.xml").read_text(encoding="utf-8")
+                texts[name] = (out / "diameter-dictionary.xml").read_text(encoding="utf-8")
         self.assertIn('name="3GPP-Charging-Id"', texts["plain"])
         self.assertIn('name="TGPP-Charging-Id"', texts["kept"])
 
@@ -121,7 +116,51 @@ class BaseProtocolTest(unittest.TestCase):
         status, text, error = run_convert([str(source), "--out", str(out)])
         self.assertEqual(status, 0, error)
         self.assertIn("NOTE the base protocol is taken from Base (found by its commands)", text)
+        self.assertEqual(defined_flags(out / "diameter-dictionary.xml", "CER"), 128)
+
+    def two_dictionaries(self) -> tuple[Path, Path]:
+        """Return a folder with the base protocol, Gy, and Mine, and the path of an output."""
+        source, out = self.folder("DiameterBaseProtocol.xml", "Gy.xml")
+        (source / "Mine.xml").write_text(MINE, encoding="utf-8")
+        return source, out
+
+    def test_by_default_all_dictionaries_go_into_one_file(self) -> None:
+        """Without --combine, and with yes, one file holds every dictionary and the base."""
+        for extra in ([], ["--combine", "yes"]):
+            source, out = self.two_dictionaries()
+            status, _, error = run_convert([str(source), "--out", str(out), *extra])
+            self.assertEqual(status, 0, error)
+            self.assertEqual(
+                sorted(p.name for p in out.glob("*.xml")),
+                ["diameter-dictionary.xml"],
+            )
+            text = (out / "diameter-dictionary.xml").read_text(encoding="iso-8859-1")
+            self.assertIn('name="Sess-Id"', text)
+            self.assertIn('name="3GPP-Charging-Id"', text)
+            self.assertEqual(defined_flags(out / "diameter-dictionary.xml", "CER"), 128)
+
+    def test_combine_no_writes_one_file_for_each_dictionary(self) -> None:
+        """With no, each AVP dictionary is its own file, and the base protocol alone is not."""
+        source, out = self.two_dictionaries()
+        status, _, error = run_convert([str(source), "--out", str(out), "--combine", "no"])
+        self.assertEqual(status, 0, error)
+        self.assertEqual(sorted(p.name for p in out.glob("*.xml")), ["Gy.xml", "Mine.xml"])
         self.assertEqual(defined_flags(out / "Gy.xml", "CER"), 128)
+
+    def test_a_list_writes_only_the_merged_file_in_that_order(self) -> None:
+        """A list of names makes one file from those dictionaries, and nothing else."""
+        source, out = self.two_dictionaries()
+        argv = [str(source), "--out", str(out), "--combine", "Mine,Gy"]
+        status, _, error = run_convert(argv)
+        self.assertEqual(status, 0, error)
+        self.assertEqual(sorted(p.name for p in out.glob("*.xml")), ["Mine+Gy.xml"])
+
+    def test_an_unknown_name_in_a_list_is_refused(self) -> None:
+        """A name that is no dictionary of the folder stops the run before any file."""
+        source, out = self.two_dictionaries()
+        status, _, error = run_convert([str(source), "--out", str(out), "--combine", "Gy,Nope"])
+        self.assertEqual(status, 2)
+        self.assertIn("unknown dictionary in --combine: ['Nope']", error)
 
     def test_missing_base_lists_the_codes_and_offers_the_choice(self) -> None:
         """Without the base protocol nothing is written; the message names codes and options."""
@@ -141,7 +180,7 @@ class BaseProtocolTest(unittest.TestCase):
         self.assertEqual(status, 0, error)
         self.assertIn("added 13 AVPs and 2 command pairs from base_invented.xml", text)
         self.assertIn("may be wrong in places", text)
-        gy = out / "Gy.xml"
+        gy = out / "diameter-dictionary.xml"
         self.assertEqual((defined_flags(gy, "CER"), defined_flags(gy, "Origin-Host")), (128, 64))
         self.assertEqual(defined_flags(gy, "Destination-Realm"), 64)
 
@@ -228,7 +267,7 @@ class FlagOptionsTest(unittest.TestCase):
         """Requests get 128, answers 0, and an AVP gets the V and M bits of its source."""
         status, out, text, _ = self.convert_with()
         self.assertEqual(status, 0)
-        gy = out / "Gy.xml"
+        gy = out / "diameter-dictionary.xml"
         self.assertEqual((defined_flags(gy, "CCR"), defined_flags(gy, "CCA")), (128, 0))
         self.assertEqual(defined_flags(gy, "3GPP-Charging-Id"), 192)
         self.assertNotIn("NOTE", text)
@@ -237,7 +276,7 @@ class FlagOptionsTest(unittest.TestCase):
         """CCR=192 changes one request; answer=64 changes every answer that is not named."""
         pairs = ("--command-flags", "CCR=192", "--command-flags", "answer=64")
         _, out, text, _ = self.convert_with(*pairs)
-        gy = out / "Gy.xml"
+        gy = out / "diameter-dictionary.xml"
         self.assertEqual((defined_flags(gy, "CCR"), defined_flags(gy, "CER")), (192, 128))
         self.assertEqual((defined_flags(gy, "CCA"), defined_flags(gy, "CEA")), (64, 64))
         self.assertIn("NOTE CCR: flags 192 (the converter's default is 128)", text)
@@ -245,14 +284,14 @@ class FlagOptionsTest(unittest.TestCase):
     def test_avp_flags_by_name(self) -> None:
         """An AVP named in --avp-flags gets those flags; the report says what the source gave."""
         _, out, text, _ = self.convert_with("--avp-flags", "3GPP-Charging-Id=128")
-        self.assertEqual(defined_flags(out / "Gy.xml", "3GPP-Charging-Id"), 128)
-        self.assertEqual(defined_flags(out / "Gy.xml", "Subscription-Id"), 64)
+        self.assertEqual(defined_flags(out / "diameter-dictionary.xml", "3GPP-Charging-Id"), 128)
+        self.assertEqual(defined_flags(out / "diameter-dictionary.xml", "Subscription-Id"), 64)
         self.assertIn("NOTE 3GPP-Charging-Id: flags 128 (the source gives 192)", text)
 
     def test_vendor_mandatory_no_clears_m_on_vendor_avps_only(self) -> None:
         """The policy changes the M bit of vendor AVPs and leaves the others as they are."""
         _, out, text, _ = self.convert_with("--vendor-mandatory", "no")
-        gy = out / "Gy.xml"
+        gy = out / "diameter-dictionary.xml"
         self.assertEqual(defined_flags(gy, "3GPP-Charging-Id"), 128)
         self.assertEqual(defined_flags(gy, "Subscription-Id"), 64)
         self.assertIn("NOTE vendor-mandatory=no: changed the M bit of 7 of 7 vendor AVPs", text)
@@ -261,7 +300,7 @@ class FlagOptionsTest(unittest.TestCase):
         """A named AVP keeps its own flags whatever the policy says."""
         pairs = ("--vendor-mandatory", "no", "--avp-flags", "3GPP-Charging-Id=192")
         _, out, _, _ = self.convert_with(*pairs)
-        gy = out / "Gy.xml"
+        gy = out / "diameter-dictionary.xml"
         flags = [defined_flags(gy, name) for name in ("3GPP-Charging-Id", "SGSN-Address")]
         self.assertEqual(flags, [192, 128])
 
@@ -272,8 +311,8 @@ class FlagOptionsTest(unittest.TestCase):
         _, second, _, _ = self.convert_with("--options", str(first / "dictionary-options.ini"))
         self.assertIn("CCR = 192", saved)
         self.assertEqual(
-            (first / "Gy.xml").read_text(encoding="iso-8859-1"),
-            (second / "Gy.xml").read_text(encoding="iso-8859-1"),
+            (first / "diameter-dictionary.xml").read_text(encoding="iso-8859-1"),
+            (second / "diameter-dictionary.xml").read_text(encoding="iso-8859-1"),
         )
 
     def test_xsd_folder_is_kept_for_the_validation_step(self) -> None:
@@ -289,8 +328,8 @@ class FlagOptionsTest(unittest.TestCase):
         self.assertIn("xsd = /data/xsd", kept)
         self.assertNotIn("[validate]", default)
         self.assertEqual(
-            (first / "Gy.xml").read_text(encoding="iso-8859-1"),
-            (plain / "Gy.xml").read_text(encoding="iso-8859-1"),
+            (first / "diameter-dictionary.xml").read_text(encoding="iso-8859-1"),
+            (plain / "diameter-dictionary.xml").read_text(encoding="iso-8859-1"),
         )
 
     def test_a_name_that_matches_nothing_is_a_warning(self) -> None:

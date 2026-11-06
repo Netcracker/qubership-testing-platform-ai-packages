@@ -2,7 +2,7 @@
 name: seagull-diameter-dictionary-convert
 description: Use only when the user types /seagull-diameter-dictionary-convert. Converts the project's Diameter dictionaries into Seagull dictionaries from explicit arguments; can validate the sources against XSD files and check the result in the Seagull image.
 disable-model-invocation: true
-argument-hint: "<dictionaries folder> [out=<folder>] [combine=<A,B> ...] [rename=<OLD>=<NEW> ...] [command-flags=<KEY>=<N> ...] [avp-flags=<AVP>=<N> ...] [vendor-mandatory=source|yes|no] [options=<file>] [keep-tgpp=yes] [no-comments=yes] [validate=yes] [xsd=<folder>] [seagull-base=<file>] [check=yes]"
+argument-hint: "<dictionaries folder> [out=<folder>] [combine=yes|no|<A,B> ...] [rename=<OLD>=<NEW> ...] [command-flags=<KEY>=<N> ...] [avp-flags=<AVP>=<N> ...] [vendor-mandatory=source|yes|no] [options=<file>] [keep-tgpp=yes] [no-comments=yes] [validate=yes] [xsd=<folder>] [seagull-base=<file>] [check=yes]"
 metadata:
   opencode/slash: "true"
   opencode/autoinvoke: "false"
@@ -18,14 +18,14 @@ follow that skill directly instead.
 ## Arguments
 
 ```text
-/seagull-diameter-dictionary-convert <dictionaries folder> [out=<folder>] [combine=<A,B> ...] [rename=<OLD>=<NEW> ...] [command-flags=<KEY>=<N> ...] [avp-flags=<AVP>=<N> ...] [vendor-mandatory=source|yes|no] [options=<file>] [keep-tgpp=yes] [no-comments=yes] [validate=yes] [xsd=<folder>] [seagull-base=<file>] [check=yes]
+/seagull-diameter-dictionary-convert <dictionaries folder> [out=<folder>] [combine=yes|no|<A,B> ...] [rename=<OLD>=<NEW> ...] [command-flags=<KEY>=<N> ...] [avp-flags=<AVP>=<N> ...] [vendor-mandatory=source|yes|no] [options=<file>] [keep-tgpp=yes] [no-comments=yes] [validate=yes] [xsd=<folder>] [seagull-base=<file>] [check=yes]
 ```
 
 | Argument            | Meaning                                                                                                                                                                               | Default                                                                                    |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | first argument      | The folder with the project's AVP dictionaries. They must define the base protocol (CER and DWR, and the AVPs the handshake uses), in any file                                        | required                                                                                   |
 | `out=`              | The folder to write to. It must be new or empty                                                                                                                                       | a new folder, `Seagull-Dictionary` or `Seagull-Dictionary-2`, ... next to the input folder |
-| `combine=`          | Filenames without `.xml`, separated by commas and without spaces; repeat for more combinations. Writes one merged file for each, named after its parts joined with `+`                | none                                                                                       |
+| `combine=`          | Without it, or `yes`: one file of all the dictionaries. `no`: one file for each. `A,B` (no spaces): only one file of those, in that order, `A+B.xml`; repeat for more files           | one file of all, `diameter-dictionary.xml`                                                 |
 | `rename=`           | `OLD=NEW`: renames an AVP in every output, for example to match the name a scenario uses; repeat for more pairs                                                                       | none                                                                                       |
 | `command-flags=`    | `<KEY>=<N>`: the flags byte, 0 to 255, of every request (`request=`), of every answer (`answer=`), or of one request or answer by its Seagull name (`CCR=192`); repeat for more pairs | requests 128, answers 0                                                                    |
 | `avp-flags=`        | `<AVP>=<N>`: the flags byte of one AVP, by its name in the output (after `rename=` and the `3GPP-` prefix); repeat for more pairs                                                     | what the source gives                                                                      |
@@ -50,7 +50,8 @@ follow that skill directly instead.
   `--no-comments`. `validate=yes` and `xsd=` decide step 1 of the skill, and `check=yes` decides step 4.
 - The arguments are the user's instruction, so don't ask again before a step they name. Without `validate=yes`, look
   for no schema. Without `check=yes`, don't start Seagull.
-- Never pick `combine=`, a flag option, or a rename yourself.
+- Without `combine=`, the result is one file of all the dictionaries. Never pick a list for `combine=`, a flag option,
+  or a rename yourself.
 - When the converter reports that the base protocol is missing, stop and offer the two ways of
   [The base protocol](../seagull-diameter-convert-dictionaries/SKILL.md#the-base-protocol). Never add `seagull-base=`
   yourself.

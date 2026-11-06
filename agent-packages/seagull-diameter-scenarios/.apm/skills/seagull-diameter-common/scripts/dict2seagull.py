@@ -3,9 +3,12 @@
 The project keeps its Diameter dictionaries in a folder. AVP dictionaries have the
 root element <dictionary>. Command dictionaries have the root element
 <diameter-command-dictionary>. Seagull reads one dictionary file per run, in its own
-format (<protocol> with <dictionary><avp><define> and <command><define>). The script
-writes one Seagull dictionary for each AVP dictionary, merged with the base protocol,
-and one more for each --combine argument.
+format (<protocol> with <dictionary><avp><define> and <command><define>), and takes one
+dictionary file for each run. So by default the script writes ONE Seagull dictionary,
+diameter-dictionary.xml, made of all the AVP dictionaries and the base protocol.
+--combine no writes one dictionary for each AVP dictionary instead, and --combine A,B
+writes only one merged from the named dictionaries, in that order, as A+B.xml. When
+several dictionaries define the same AVP name, the first one keeps it.
 
 The base protocol is DiameterBaseProtocol.xml when the folder has it; otherwise it is the
 dictionary that defines the handshake commands, whatever its file is called. Either way
@@ -58,6 +61,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 dictionary_options = importlib.import_module("dictionary_options")
 
 BASE_NAME = "DiameterBaseProtocol"
+ALL_NAME = "diameter-dictionary"  # the output made of all the dictionaries
+Job = tuple[str, list[str]]  # the name of an output, and the dictionaries it is made from
 OPTIONS_NAME = "dictionary-options.ini"
 # What the handshake and the header of a Seagull dictionary need of the base protocol (RFC 6733).
 # They are found by code, because the file that holds them may have any name.
@@ -593,13 +598,13 @@ def new_base_items(
 
 
 def base_problem(
-    jobs: list[list[str]],
+    jobs: list[Job],
     loaded: dict[str, tuple[list[Avp], list[Command]]],
     base: Base,
 ) -> str:
     """Return what no output can get, as text, or an empty string when every output is complete."""
     missing: set[tuple[tuple[int, ...], tuple[int, ...]]] = set()
-    for names in jobs:
+    for _, names in jobs:
         sources = base.sources(names)
         avps, _ = merge_avps([loaded[name][0] for name in sources], [])
         commands = merge_commands([loaded[name][1] for name in sources], [])
@@ -631,17 +636,18 @@ def flag_notes(avps: list[Avp], commands: list[Command], options: Any) -> list[s
 
 
 def convert(
-    names: list[str],
+    job: Job,
     loaded: dict[str, tuple[list[Avp], list[Command]]],
     directories: tuple[Path, Path],
     render: Render,
     base: Base,
 ) -> tuple[str, int, int, list[str], list[str]]:
-    """Write one dictionary built from the named sources plus the base protocol.
+    """Write one dictionary built from the sources of the job plus the base protocol.
 
     Returns the name of the output, the number of AVPs and of command pairs, the warnings
     about the sources, and the notes about flags that differ from the defaults.
     """
+    out_name, names = job
     input_dir, output_dir = directories
     warnings: list[str] = []
     sources = base.sources(names)
@@ -651,11 +657,9 @@ def convert(
     for avp in avps:
         check_avp(avp, warnings)
     check_command_files(sources, input_dir, commands, warnings)
-    out_name = "+".join(names)
-    files = [name + ".xml" for name in sources]
-    write_dictionary(output_dir / f"{out_name}.xml", files, avps, commands, render)
-    notes = flag_notes(avps, commands, render.flags)
-    return out_name, len(avps), len(commands), warnings, notes
+    target = output_dir / f"{out_name}.xml"
+    write_dictionary(target, [n + ".xml" for n in sources], avps, commands, render)
+    return out_name, len(avps), len(commands), warnings, flag_notes(avps, commands, render.flags)
 
 
 def parse_arguments(argv: list[str]) -> argparse.Namespace:
@@ -667,8 +671,11 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
         "--combine",
         action="append",
         default=[],
-        metavar="A,B",
-        help="also write one dictionary merged from the named ones, e.g. Gy,Sy",
+        metavar="yes|no|A,B",
+        help=(
+            "yes (the default) writes one dictionary of all the AVP dictionaries; no writes one "
+            "for each; A,B writes only one merged from the named ones, in that order (repeatable)"
+        ),
     )
     parser.add_argument(
         "--rename",
@@ -785,7 +792,7 @@ def base_message(problem: str, base: Base, folder: Path) -> str:
 def choose_base(
     args: argparse.Namespace,
     loaded: dict[str, tuple[list[Avp], list[Command]]],
-    jobs: list[list[str]],
+    jobs: list[Job],
     report: list[str],
 ) -> Base | None:
     """Find the base protocol; return None, after the message, when an output cannot get it."""
@@ -801,21 +808,40 @@ def choose_base(
 
 
 def write_outputs(
-    jobs: list[list[str]],
+    jobs: list[Job],
     loaded: dict[str, tuple[list[Avp], list[Command]]],
     directories: tuple[Path, Path],
     how: tuple[Render, Base],
 ) -> list[str]:
     """Write one dictionary for each job; return the lines of the report."""
     report: list[str] = []
-    for names in jobs:
-        result = convert(names, loaded, directories, *how)
+    for job in jobs:
+        result = convert(job, loaded, directories, *how)
         out_name, avp_count, command_count, warnings, notes = result
         counts = f"{avp_count} AVPs, {command_count} command pairs"
         report.append(f"{out_name}.xml: {counts}, {len(warnings)} warnings")
         report += [f"    WARNING {warning}" for warning in warnings]
         report += [f"    NOTE {note}" for note in notes]
     return report
+
+
+def plan_jobs(combine: list[str], loaded: dict[str, tuple[list[Avp], list[Command]]]) -> list[Job]:
+    """Return the outputs to write, each as its name and the dictionaries it is made from.
+
+    Without --combine, or with yes, every AVP dictionary goes into one output. With no, each
+    goes into its own, and a list of names makes one output from them, in that order.
+    """
+    if not combine or combine == ["yes"]:
+        return [(ALL_NAME, list(loaded))]
+    if combine == ["no"]:
+        separate = [(name, [name]) for name in loaded if name != BASE_NAME]
+        return separate or [(BASE_NAME, [BASE_NAME])]
+    jobs = [(spec.replace(",", "+"), spec.split(",")) for spec in combine]
+    unknown = [name for _, names in jobs for name in names if name not in loaded]
+    if unknown:
+        message = f"unknown dictionary in --combine: {unknown}"
+        raise dictionary_options.DictionaryOptionsError(message)
+    return jobs
 
 
 def convert_all(
@@ -828,11 +854,7 @@ def convert_all(
     renames = dict(pair.split("=", 1) for pair in args.rename)
     apply_renames(loaded, renames, args.keep_tgpp, report)
     check_flag_names(loaded, render.flags, report)
-    jobs = [[name] for name in loaded] + [c.split(",") for c in args.combine]
-    unknown = [name for names in jobs for name in names if name not in loaded]
-    if unknown:
-        sys.stderr.write(f"unknown dictionary in --combine: {unknown}\n")
-        return 2
+    jobs = plan_jobs(args.combine, loaded)
     base = choose_base(args, loaded, jobs, report)
     if base is None:
         return 2

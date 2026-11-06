@@ -2,11 +2,12 @@
 
 Usage:
   python convert_dictionaries.py INPUT_DIR (--out DIR | --out-auto)
-      [--combine A,B ...] [--rename OLD=NEW ...] [--keep-tgpp] [--no-comments]
+      [--combine yes|no|A,B ...] [--rename OLD=NEW ...] [--keep-tgpp] [--no-comments]
 
-INPUT_DIR holds the project's AVP dictionaries, among them DiameterBaseProtocol.xml. The
-conversion itself is dict2seagull.py of seagull-diameter-common, which receives every
-argument that this script does not use; see its --help for --combine, --rename,
+INPUT_DIR holds the project's AVP dictionaries, among them the base protocol. By default
+the result is one file, diameter-dictionary.xml, made of all of them. The conversion itself
+is dict2seagull.py of seagull-diameter-common, which receives every argument that this
+script does not use; see its --help for --combine, --rename,
 --keep-tgpp, and --no-comments.
 
 The output folder is always new or empty. --out names it and is refused when the folder
