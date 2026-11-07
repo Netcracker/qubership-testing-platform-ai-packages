@@ -20,9 +20,17 @@ import org.xml.sax.SAXParseException;
 /**
  * Validates Diameter dictionaries against their XSD files.
  *
- * <p>Usage: {@code java ValidateDictionaries.java [--plan] [--xsd-dir DIR] DICTIONARY_DIR}.
+ * <p>Usage: {@code java ValidateDictionaries.java [--plan] [--xsd-dir DIR] [--only NAMES]
+ * [--commands] DICTIONARY_DIR}.
  *
- * <p>The schema of each {@code .xml} file of DICTIONARY_DIR is chosen in this order:
+ * <p>Without {@code --only}, every {@code .xml} file of DICTIONARY_DIR is a candidate. {@code
+ * --only A,B} limits the candidates to {@code A.xml} and {@code B.xml}; a name that has no file
+ * stops the program with status 2. A command dictionary (root element {@code
+ * diameter-command-dictionary}) is validated only with {@code --commands}; otherwise the program
+ * prints how many it skipped. With {@code --commands} the output lists the dictionaries and the
+ * command dictionaries in separate groups.
+ *
+ * <p>The schema of each file that is validated is chosen in this order:
  *
  * <ol>
  *   <li>the file's own {@code xsi:noNamespaceSchemaLocation} or {@code xsi:schemaLocation},
@@ -47,6 +55,9 @@ public class ValidateDictionaries {
   private static final int EXIT_UNRESOLVED = 3;
   private static final String XSI = "http://www.w3.org/2001/XMLSchema-instance";
   private static final String XS = "http://www.w3.org/2001/XMLSchema";
+  private static final String COMMAND_ROOT = "diameter-command-dictionary";
+  private static final String DICTIONARY_GROUP = "AVP dictionaries:";
+  private static final String COMMAND_GROUP = "Command dictionaries (not used by the conversion):";
 
   /** Collects validation errors, counting each distinct message. */
   private static final class Collector implements ErrorHandler {
@@ -88,6 +99,14 @@ public class ValidateDictionaries {
       this.file = file;
       this.root = root;
       this.reference = reference;
+    }
+
+    private boolean isCommandDictionary() {
+      return COMMAND_ROOT.equals(root);
+    }
+
+    private String group() {
+      return isCommandDictionary() ? COMMAND_GROUP : DICTIONARY_GROUP;
     }
   }
 
@@ -197,14 +216,17 @@ public class ValidateDictionaries {
   }
 
   /** Prints the plan; returns the number of files that have no schema. */
-  private static int printPlan(List<Entry> entries, boolean verbose) {
+  private static int printPlan(List<Entry> entries, boolean verbose, boolean groups) {
     Map<String, Integer> problems = new LinkedHashMap<>();
+    String group = "";
     for (Entry entry : entries) {
       if (entry.problem != null) {
+        group = heading(group, entry, groups);
         System.out.printf(
             "NO SCHEMA %s (%s): %s%n", entry.file.getName(), entry.root, entry.problem);
         problems.merge(entry.problem, 1, Integer::sum);
       } else if (verbose) {
+        group = heading(group, entry, groups);
         System.out.printf(
             "%s (%s): %s, chosen by %s%n",
             entry.file.getName(), entry.root, entry.schema, entry.how);
@@ -216,8 +238,19 @@ public class ValidateDictionaries {
       for (Map.Entry<String, Integer> problem : problems.entrySet()) {
         System.out.printf("    %s (%d file(s))%n", problem.getKey(), problem.getValue());
       }
+      System.out.printf(
+          "Nothing is validated: %d of %d file(s) have no schema.%n", files, entries.size());
     }
     return files;
+  }
+
+  /** Prints the heading of the entry's group when the group changes; returns the current group. */
+  private static String heading(String current, Entry entry, boolean groups) {
+    if (!groups || entry.group().equals(current)) {
+      return current;
+    }
+    System.out.println(entry.group());
+    return entry.group();
   }
 
   /** Validates one file, prints the result, and returns the number of errors. */
@@ -254,17 +287,71 @@ public class ValidateDictionaries {
 
   private static void usage() {
     System.err.println(
-        "Usage: java ValidateDictionaries.java [--plan] [--xsd-dir DIR] DICTIONARY_DIR");
+        "Usage: java ValidateDictionaries.java [--plan] [--xsd-dir DIR] [--only NAMES]"
+            + " [--commands] DICTIONARY_DIR");
     System.exit(2);
+  }
+
+  private static void fail(String message) {
+    System.err.println(message);
+    System.exit(2);
+  }
+
+  /** Returns the candidate files: those named by {@code only}, or every .xml file of the folder. */
+  private static File[] candidates(File dir, String only) {
+    if (only == null) {
+      File[] files = dir.listFiles((d, name) -> name.endsWith(".xml"));
+      if (files == null || files.length == 0) {
+        fail("No .xml files in " + dir);
+      }
+      Arrays.sort(files);
+      return files;
+    }
+    List<File> files = new ArrayList<>();
+    for (String name : only.split(",")) {
+      String trimmed = name.trim();
+      File file = new File(dir, trimmed.endsWith(".xml") ? trimmed : trimmed + ".xml");
+      if (!file.isFile()) {
+        fail("--only: no file " + file);
+      }
+      files.add(file);
+    }
+    return files.toArray(new File[0]);
+  }
+
+  /** Drops the command dictionaries unless they are asked for; puts the AVP dictionaries first. */
+  private static List<Entry> select(List<Entry> all, boolean commands) {
+    List<Entry> selected = new ArrayList<>();
+    for (boolean wantCommands : new boolean[] {false, true}) {
+      for (Entry entry : all) {
+        if (entry.isCommandDictionary() == wantCommands && (commands || !wantCommands)) {
+          selected.add(entry);
+        }
+      }
+    }
+    long skipped = all.stream().filter(Entry::isCommandDictionary).count();
+    if (!commands && skipped > 0) {
+      System.out.printf(
+          "Not validated: %d command dictionary file(s), which the conversion does not use."
+              + " Pass --commands to validate them.%n",
+          skipped);
+    }
+    return selected;
   }
 
   public static void main(String[] args) throws Exception {
     boolean planOnly = false;
+    boolean commands = false;
+    String only = null;
     File xsdDir = null;
     File dir = null;
     for (int i = 0; i < args.length; i++) {
       if ("--plan".equals(args[i])) {
         planOnly = true;
+      } else if ("--commands".equals(args[i])) {
+        commands = true;
+      } else if ("--only".equals(args[i]) && i + 1 < args.length) {
+        only = args[++i];
       } else if ("--xsd-dir".equals(args[i]) && i + 1 < args.length) {
         xsdDir = new File(args[++i]);
       } else if (dir == null && !args[i].startsWith("--")) {
@@ -277,18 +364,14 @@ public class ValidateDictionaries {
       usage();
     }
     if (xsdDir != null && !xsdDir.isDirectory()) {
-      System.err.println("--xsd-dir is not a folder: " + xsdDir);
-      System.exit(2);
+      fail("--xsd-dir is not a folder: " + xsdDir);
     }
-    File[] files = dir.listFiles((d, name) -> name.endsWith(".xml"));
-    if (files == null || files.length == 0) {
-      System.err.println("No .xml files in " + dir);
-      System.exit(2);
-    }
-    Arrays.sort(files);
 
-    List<Entry> entries = plan(files, xsdDir);
-    if (printPlan(entries, planOnly) > 0) {
+    List<Entry> entries = select(plan(candidates(dir, only), xsdDir), commands);
+    if (entries.isEmpty()) {
+      fail("No AVP dictionary to validate in " + dir);
+    }
+    if (printPlan(entries, planOnly, commands) > 0) {
       System.exit(EXIT_UNRESOLVED);
     }
     if (planOnly) {
@@ -299,12 +382,14 @@ public class ValidateDictionaries {
     factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
     Map<File, Schema> schemas = new LinkedHashMap<>();
     int invalid = 0;
+    String group = "";
     for (Entry entry : entries) {
+      group = heading(group, entry, commands);
       if (validate(entry, schemas, factory) > 0) {
         invalid++;
       }
     }
-    System.out.printf("%d of %d files are invalid%n", invalid, files.length);
+    System.out.printf("%d of %d files are invalid%n", invalid, entries.size());
     System.exit(invalid == 0 ? 0 : 1);
   }
 }

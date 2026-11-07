@@ -33,10 +33,18 @@ Take each parameter from the user's words, and apply the rule in the last column
 | `options=`          | "start from the options of the earlier run"            | The `dictionary-options.ini` of that run                                                  |
 | `validate=yes`      | "validate the dictionaries against their schemas"      | Only when the user asks for validation. Otherwise do not look for or open any schema file |
 | `xsd=`              | "the schemas are in C:\work\xsd"                       | Only with validation                                                                      |
+| `validate-commands` | "validate the Commands files too"                      | Only with validation, and only when the user asks. Default: the `*Commands.xml` are skipped |
 | `check=yes`         | "check that Seagull loads them", "try them in Seagull" | Starts Seagull. Run it only when the user asked; otherwise offer it at the end            |
 
 When you had to interpret the wording to fill a parameter, say how you understood it before you run anything, for
 example `combine=Gy,Sy`, and let the user correct it. When the folder or the list of dictionaries is unclear, ask.
+
+Say what the parameters mean for the files too, in one message before the first command: which dictionaries and which
+file of the base protocol go into the result, which of the folder's dictionaries are left out, what the validation
+covers, and which file the check in Seagull loads. For a request such as "only Gy and Sy together, validate them, and
+check that Seagull loads the result", that is: the result is the one file `Gy+Sy.xml`, made of Gy, Sy, and the base
+protocol; the other dictionaries are not converted and not validated; the check loads `Gy+Sy.xml`. Get the file names
+with `--list-sources` (step 1).
 
 Seagull loads one dictionary for each run, so without `combine=` all the AVP dictionaries of the folder go into one
 file, in the alphabetical order of their filenames. For an AVP name that several of them define, the first one keeps the
@@ -47,16 +55,29 @@ user decide whether to list the dictionaries.
 
 ## Run
 
+Run every script by its path from the folder the session works in, and don't change into the skill folder first: the
+settings of Seagull are read from the session folder.
+
 1. **Validate (only when the user asked for validation).** Needs Java 11 or later. In every other case, do not look for
    schema files at all. Never search the disk for them; the validator takes the schema of each file only from the
    places below.
 
+   Validate the files that the result is made of, and no others. `--list-sources` writes nothing and prints those
+   files, the base protocol first; give it the same `--combine` as the conversion:
+
    ```bash
-   sh <skill folder>/scripts/validate.sh [--xsd-dir <folder>] <dictionaries folder>
+   python <skill folder>/scripts/convert_dictionaries.py <dictionaries folder> --list-sources [--combine yes|no|A,B ...]
+   sh <skill folder>/scripts/validate.sh --only <names> [--xsd-dir <folder>] [--commands] <dictionaries folder>
    ```
 
-   Pass `--xsd-dir` when the user gave the schema folder, or the options file has `[validate] xsd`. The validator
-   chooses the schema of each file in this order:
+   `<names>` are the printed files without `.xml`, separated by commas. Without `--only` the validator takes every
+   file of the folder, which is right only when the result is made of all of them.
+
+   Pass `--xsd-dir` when the user gave the schema folder, or the options file has `[validate] xsd`. Pass `--commands`
+   only when the user asked to validate the `*Commands.xml` files (`validate-commands=yes`), or the options file has
+   `[validate] commands = yes`. Otherwise the validator skips them and says so in one line: the conversion does not use
+   them, and with `--commands` the output lists them in a group of their own. The validator chooses the schema of each
+   file in this order:
    1. The reference in the file itself (`xsi:noNamespaceSchemaLocation` or `xsi:schemaLocation`), resolved against the
       folder of the file.
    2. If that file does not exist and `--xsd-dir` is given, the file of the same name in that folder, when it declares
@@ -69,21 +90,25 @@ user decide whether to list the dictionaries.
    - 1: some file is invalid. Tell the user which files failed and what the messages say, then continue with the
      conversion. The validator checks the structure that the XSD files describe, not that a code or a flag is right.
    - 3: for some files no schema was found, and nothing was validated. The output lists the distinct problems, each
-     with the number of files it affects. Stop, show them to the user, and ask two questions in one message: where the
-     XSD files are, and whether to keep the answer in `dictionary-options.ini` (the default is no). Run the validator
-     again with `--xsd-dir <answer>`. If the user cannot say, skip the validation, say so, and continue with the
-     conversion. When the user wants the answer kept, add `--xsd-dir <answer>` to the conversion command in step 2.
-   - 2: wrong arguments or a folder without `.xml` files.
+     with the number of files it affects, and ends with how many of the validated files have no schema. Stop, show the
+     user which files they are and why, and ask one question: where the XSD files are. When the dictionaries folder
+     has a subfolder `xsd`, name it as the likely answer. Run the validator again with `--xsd-dir <answer>`. If the
+     user cannot say, skip the validation, say so, and continue with the conversion. Don't ask whether to keep the
+     answer; add `--xsd-dir <answer>` to the conversion command in step 2 only when the user asks for it.
+   - 2: wrong arguments, a name in `--only` that has no file, or a folder without `.xml` files.
 
    `--plan` prints the schema chosen for each file without validating.
 2. **Convert.**
 
    ```bash
    python <skill folder>/scripts/convert_dictionaries.py <dictionaries folder> (--out <folder> | --out-auto) \
-       [--combine yes|no|A,B ...] [--rename OLD=NEW ...] [--command-flags KEY=N ...] [--avp-flags AVP=N ...] \
-       [--vendor-mandatory source|yes|no] [--options FILE] [--xsd-dir FOLDER] [--keep-tgpp] [--no-comments] \
-       [--seagull-base FILE]
+       [--combine yes|no|A,B] [--rename OLD=NEW] [--command-flags KEY=N] [--avp-flags AVP=N] \
+       [--vendor-mandatory source|yes|no] [--options FILE] [--xsd-dir FOLDER] [--validate-commands yes|no] \
+       [--keep-tgpp] [--no-comments] [--seagull-base FILE]
    ```
+
+   Repeat `--combine`, `--rename`, `--command-flags`, and `--avp-flags` once for each value: the flags of CCR and CCA
+   are `--command-flags CCR=192 --command-flags CCA=64`, and `--command-flags CCR=192 CCA=64` is refused.
 
    Pass `--out-auto` when the user gave no output folder. A folder that is not empty is refused (`the output folder is
    not empty: ...`) and nothing is written; tell the user what the message says and ask for another folder. Never
@@ -103,10 +128,15 @@ user decide whether to list the dictionaries.
    - That the options in effect are in `dictionary-options.ini` in the output folder. Pass it as `options=` to repeat
      the run.
 4. **Check in Seagull.** Needs a Seagull 1.8.3: an image in Docker (by default tagged `seagull:local`; on Windows run
-   the script through `wsl`) or a Seagull for Windows. Where it runs is a setting: read it, and ask when it is not set,
-   as [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs) describes. Run the check only when
-   the user asked for it, either in the request or in the answer to your offer. When the request did not mention it,
-   end your reply by offering the check in one sentence and do not start Seagull.
+   the script through `wsl`) or a Seagull for Windows. Where it runs is a setting. Read it with `seagull_config.py get`
+   before you say anything about the check, including in the first message of the task, and ask only when it is not
+   set, as [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs) describes. Run the check only
+   when the user asked for it, either in the request or in the answer to your offer. When the request did not mention
+   it, end your reply by offering the check in one sentence that names the runner, and do not start Seagull.
+
+   The last line the conversion prints, `Seagull for the check: ...`, is that setting already read. When it names a
+   runner and a path (or an image), use it in the offer and don't ask where Seagull runs. When it says `not set`, ask
+   the one question of "Where Seagull runs".
 
    ```bash
    sh <skill folder>/scripts/check-converted.sh <output folder> [IMAGE]

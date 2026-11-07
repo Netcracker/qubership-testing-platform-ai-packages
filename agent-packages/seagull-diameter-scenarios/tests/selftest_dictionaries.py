@@ -376,6 +376,43 @@ class FlagOptionsTest(unittest.TestCase):
             (plain / "diameter-dictionary.xml").read_text(encoding="iso-8859-1"),
         )
 
+    def test_validate_commands_is_kept_for_the_validation_step(self) -> None:
+        """--validate-commands yes is written to the options file and kept by the next run."""
+        _, first, _, _ = self.convert_with("--validate-commands", "yes", "--xsd-dir", "/data/xsd")
+        ini = first / "dictionary-options.ini"
+        _, second, _, _ = self.convert_with("--options", str(ini))
+        _, off, _, _ = self.convert_with("--options", str(ini), "--validate-commands", "no")
+        saved = ini.read_text(encoding="utf-8")
+        self.assertIn("[validate]\nxsd = /data/xsd\ncommands = yes\n", saved)
+        self.assertIn("commands = yes", (second / "dictionary-options.ini").read_text("utf-8"))
+        self.assertNotIn("commands", (off / "dictionary-options.ini").read_text("utf-8"))
+
+    def test_validate_commands_must_be_yes_or_no(self) -> None:
+        """An options file with another value stops the run before any file is written."""
+        folder = Path(tempfile.mkdtemp(prefix="seagull-selftest-"))
+        self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        ini = folder / "options.ini"
+        ini.write_text("[validate]\ncommands = maybe\n", encoding="utf-8")
+        status, out, _, error = self.convert_with("--options", str(ini))
+        self.assertEqual(status, 2)
+        self.assertIn("'maybe' is not yes or no", error)
+        self.assertFalse(out.exists())
+
+    def test_list_sources_names_the_files_and_writes_nothing(self) -> None:
+        """The base protocol comes first, then the dictionaries of the result, once each."""
+        source = str(FIXTURES / "dictionaries")
+        for extra in ([], ["--combine", "Gy"], ["--combine", "Gy,DiameterBaseProtocol"]):
+            status, text, _ = run_convert([source, "--list-sources", *extra])
+            self.assertEqual(status, 0)
+            self.assertEqual(text.split(), ["DiameterBaseProtocol.xml", "Gy.xml"])
+
+    def test_list_sources_refuses_an_unknown_dictionary(self) -> None:
+        """A name that is not in the folder is refused, as it is in a conversion."""
+        source = str(FIXTURES / "dictionaries")
+        status, _, error = run_convert([source, "--list-sources", "--combine", "Nope"])
+        self.assertEqual(status, 2)
+        self.assertIn("unknown dictionary in --combine: ['Nope']", error)
+
     def test_a_name_that_matches_nothing_is_a_warning(self) -> None:
         """A misspelled AVP or command is reported and does not stop the conversion."""
         pairs = ("--avp-flags", "No-Such-Avp=64", "--command-flags", "XYZ=1")

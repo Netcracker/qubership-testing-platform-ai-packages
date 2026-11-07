@@ -18,9 +18,10 @@ The options file, dictionary-options.ini:
 
   [validate]
   xsd = /data/xsd             the folder of the XSD files, for the validation step
+  commands = yes              validate the *Commands.xml files too; the default is no
 
-The conversion does not read schemas. The xsd key is only kept here so that the next run of the
-validation step finds the folder again.
+The conversion does not read schemas. The xsd and commands keys are only kept here so that the
+next run of the validation step finds them again.
 
 Requires Python 3.9 or later.
 """
@@ -37,11 +38,20 @@ REQUEST_KEY = "request"
 ANSWER_KEY = "answer"
 POLICY_KEY = "vendor-mandatory"
 SECTIONS = ("command-flags", "avp-flags", "validate")
+VALIDATE_KEYS = ("xsd", "commands")
 HEAD = "# Read by dict2seagull.py (--options). Delete a line to restore the default.\n"
 
 
 class DictionaryOptionsError(Exception):
     """The options file or an option of the command line is invalid."""
+
+
+def parse_yes_no(where: str, text: str) -> bool:
+    """Return True for yes and False for no; raise DictionaryOptionsError for anything else."""
+    answer = text.strip()
+    if answer not in ("yes", "no"):
+        raise DictionaryOptionsError(f"{where}: {answer!r} is not yes or no")
+    return answer == "yes"
 
 
 def parse_flags(where: str, text: str) -> int:
@@ -65,6 +75,7 @@ class FlagOptions:
     vendor_mandatory: str = "source"
     avps: dict[str, int] = field(default_factory=dict)
     xsd: str = ""
+    validate_commands: bool = False
 
     def command_flags(self, name: str, answer: bool) -> int:
         """Return the flags of the request or answer with the Seagull name, such as CCR."""
@@ -141,16 +152,18 @@ def load_options(path: Path | None) -> FlagOptions:
             section = line[1:-1].strip()
             continue
         key, separator, text = line.partition("=")
-        known = section in SECTIONS and (section != "validate" or key.strip() == "xsd")
+        known = section in SECTIONS and (section != "validate" or key.strip() in VALIDATE_KEYS)
         if not separator or not known:
-            expected = "[command-flags], [avp-flags], [validate] with xsd, or KEY = VALUE"
+            expected = "[command-flags], [avp-flags], [validate] (xsd, commands), or KEY = VALUE"
             raise DictionaryOptionsError(f"{path}:{number}: expected {expected}")
         if section == "command-flags":
             options.set_command(key.strip(), text)
         elif section == "avp-flags":
             options.set_avp(key.strip(), text)
-        else:
+        elif key.strip() == "xsd":
             options.xsd = text.strip()
+        else:
+            options.validate_commands = parse_yes_no(f"{path}:{number}: commands", text)
     return options
 
 
@@ -161,6 +174,10 @@ def save_options(path: Path, options: FlagOptions) -> None:
     lines += [f"{key} = {value}" for key, value in options.commands.items()]
     lines += ["", "[avp-flags]", f"{POLICY_KEY} = {options.vendor_mandatory}"]
     lines += [f"{key} = {value}" for key, value in options.avps.items()]
-    if options.xsd:
-        lines += ["", "[validate]", f"xsd = {options.xsd}"]
+    if options.xsd or options.validate_commands:
+        lines += ["", "[validate]"]
+        if options.xsd:
+            lines.append(f"xsd = {options.xsd}")
+        if options.validate_commands:
+            lines.append("commands = yes")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")

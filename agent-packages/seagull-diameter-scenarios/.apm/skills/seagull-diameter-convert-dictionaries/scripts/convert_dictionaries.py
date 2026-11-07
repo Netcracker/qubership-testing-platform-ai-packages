@@ -3,6 +3,10 @@
 Usage:
   python convert_dictionaries.py INPUT_DIR (--out DIR | --out-auto)
       [--combine yes|no|A,B ...] [--rename OLD=NEW ...] [--keep-tgpp] [--no-comments]
+  python convert_dictionaries.py INPUT_DIR --list-sources [--combine yes|no|A,B ...]
+
+With --list-sources the script writes nothing and prints the file of each dictionary that the
+result would be made of, one name per line, the base protocol first.
 
 INPUT_DIR holds the project's AVP dictionaries, among them the base protocol. By default
 the result is one file, diameter-dictionary.xml, made of all of them. The conversion itself
@@ -22,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import os
 import sys
 from pathlib import Path
 
@@ -30,6 +35,7 @@ COMMON = Path(__file__).resolve().parents[2] / "seagull-diameter-common" / "scri
 sys.path.insert(0, str(COMMON))
 dict2seagull = importlib.import_module("dict2seagull")
 output_folder = importlib.import_module("output_folder")
+seagull_config = importlib.import_module("seagull_config")
 
 DEFAULT_NAME = "Seagull-Dictionary"
 
@@ -44,6 +50,7 @@ def parse_arguments(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     parser.add_argument("input_dir", type=Path)
     parser.add_argument("--out", type=Path)
     parser.add_argument("--out-auto", action="store_true")
+    parser.add_argument("--list-sources", action="store_true")
     return parser.parse_known_args(argv)
 
 
@@ -61,13 +68,28 @@ def choose_out(args: argparse.Namespace) -> Path:
 def main(argv: list[str]) -> int:
     """Convert the dictionaries; return the exit status."""
     args, forwarded = parse_arguments(argv)
+    if args.list_sources:
+        listing = [str(args.input_dir), str(args.input_dir), *forwarded, "--list-sources"]
+        return int(dict2seagull.main(listing))
     try:
         out = choose_out(args)
     except OutputError as error:
         sys.stderr.write(f"error: {error}\n")
         return 1
     sys.stdout.write(f"output folder: {out}\n")
-    return int(dict2seagull.main([str(args.input_dir), str(out), *forwarded]))
+    status = int(dict2seagull.main([str(args.input_dir), str(out), *forwarded]))
+    if status == 0:
+        sys.stdout.write(runner_line() + "\n")
+    return status
+
+
+def runner_line() -> str:
+    """Return the line that says where the check in Seagull would run, or an empty line."""
+    session = seagull_config.session_folder(Path.cwd())
+    try:
+        return seagull_config.runner_summary(session, Path.home(), dict(os.environ))
+    except seagull_config.ConfigError:
+        return ""
 
 
 if __name__ == "__main__":
