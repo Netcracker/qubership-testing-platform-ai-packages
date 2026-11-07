@@ -892,9 +892,7 @@ def convert_all(
     return 0
 
 
-def list_sources(
-    args: argparse.Namespace, loaded: dict[str, tuple[list[Avp], list[Command]]]
-) -> int:
+def list_sources(args: argparse.Namespace, loaded: dict[str, tuple[list[Avp], list[Command]]]) -> int:
     """Print the file of each dictionary that the outputs are made of, base protocol first."""
     base = Base(base_sources(loaded))
     names: list[str] = []

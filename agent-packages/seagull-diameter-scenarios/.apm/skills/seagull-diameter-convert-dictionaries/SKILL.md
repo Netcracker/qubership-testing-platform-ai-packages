@@ -23,18 +23,18 @@ with formal arguments. What this page says about a parameter holds for both.
 
 Take each parameter from the user's words, and apply the rule in the last column.
 
-| Parameter           | How the user says it                                   | Rule                                                                                      |
-| ------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| dictionaries folder | "convert the dictionaries in C:\work\dictionaries"     | Required. Ask for it when missing. Never look for the folder yourself                     |
-| `out=`              | "write them to C:\work\out"                            | Optional. The folder must be new or empty. Without it, use `--out-auto`                   |
-| `combine=`          | "one file for each", "only Gy and Sy together"         | Default: one file of all. `no`: one for each. A list: only if the user specifies one      |
-| `rename=`           | "call the AVP Foo Bar instead"                         | Only pairs that the user gives                                                            |
-| flags               | "CCR flags 192", "set the M bit on vendor AVPs"        | Only values that the user gives. See "Flags"                                              |
-| `options=`          | "start from the options of the earlier run"            | The `dictionary-options.ini` of that run                                                  |
-| `validate=yes`      | "validate the dictionaries against their schemas"      | Only when the user asks for validation. Otherwise do not look for or open any schema file |
-| `xsd=`              | "the schemas are in C:\work\xsd"                       | Only with validation                                                                      |
+| Parameter           | How the user says it                                   | Rule                                                                                        |
+| ------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| dictionaries folder | "convert the dictionaries in C:\work\dictionaries"     | Required. Ask for it when missing. Never look for the folder yourself                       |
+| `out=`              | "write them to C:\work\out"                            | Optional. The folder must be new or empty. Without it, use `--out-auto`                     |
+| `combine=`          | "one file for each", "only Gy and Sy together"         | Default: one file of all. `no`: one for each. A list: only if the user specifies one        |
+| `rename=`           | "call the AVP Foo Bar instead"                         | Only pairs that the user gives                                                              |
+| flags               | "CCR flags 192", "set the M bit on vendor AVPs"        | Only values that the user gives. See "Flags"                                                |
+| `options=`          | "start from the options of the earlier run"            | The `dictionary-options.ini` of that run                                                    |
+| `validate=yes`      | "validate the dictionaries against their schemas"      | Only when the user asks for validation. Otherwise do not look for or open any schema file   |
+| `xsd=`              | "the schemas are in C:\work\xsd"                       | Only with validation                                                                        |
 | `validate-commands` | "validate the Commands files too"                      | Only with validation, and only when the user asks. Default: the `*Commands.xml` are skipped |
-| `check=yes`         | "check that Seagull loads them", "try them in Seagull" | Starts Seagull. Run it only when the user asked; otherwise offer it at the end            |
+| `check=yes`         | "check that Seagull loads them", "try them in Seagull" | Starts Seagull. Run it only when the user asked; otherwise offer it at the end              |
 
 When you had to interpret the wording to fill a parameter, say how you understood it before you run anything, for
 example `combine=Gy,Sy`, and let the user correct it. When the folder or the list of dictionaries is unclear, ask.
@@ -43,7 +43,7 @@ Say what the parameters mean for the files too, in one message before the first 
 file of the base protocol go into the result, which of the folder's dictionaries are left out, what the validation
 covers, and which file the check in Seagull loads. For a request such as "only Gy and Sy together, validate them, and
 check that Seagull loads the result", that is: the result is the one file `Gy+Sy.xml`, made of Gy, Sy, and the base
-protocol; the other dictionaries are not converted and not validated; the check loads `Gy+Sy.xml`. Get the file names
+protocol; the other dictionaries are not converted and not validated; the check loads `Gy+Sy.xml`. Get the filenames
 with `--list-sources` (step 1).
 
 Seagull loads one dictionary for each run, so without `combine=` all the AVP dictionaries of the folder go into one

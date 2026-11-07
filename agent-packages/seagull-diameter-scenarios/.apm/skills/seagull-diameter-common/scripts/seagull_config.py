@@ -8,8 +8,8 @@ Usage:
 The settings are in one JSON file, .seagull-diameter/config.json. Only two paths are read, in
 this order: the one in the session folder (DIR, by default the current folder; when the current
 folder is inside .claude/skills or a similar hidden skills folder, the folder above it), then the
-one in the user's home folder. Nothing else is searched. A value is taken from the environment variable
-of the same name first, then from the file, then from the default of the key.
+one in the user's home folder. Nothing else is searched. A value is taken from the environment
+variable of the same name first, then from the file, then from the default of the key.
 
   SEAGULL_RUNNER        docker or windows: where the dry run and the dictionary check start Seagull
   SEAGULL_DOCKER_IMAGE  the Seagull image for docker (default seagull:local)
@@ -63,7 +63,8 @@ def runner_summary(folder: Path, home: Path, environ: dict[str, str]) -> str:
         return "Seagull for the check: not set; ask the user which Seagull to use"
     if runner == "windows":
         path, _ = resolve("SEAGULL_WINDOWS_PATH", folder, home, environ)
-        return f"Seagull for the check: windows, {path or 'the path of seagull.exe is not set; ask'}"
+        detail = path or "the path of seagull.exe is not set; ask"
+        return f"Seagull for the check: windows, {detail}"
     image, _ = resolve("SEAGULL_DOCKER_IMAGE", folder, home, environ)
     return f"Seagull for the check: docker, image {image}"
 
