@@ -1,0 +1,11 @@
+# Pylint must agree with Black, ruff format, and flake8, which use 120 columns here (see .python-black). Pylint would
+# otherwise keep its default of 100 and report a line that the formatters keep joined. The two other settings are
+# those of the super-linter template, which this file replaces.
+[MASTER]
+jobs=0
+
+[FORMAT]
+max-line-length=120
+
+[MESSAGES CONTROL]
+disable=import-error
