@@ -745,6 +745,16 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
         metavar="DIR",
         help="the folder of the XSD files; recorded in the options file for the validation step",
     )
+    parser.add_argument(
+        "--validate-commands",
+        choices=("yes", "no"),
+        help="whether the validation step checks the *Commands.xml files; recorded as well",
+    )
+    parser.add_argument(
+        "--list-sources",
+        action="store_true",
+        help="print the file of each dictionary the outputs would be made of; write nothing",
+    )
     return parser.parse_args(argv)
 
 
@@ -882,6 +892,16 @@ def convert_all(
     return 0
 
 
+def list_sources(args: argparse.Namespace, loaded: dict[str, tuple[list[Avp], list[Command]]]) -> int:
+    """Print the file of each dictionary that the outputs are made of, base protocol first."""
+    base = Base(base_sources(loaded))
+    names: list[str] = []
+    for _, job_names in plan_jobs(args.combine, loaded):
+        names += [name for name in base.sources(job_names) if name not in names]
+    sys.stdout.write("".join(f"{name}.xml\n" for name in names))
+    return 0
+
+
 def main(argv: list[str]) -> int:
     """Convert every AVP dictionary of the input folder; return the exit status."""
     args = parse_arguments(argv)
@@ -890,10 +910,14 @@ def main(argv: list[str]) -> int:
         sys.stderr.write(f"error: no AVP dictionary in {args.input_dir}\n")
         return 2
     try:
+        if args.list_sources:
+            return list_sources(args, loaded)
         flags = dictionary_options.load_options(args.options)
         pairs = (args.command_flags, args.avp_flags)
         dictionary_options.apply_pairs(flags, *pairs, args.vendor_mandatory)
         flags.xsd = args.xsd_dir or flags.xsd
+        if args.validate_commands:
+            flags.validate_commands = args.validate_commands == "yes"
         return convert_all(args, loaded, Render(not args.no_comments, flags))
     except dictionary_options.DictionaryOptionsError as error:
         sys.stderr.write(f"error: {error}\n")

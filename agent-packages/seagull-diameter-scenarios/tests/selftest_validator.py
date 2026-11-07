@@ -128,16 +128,59 @@ class ValidatorTest(unittest.TestCase):
         """Files that share an unresolved reference give one problem, with the file count."""
         for name in ("OneCommands.xml", "TwoCommands.xml"):
             self.put(name, command_file("xsd/diameter-command.xsd"))
-        status, output = self.run_validator()
+        status, output = self.run_validator("--commands")
         self.assertEqual(status, 3)
         self.assertIn("1 distinct problem(s) in 2 file(s)", output)
         self.assertIn("the reference xsd/diameter-command.xsd does not resolve", output)
+        self.assertIn("Nothing is validated: 2 of 2 file(s) have no schema.", output)
+
+    def test_command_dictionaries_are_skipped_unless_asked_for(self) -> None:
+        """A command dictionary is not validated by default, and the output says so."""
+        self.put("Good.xml", avp_file("../schemas/schema-a.xsd"))
+        self.put("GoodCommands.xml", command_file("xsd/diameter-command.xsd"))
+        status, output = self.run_validator()
+        self.assertEqual(status, 0, output)
+        self.assertIn("Not validated: 1 command dictionary file(s)", output)
+        self.assertNotIn("GoodCommands.xml (", output)
+        self.assertIn("0 of 1 files are invalid", output)
+
+    def test_commands_are_validated_in_a_group_of_their_own(self) -> None:
+        """With --commands the two kinds are listed under separate headings, AVP files first."""
+        self.put("Good.xml", avp_file("../schemas/schema-a.xsd"))
+        self.put("AaaCommands.xml", command_file("../schemas/schema-b.xsd"))
+        status, output = self.run_validator("--commands")
+        self.assertEqual(status, 0, output)
+        lines = output.splitlines()
+        avp, command = "AVP dictionaries:", "Command dictionaries (not used by the conversion):"
+        self.assertLess(lines.index(avp), lines.index(command))
+        self.assertLess(
+            next(i for i, line in enumerate(lines) if line.startswith("Good.xml")),
+            lines.index(command),
+        )
+        self.assertIn("AaaCommands.xml (diameter-command-dictionary): valid", output)
+
+    def test_only_limits_the_files_that_are_validated(self) -> None:
+        """A file that --only does not name is neither read for a schema nor reported."""
+        self.put("Good.xml", avp_file("../schemas/schema-a.xsd"))
+        self.put("Other.xml", avp_file())
+        status, output = self.run_validator("--only", "Good")
+        self.assertEqual(status, 0, output)
+        self.assertIn("Good.xml (dictionary): valid", output)
+        self.assertNotIn("Other.xml", output)
+
+    def test_only_with_a_name_that_has_no_file_stops_the_run(self) -> None:
+        """A misspelled name in --only is an error and validates nothing."""
+        self.put("Good.xml", avp_file("../schemas/schema-a.xsd"))
+        status, output = self.run_validator("--only", "Good,Nope")
+        self.assertEqual(status, 2)
+        self.assertIn("--only: no file", output)
+        self.assertNotIn("valid", output)
 
     def test_xsd_dir_chooses_by_root_element_and_not_by_file_name(self) -> None:
         """The schemas have other names than the reference, so the root element decides."""
         self.put("Good.xml", avp_file())
         self.put("GoodCommands.xml", command_file("xsd/diameter-command.xsd"))
-        status, output = self.run_validator("--plan", "--xsd-dir", str(self.schemas))
+        status, output = self.run_validator("--plan", "--commands", "--xsd-dir", str(self.schemas))
         self.assertEqual(status, 0, output)
         lines = {line.split(" (")[0]: line for line in output.splitlines()}
         self.assertIn("schema-a.xsd", lines["Good.xml"])

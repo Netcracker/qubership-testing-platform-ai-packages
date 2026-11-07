@@ -6,9 +6,10 @@ Usage:
   python seagull_config.py set KEY VALUE [--home] [--folder DIR]
 
 The settings are in one JSON file, .seagull-diameter/config.json. Only two paths are read, in
-this order: the one in the session folder (DIR, by default the current folder), then the one in
-the user's home folder. Nothing else is searched. A value is taken from the environment variable
-of the same name first, then from the file, then from the default of the key.
+this order: the one in the session folder (DIR, by default the current folder; when the current
+folder is inside .claude/skills or a similar hidden skills folder, the folder above it), then the
+one in the user's home folder. Nothing else is searched. A value is taken from the environment
+variable of the same name first, then from the file, then from the default of the key.
 
   SEAGULL_RUNNER        docker or windows: where the dry run and the dictionary check start Seagull
   SEAGULL_DOCKER_IMAGE  the Seagull image for docker (default seagull:local)
@@ -40,6 +41,32 @@ EXIT_UNSET = 4
 
 class ConfigError(Exception):
     """The key or the value is not valid, or the file cannot be read."""
+
+
+def session_folder(cwd: Path) -> Path:
+    """Return the session folder for a current folder.
+
+    An agent often changes into a skill folder to run a script. When cwd is inside a folder
+    named skills whose parent is a hidden folder such as .claude, the session folder is the
+    folder that holds that hidden folder; otherwise it is cwd.
+    """
+    for parent in (cwd, *cwd.parents):
+        if parent.name == "skills" and parent.parent.name.startswith("."):
+            return parent.parent.parent
+    return cwd
+
+
+def runner_summary(folder: Path, home: Path, environ: dict[str, str]) -> str:
+    """Return one line that says where Seagull would run, or that the user has to be asked."""
+    runner, _ = resolve("SEAGULL_RUNNER", folder, home, environ)
+    if not runner:
+        return "Seagull for the check: not set; ask the user which Seagull to use"
+    if runner == "windows":
+        path, _ = resolve("SEAGULL_WINDOWS_PATH", folder, home, environ)
+        detail = path or "the path of seagull.exe is not set; ask"
+        return f"Seagull for the check: windows, {detail}"
+    image, _ = resolve("SEAGULL_DOCKER_IMAGE", folder, home, environ)
+    return f"Seagull for the check: docker, image {image}"
 
 
 def config_paths(folder: Path, home: Path) -> list[Path]:
@@ -111,14 +138,19 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("key", nargs="?")
     parser.add_argument("value", nargs="?")
     parser.add_argument("--home", action="store_true", help="write to the home folder")
-    parser.add_argument("--folder", type=Path, default=Path.cwd(), help="the session folder")
+    parser.add_argument(
+        "--folder",
+        type=Path,
+        default=session_folder(Path.cwd()),
+        help="the session folder (default: the current folder, or the folder above .agent/skills)",
+    )
     return parser.parse_args(argv)
 
 
 def run(args: argparse.Namespace, home: Path | None = None) -> int:
     """Do the command; return the exit status. The home folder is the user's, unless given."""
     home = home or Path.home()
-    if args.command == "show":
+    if args.command == "show" or (args.command == "get" and not args.key):
         for key in KEYS:
             value, source = resolve(key, args.folder, home, dict(os.environ))
             sys.stdout.write(f"{key}={value}  ({source or 'not set'})\n")

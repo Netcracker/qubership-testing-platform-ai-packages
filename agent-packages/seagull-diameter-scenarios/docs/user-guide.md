@@ -469,25 +469,26 @@ file for each dictionary", or "... and merge only Gy and Sy". The agent then fol
 "Plain requests" above; it validates the sources only when you ask for it.
 
 ```text
-/seagull-diameter-dictionary-convert <dictionaries folder> [out=<folder>] [combine=yes|no|<A,B> ...] [rename=<OLD>=<NEW> ...] [command-flags=<KEY>=<N> ...] [avp-flags=<AVP>=<N> ...] [vendor-mandatory=source|yes|no] [options=<file>] [keep-tgpp=yes] [no-comments=yes] [validate=yes] [xsd=<folder>] [seagull-base=<file>] [check=yes]
+/seagull-diameter-dictionary-convert <dictionaries folder> [out=<folder>] [combine=yes|no|<A,B> ...] [rename=<OLD>=<NEW> ...] [command-flags=<KEY>=<N> ...] [avp-flags=<AVP>=<N> ...] [vendor-mandatory=source|yes|no] [options=<file>] [keep-tgpp=yes] [no-comments=yes] [validate=yes] [xsd=<folder>] [validate-commands=yes|no] [seagull-base=<file>] [check=yes]
 ```
 
-| Argument            | Meaning                                                                                                                                                                                                           |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| first argument      | The folder with the project's AVP dictionaries. It must define the base protocol, in any file                                                                                                                     |
-| `out=`              | The folder to write to. It must be new or empty. Default: `Seagull-Dictionary`, `Seagull-Dictionary-2`, ... next to the input folder                                                                              |
-| `combine=`          | `yes` (the default) writes one file, `diameter-dictionary.xml`, of all the dictionaries and the base protocol; `no` writes one file for each; `A,B` writes only one file of the named ones, in that order         |
-| `rename=`           | `OLD=NEW`: renames an AVP in every result, to match the name a scenario uses; repeat for more pairs                                                                                                               |
-| `command-flags=`    | `<KEY>=<N>`: the flags byte, 0 to 255, of every request (`request=`), every answer (`answer=`), or one request or answer by its Seagull name (`CCR=192`); repeat for more pairs. Default: requests 128, answers 0 |
-| `avp-flags=`        | `<AVP>=<N>`: the flags byte of one AVP, by its name in the result; repeat for more pairs. Default: what the source gives                                                                                          |
-| `vendor-mandatory=` | The M bit of every vendor AVP: `source` keeps what the source says (the default), `yes` sets it, `no` clears it. A named `avp-flags=` pair wins                                                                   |
-| `options=`          | A `dictionary-options.ini` that an earlier run wrote, to start from. The pairs of the prompt win over it                                                                                                          |
-| `keep-tgpp=`        | `yes` keeps the `TGPP-` prefix of AVP names instead of writing `3GPP-`                                                                                                                                            |
-| `no-comments=`      | `yes` leaves the enumeration values and the group members out of the results                                                                                                                                      |
-| `validate=`         | `yes` first checks the sources against their XSD files (needs Java 11). Default `no`: then no schema is looked for                                                                                                |
-| `xsd=`              | The folder of the XSD files, for `validate=yes`. Without it only the schema references inside the files are used                                                                                                  |
-| `seagull-base=`     | A `base_draft08.xml` of Seagull that supplies the base protocol the folder lacks. Your definitions win; the agent asks first                                                                                      |
-| `check=`            | `yes` then loads each result in Seagull and runs one Credit-Control exchange (Docker or Seagull for Windows)                                                                                                      |
+| Argument             | Meaning                                                                                                                                                                                                           |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| first argument       | The folder with the project's AVP dictionaries. It must define the base protocol, in any file                                                                                                                     |
+| `out=`               | The folder to write to. It must be new or empty. Default: `Seagull-Dictionary`, `Seagull-Dictionary-2`, ... next to the input folder                                                                              |
+| `combine=`           | `yes` (the default) writes one file, `diameter-dictionary.xml`, of all the dictionaries and the base protocol; `no` writes one file for each; `A,B` writes only one file of the named ones, in that order         |
+| `rename=`            | `OLD=NEW`: renames an AVP in every result, to match the name a scenario uses; repeat for more pairs                                                                                                               |
+| `command-flags=`     | `<KEY>=<N>`: the flags byte, 0 to 255, of every request (`request=`), every answer (`answer=`), or one request or answer by its Seagull name (`CCR=192`); repeat for more pairs. Default: requests 128, answers 0 |
+| `avp-flags=`         | `<AVP>=<N>`: the flags byte of one AVP, by its name in the result; repeat for more pairs. Default: what the source gives                                                                                          |
+| `vendor-mandatory=`  | The M bit of every vendor AVP: `source` keeps what the source says (the default), `yes` sets it, `no` clears it. A named `avp-flags=` pair wins                                                                   |
+| `options=`           | A `dictionary-options.ini` that an earlier run wrote, to start from. The pairs of the prompt win over it                                                                                                          |
+| `keep-tgpp=`         | `yes` keeps the `TGPP-` prefix of AVP names instead of writing `3GPP-`                                                                                                                                            |
+| `no-comments=`       | `yes` leaves the enumeration values and the group members out of the results                                                                                                                                      |
+| `validate=`          | `yes` first checks the sources against their XSD files (needs Java 11). Default `no`: then no schema is looked for                                                                                                |
+| `xsd=`               | The folder of the XSD files, for `validate=yes`. Without it only the schema references inside the files are used                                                                                                  |
+| `validate-commands=` | `yes` also validates the `*Commands.xml` files, in a group of their own. Default `no`: they are skipped, because the conversion does not use them                                                                 |
+| `seagull-base=`      | A `base_draft08.xml` of Seagull that supplies the base protocol the folder lacks. Your definitions win; the agent asks first                                                                                      |
+| `check=`             | `yes` then loads each result in Seagull and runs one Credit-Control exchange (Docker or Seagull for Windows)                                                                                                      |
 
 Example:
 
@@ -534,8 +535,13 @@ reference inside the file, and for a file without a reference (AVP dictionaries 
 /seagull-diameter-dictionary-convert C:\work\dictionaries validate=yes xsd=C:\work\schemas
 ```
 
-If a schema cannot be found, nothing is validated, and the agent asks in one message where the XSD files are and whether
-to keep the answer in `dictionary-options.ini`. A file that fails its schema is reported and still converted.
+The agent validates the files that the result is made of: with `combine=Gy,Sy`, the files Gy and Sy and the one that
+defines the base protocol, and no other dictionary of the folder. The `*Commands.xml` files are skipped unless you
+add `validate-commands=yes`; the validator says how many it skipped.
+
+If a schema cannot be found, nothing is validated, and the agent asks where the XSD files are. When the folder has a
+subfolder `xsd`, it names that as the likely answer. It keeps the answer in `dictionary-options.ini` only when you ask
+for it. A file that fails its schema is reported and still converted.
 
 #### Flags of commands and AVPs
 

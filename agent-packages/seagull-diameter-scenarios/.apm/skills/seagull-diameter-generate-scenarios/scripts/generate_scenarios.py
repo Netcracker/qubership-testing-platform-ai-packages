@@ -726,7 +726,8 @@ def find_dictionary(options: argparse.Namespace) -> Path:
     if path is None:
         key = "SEAGULL_DICTIONARY_PATH"
         try:
-            value, _ = seagull_config.resolve(key, Path.cwd(), Path.home(), dict(os.environ))
+            session = seagull_config.session_folder(Path.cwd())
+            value, _ = seagull_config.resolve(key, session, Path.home(), dict(os.environ))
         except seagull_config.ConfigError as error:
             raise GenerationError(str(error)) from error
         path = Path(value) if value else None

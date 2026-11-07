@@ -45,13 +45,18 @@ home folder. Don't search the disk for the file or for Seagull.
 | `SEAGULL_DICTIONARY_PATH` | The one Seagull dictionary file for the generator, e.g. `C:\work\diameter-dictionary.xml` |
 
 A value in the user's request wins, then the environment variable of the same name, then the file, then the default.
-Never put a password or a token in the file. Before any run:
+Never put a password or a token in the file. Do these steps before you run Seagull, and also before you offer a run or
+say anything to the user about where Seagull runs:
 
-1. Read the runner: `python <skill folder>/scripts/seagull_config.py get SEAGULL_RUNNER`. Exit status 4 and no output
-   mean that it is not set.
-2. When it is not set, ask the user one question: Docker with a Seagull image, or Seagull for Windows (and where its
-   `seagull.exe` is, so don't guess a path; the usual place is `C:\Program Files (x86)\Seagull\seagull.exe`). Check the
-   answer by what the user says, and save it after the user confirms:
+1. Read every setting at once: `python <skill folder>/scripts/seagull_config.py show`. It prints each key with its
+   value and where the value came from, or `not set`. (`get KEY` prints one value, and exits with 4 and prints nothing
+   when the key has no value.) When `SEAGULL_RUNNER` has a value, the answer is known. Name the runner and its path in
+   your offer, for example "with the Seagull for Windows, `C:\Program Files (x86)\Seagull\seagull.exe`". Don't ask the
+   user where Seagull runs, and don't ask for the path of `seagull.exe` or for the image when `show` printed it.
+2. Only when the runner is not set, ask the user one question: Docker with a Seagull image, or Seagull for Windows
+   (and where its `seagull.exe` is, so don't guess a path; the usual place is
+   `C:\Program Files (x86)\Seagull\seagull.exe`). Check the answer by what the user says, and save it after the user
+   confirms:
 
    ```bash
    python <skill folder>/scripts/seagull_config.py set SEAGULL_RUNNER windows

@@ -62,6 +62,35 @@ class ConfigTest(unittest.TestCase):
                 status = 2
         return status, stdout.getvalue(), stderr.getvalue()
 
+    def test_session_folder_is_the_folder_above_the_skills_folder(self) -> None:
+        """A current folder inside .claude/skills/<name> still reads the settings of the session."""
+        inside = self.session / ".claude" / "skills" / "seagull-diameter-common" / "scripts"
+        self.assertEqual(config.session_folder(inside), self.session)
+        self.assertEqual(config.session_folder(self.session), self.session)
+
+    def test_runner_summary_names_the_runner_and_the_path(self) -> None:
+        """The line that a conversion prints says where Seagull runs, or that the user is asked."""
+        environ: dict[str, str] = {}
+        unset = config.runner_summary(self.session, self.home, environ)
+        self.assertEqual(unset, "Seagull for the check: not set; ask the user which Seagull to use")
+        exe = self.session / "seagull.exe"
+        exe.write_text("", encoding="utf-8")
+        self.command("set", "SEAGULL_RUNNER", "windows")
+        self.command("set", "SEAGULL_WINDOWS_PATH", str(exe))
+        line = config.runner_summary(self.session, self.home, environ)
+        self.assertEqual(line, f"Seagull for the check: windows, {exe}")
+        self.command("set", "SEAGULL_RUNNER", "docker")
+        docker = config.runner_summary(self.session, self.home, environ)
+        self.assertEqual(docker, "Seagull for the check: docker, image seagull:local")
+
+    def test_get_without_a_key_lists_every_setting(self) -> None:
+        """An agent that forgets the key gets the list that show prints, not an error."""
+        self.command("set", "SEAGULL_RUNNER", "docker")
+        status, output, error = self.command("get")
+        self.assertEqual((status, error), (0, ""))
+        self.assertIn("SEAGULL_RUNNER=docker", output)
+        self.assertIn("SEAGULL_WINDOWS_PATH=  (not set)", output)
+
     def test_unset_runner_exits_with_4(self) -> None:
         """A key without a value prints nothing and exits with 4, the signal to ask the user."""
         status, output, _ = self.command("get", "SEAGULL_RUNNER")

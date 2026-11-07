@@ -160,10 +160,27 @@ The conversion does not read XSD files, and `validate=` is `no` by default: with
 elements and the values an attribute may take, not that a code or a flag is right. A file that fails the schema is
 still converted.
 
+### Which files are validated
+
+The validator checks the files that the result is made of: the dictionaries that the conversion merges and the file of
+the base protocol. With `combine=Gy,Sy` that is `Gy.xml`, `Sy.xml`, and the file that defines the base protocol; the
+other dictionaries of the folder are neither converted nor validated. Without `combine=`, the result is made of every
+AVP dictionary of the folder, so all of them are validated. The agent gets the list from
+`convert_dictionaries.py --list-sources`, which writes nothing, and passes it to `validate.sh --only`.
+
+The `<Name>Commands.xml` files are skipped, because the conversion does not use them. The validator prints one line
+that says how many it skipped. `validate-commands=yes` validates them too, and lists them in a group of their own,
+after the AVP dictionaries. Like `xsd=`, the setting is kept in `dictionary-options.ini`:
+
+```ini
+[validate]
+commands = yes
+```
+
 ### Which schema a file gets
 
-The validator never searches the disk. It chooses the schema of each `.xml` file of the folder from these places, in
-this order:
+The validator never searches the disk. It chooses the schema of each file it validates from these places, in this
+order:
 
 1. **The reference in the file.** The root element may carry `xsi:noNamespaceSchemaLocation` (or `xsi:schemaLocation`).
    The path is resolved against the folder of the file, so `xsd/diameter-command.xsd` means the `xsd` folder next to
@@ -186,21 +203,23 @@ name it.
 
 ### When no schema is found
 
-If any file has no schema, the validator validates nothing and exits with status 3. It lists each file with its problem
-and then each distinct problem once, with the number of files it affects. Files that share a reference, such as
-`xsd/diameter-command.xsd` in every command dictionary, give one problem:
+If any validated file has no schema, the validator validates nothing and exits with status 3. It lists each file with
+its problem, then each distinct problem once with the number of files it affects, and last how many of the validated
+files have no schema. Files that share a reference give one problem. Most AVP dictionaries carry no reference at all:
 
 ```text
+Not validated: 8 command dictionary file(s), which the conversion does not use. Pass --commands to validate them.
+NO SCHEMA Gy.xml (dictionary): the file has no schema reference
 NO SCHEMA Sy.xml (dictionary): the file has no schema reference
-NO SCHEMA SyCommands.xml (diameter-command-dictionary): the reference xsd/diameter-command.xsd does not resolve; no file C:\work\dictionaries\xsd\diameter-command.xsd
-2 distinct problem(s) in 11 file(s):
-    the reference xsd/diameter-command.xsd does not resolve; no file C:\work\dictionaries\xsd\diameter-command.xsd (7 file(s))
-    the file has no schema reference (4 file(s))
+1 distinct problem(s) in 2 file(s):
+    the file has no schema reference (2 file(s))
+Nothing is validated: 2 of 2 file(s) have no schema.
 ```
 
-The agent then stops and asks two questions in one message: where the XSD files are, and whether to keep the answer.
-With the answer it runs the validator again with `--xsd-dir`. Keeping the answer writes it to `dictionary-options.ini`
-in the output folder:
+The agent then stops and asks one question: where the XSD files are. When the dictionaries folder has a subfolder
+`xsd`, it names that folder as the likely answer. With the answer it runs the validator again with `--xsd-dir`. It does
+not ask whether to keep the answer. To keep it, say so in the request, or pass `xsd=` to the conversion: the folder is
+then written to `dictionary-options.ini` in the output folder:
 
 ```ini
 [validate]
@@ -224,14 +243,16 @@ Sy.xml (dictionary): 2 errors
     x2, first at line 423: cvc-attribute.3: ...
 ```
 
-`--plan` prints the schema chosen for each file and the reason, without validating.
+`--plan` prints the schema chosen for each file and the reason, without validating. With `--commands`, the output has
+two headings, `AVP dictionaries:` and `Command dictionaries (not used by the conversion):`, and the files of each kind
+are listed under theirs.
 
-| Status | Meaning                                                                         |
-| ------ | ------------------------------------------------------------------------------- |
-| 0      | Every file is valid, or `--plan` found a schema for every file                  |
-| 1      | Some file is invalid                                                            |
-| 2      | Wrong arguments, `--xsd-dir` is not a folder, or the folder has no `.xml` files |
-| 3      | A schema was not found for some files; nothing was validated                    |
+| Status | Meaning                                                                                                     |
+| ------ | ----------------------------------------------------------------------------------------------------------- |
+| 0      | Every file is valid, or `--plan` found a schema for every file                                              |
+| 1      | Some file is invalid                                                                                        |
+| 2      | Wrong arguments, `--xsd-dir` is not a folder, a name in `--only` has no file, or no `.xml` file to validate |
+| 3      | A schema was not found for some files; nothing was validated                                                |
 
 The validator rejects files with a document type declaration and turns on the secure processing mode of the schema
 factory. A schema that does not compile ends it with a stack trace and not with a validation message.
