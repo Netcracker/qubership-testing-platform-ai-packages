@@ -182,8 +182,16 @@ def run(args: argparse.Namespace, home: Path | None = None) -> int:
     return 0
 
 
+def use_utf8_output() -> None:
+    """Write UTF-8 to the output, so that a path with Cyrillic letters reaches the agent intact."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
+
+
 def main(argv: list[str]) -> int:
     """Run the command line; return the exit status."""
+    use_utf8_output()
     args = parse_arguments(argv)
     try:
         return run(args)

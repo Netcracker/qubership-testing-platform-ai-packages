@@ -75,6 +75,7 @@ def build_report(folder: Path, home: Path, environ: dict[str, str]) -> str:
 
 def main(argv: list[str]) -> int:
     """Print the report; return the exit status."""
+    seagull_config.use_utf8_output()
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", maxsplit=1)[0])
     parser.add_argument("--folder", type=Path, default=seagull_config.settings_folder(Path.cwd()))
     args = parser.parse_args(argv)
