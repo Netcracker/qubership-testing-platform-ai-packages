@@ -279,7 +279,7 @@ answer, and runs each client scenario against it. It never calls the scenarios w
 it yourself:
 
 ```bash
-sh .apm/skills/seagull-diameter-generate-scenarios/scripts/dry-run.sh <out folder> [<image>]
+python .apm/skills/seagull-diameter-common/scripts/seagull_run.py dry-run <out folder>
 ```
 
 Expected, one line for each scenario:
@@ -454,7 +454,7 @@ The dry run runs the new folder as it is. It makes `calls=` calls and reads one 
 reads the file and sends the values. The line shows the number of calls (`successful calls: 50, failed calls: 0`):
 
 ```bash
-sh .apm/skills/seagull-diameter-generate-scenarios/scripts/dry-run.sh C:\work\Seagull-Scenario-external
+python .apm/skills/seagull-diameter-common/scripts/seagull_run.py dry-run C:\work\Seagull-Scenario-external
 ```
 
 ### /seagull-diameter-dictionary-convert
@@ -560,6 +560,32 @@ Each change is a `NOTE` line in the report, for example `CCR: flags 192 (the con
 `dictionary-options.ini` in the new folder. Pass that file as `options=` to repeat the run on other dictionaries.
 A flags byte that contradicts the V bit of the AVP (a vendor AVP without 128, or a base AVP with it) is refused.
 
+### /seagull-diameter-settings
+
+**Purpose.** Shows the settings of the package and saves a new value. You can also ask in plain words, for example "show
+the settings", "which Seagull do you use?", or "use Docker from now on"; the agent follows the skill
+`seagull-diameter-manage-settings`.
+
+**Arguments.**
+
+```text
+/seagull-diameter-settings [runner=docker|windows] [seagull-exe=<path>] [image=<image>] [dictionary=<file>] [home=yes]
+```
+
+Without arguments the answer has three parts, each under its own heading:
+
+- **Settings.** Each key of `.seagull-diameter/config.json` with its value and where the value came from, and the two
+  files that were read.
+- **Dictionary options.** The content of `dictionary-options.ini` that lies next to the dictionary named by
+  `SEAGULL_DICTIONARY_PATH`. Without that setting, or without the file, the answer says so.
+- **Scenario options.** One sentence: the options of each generated set of scenarios are in `scenario-options.ini`, in
+  the folder of that set. The agent does not look for the file, because the settings do not name that folder.
+
+`runner=`, `seagull-exe=`, `image=`, and `dictionary=` save `SEAGULL_RUNNER`, `SEAGULL_WINDOWS_PATH`,
+`SEAGULL_DOCKER_IMAGE`, and `SEAGULL_DICTIONARY_PATH`, and `home=yes` saves them in the file in your home folder, for
+every folder. A runner other than `docker` or `windows`, and a path that is not a file, are refused. The `.ini` files are
+shown and not changed: pass `options=` to the commands that use them.
+
 ## Where Seagull runs
 
 The dry run of a generation and the check of converted dictionaries start Seagull. They can use the Seagull image in
@@ -580,18 +606,20 @@ in `.seagull-diameter/config.json`:
 | `SEAGULL_WINDOWS_PATH`    | The `seagull.exe` for `windows`                         |
 | `SEAGULL_DICTIONARY_PATH` | The one Seagull dictionary file for the generator       |
 
-The agent reads exactly two files, in this order: `.seagull-diameter/config.json` in the folder where the session works,
-then the same path in your home folder. It searches nothing else. A value in your request wins over the environment
-variable of the same name, which wins over the file, which wins over the default. The first time the agent needs
-Seagull and the runner is not set, it asks you one question, Docker or Seagull for Windows and where `seagull.exe` is,
-and saves the answer after you confirm it. It saves to the session folder, or to your home folder when you ask for
-that. The file never holds a password or a token.
+The agent reads two files, in this order: `.seagull-diameter/config.json` in the nearest folder, from the folder where
+the session works upward, that holds one, then the same path in your home folder. It searches nothing else. A value in
+your request wins over the environment variable of the same name, which wins over the file, which wins over the
+default. One script, `seagull_run.py`, reads the settings and starts the Seagull they name, so the agent passes it only
+the folder. When a setting has no value, the script says so (exit status 4), and only then the agent asks you one
+question, Docker or Seagull for Windows and where `seagull.exe` is, and saves the answer after you confirm it. It
+saves to the session folder, or to your home folder when you ask for that. The file never holds a password or a
+token. To see or change the settings, use [/seagull-diameter-settings](#seagull-diameter-settings).
 
 With `windows` the runner starts a stub OCS and the client as two `seagull.exe` processes in a hidden console, with
 copies of the configurations. The stub gets a free port, because the machine may already use 3868, and a scenario that
 reads a data file gets the path of that file on your machine. The runner stops only the processes it started. It prints
 the same line for each scenario as the Docker script: `successful calls: 1, failed calls: 0`. Add `--logs <folder>` to
-the runner to keep the Seagull logs, which are deleted otherwise.
+the script to keep the Seagull logs, which are deleted otherwise.
 
 ## Options and tags
 

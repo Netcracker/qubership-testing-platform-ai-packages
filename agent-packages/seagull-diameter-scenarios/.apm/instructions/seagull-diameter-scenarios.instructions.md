@@ -13,10 +13,10 @@ These rules hold when the user asks for a Seagull Diameter task in plain languag
 
 - **Seagull.** Don't start Seagull (in Docker, in WSL, or as a Seagull for Windows), a dry run, or any container unless
   the user asked for it in the request. When the request didn't mention it, finish the task and offer the run in one
-  sentence. Read the settings (`seagull_config.py show`) before you offer a run, and name the runner and its path in the
-  offer. Ask which Seagull to use only when `SEAGULL_RUNNER` is not set, and save the answer only after the user
-  confirms it, as `seagull-diameter-common` describes. Never ask where Seagull runs, or for the path of `seagull.exe`,
-  while the settings have a value.
+  sentence. Start a run with `seagull_run.py`, which reads where Seagull runs from the settings; name the runner and its
+  path in the offer (`seagull_config.py show` prints them). Ask which Seagull to use only when the script exits with 4 or
+  `SEAGULL_RUNNER` is not set, and save the answer only after the user confirms it, as `seagull-diameter-common`
+  describes. Never ask where Seagull runs, or for the path of `seagull.exe`, while the settings have a value.
 - **Existing files.** Don't move, replace, or delete an existing output folder or file unless the user asked for it.
   Write to a new folder.
 - **A real OCS.** Never run a scenario against a real OCS on your own.

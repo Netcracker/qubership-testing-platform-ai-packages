@@ -14,6 +14,16 @@ wrote. To write a template straight from recorded steps, generate with `mode=tem
 The command [/seagull-diameter-scenario-templatize](../seagull-diameter-scenario-templatize/SKILL.md) runs the same
 steps from formal arguments. What this page says holds for both.
 
+## Required inputs
+
+What the task needs before it starts, and what it takes from each place.
+
+- **From the user:** the scenarios (`*.client.xml` files, or the `scenario` folder of a generation) and the AVPs that
+  become placeholders, unless an options file already has them.
+- **From the settings:** nothing is required to make templates.
+- **Only when Seagull is started** (the dry run of a filled-in scenario): the runner and its path or image.
+  `seagull_run.py` reads them; see [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs). Don't ask for them in advance.
+
 ## What to take from the request
 
 | Parameter      | How the user says it                                            | Rule                                                                                       |

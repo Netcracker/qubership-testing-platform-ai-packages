@@ -19,6 +19,16 @@ often as needed. The file is also what a handwritten scenario passes to Seagull 
 The command [/seagull-diameter-dictionary-convert](../seagull-diameter-dictionary-convert/SKILL.md) runs the same steps
 with formal arguments. What this page says about a parameter holds for both.
 
+## Required inputs
+
+What the task needs before it starts, and what it takes from each place.
+
+- **From the user:** the folder of the project's AVP dictionaries. They define the base protocol in any file, or the
+  user allows the Seagull dictionary, as [The base protocol](#the-base-protocol) says.
+- **From the settings:** nothing is required to convert.
+- **Only when Seagull is started** (`check=yes`, or the export of `base_draft08.xml`): the runner and its path or image.
+  `seagull_run.py` reads them; see [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs). Don't ask for them in advance.
+
 ## What to take from the request
 
 Take each parameter from the user's words, and apply the rule in the last column.
@@ -127,23 +137,19 @@ settings of Seagull are read from the session folder.
      Seagull cannot check that a message is complete.
    - That the options in effect are in `dictionary-options.ini` in the output folder. Pass it as `options=` to repeat
      the run.
-4. **Check in Seagull.** Needs a Seagull 1.8.3: an image in Docker (by default tagged `seagull:local`; on Windows run
-   the script through `wsl`) or a Seagull for Windows. Where it runs is a setting. Read it with `seagull_config.py get`
-   before you say anything about the check, including in the first message of the task, and ask only when it is not
-   set, as [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs) describes. Run the check only
-   when the user asked for it, either in the request or in the answer to your offer. When the request did not mention
-   it, end your reply by offering the check in one sentence that names the runner, and do not start Seagull.
-
-   The last line the conversion prints, `Seagull for the check: ...`, is that setting already read. When it names a
-   runner and a path (or an image), use it in the offer and don't ask where Seagull runs. When it says `not set`, ask
-   the one question of "Where Seagull runs".
+4. **Check in Seagull.** Needs a Seagull 1.8.3: an image in Docker (by default tagged `seagull:local`) or a Seagull for
+   Windows. Run the check only when the user asked for it, either in the request or in the answer to your offer. When
+   the request did not mention it, end your reply by offering the check in one sentence that names the runner, and do
+   not start Seagull. The last line the conversion prints, `Seagull for the check: ...`, has the runner and its path or
+   image: use it in the offer, and don't ask where Seagull runs.
 
    ```bash
-   sh <skill folder>/scripts/check-converted.sh <output folder> [IMAGE]
-   python <skill folder>/../seagull-diameter-common/scripts/seagull_windows_run.py check-converted <output folder> --seagull-exe <path>
+   python <skill folder>/../seagull-diameter-common/scripts/seagull_run.py check-converted <output folder>
    ```
 
-   The first line is for `docker`, the second for `windows`.
+   The script reads the settings and starts the Seagull they name. Exit status 4 means that a setting has no value; ask
+   the one question of [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs), save the answer, and
+   run the script again.
 
    For each result that defines `CCR` the script runs a stub OCS and a client with invented values and prints
    `<name>: successful calls: 1, failed calls: 0`. A dictionary without `CCR` is `skipped`. A line that says anything

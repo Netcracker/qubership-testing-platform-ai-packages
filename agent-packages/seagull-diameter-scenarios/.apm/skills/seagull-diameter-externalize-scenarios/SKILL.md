@@ -16,6 +16,16 @@ the generator; the user's request says which one is wanted.
 The command [/seagull-diameter-scenario-externalize](../seagull-diameter-scenario-externalize/SKILL.md) runs the same
 steps from formal arguments. What this page says holds for both.
 
+## Required inputs
+
+What the task needs before it starts, and what it takes from each place.
+
+- **From the user:** the scenarios (the `scenario` folder of a generation, or `*.client.xml` files) and the AVPs that
+  come from the data file, unless an options file already has them.
+- **From the settings:** nothing is required to change the scenarios.
+- **Only when Seagull is started** (the dry run): the runner and its path or image. `seagull_run.py` reads them; see
+  [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs). Don't ask for them in advance.
+
 ## What to take from the request
 
 | Parameter      | How the user says it                                      | Rule                                                                                               |
@@ -62,17 +72,17 @@ for example `placeholder=Subscription-Id-Data=MSISDN` and `calls=50`, and let th
    row of a random file; do not remove it.
 4. **The dry run** on the new folder starts Seagull. Run it only when the user asked for it, in the request or in the
    answer to your offer. Otherwise offer it in one sentence and say that the scenarios are not verified in Seagull yet.
-   Where Seagull runs is a setting: see [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs).
+   Where Seagull runs is a setting that the script reads: see
+   [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs).
 
    ```bash
-   sh <skill folder>/../seagull-diameter-generate-scenarios/scripts/dry-run.sh <out folder> [<image>]
-   python <skill folder>/../seagull-diameter-common/scripts/seagull_windows_run.py dry-run <out folder> --seagull-exe <path>
+   python <skill folder>/../seagull-diameter-common/scripts/seagull_run.py dry-run <out folder>
    ```
 
-   The first line is for `docker`, the second for `windows`. In the image, the dry-run configuration reads the data
-   file from `/work/scenario/`; the Windows runner points it to the file in the output folder. The stub OCS answers
-   whatever the scenario sends, so the run proves that Seagull reads the file and sends the values, not that an OCS
-   accepts them.
+   Exit status 4 means that a setting has no value; ask the one question of "Where Seagull runs", save the answer, and run
+   the script again. In the image, the dry-run configuration reads the data file from `/work/scenario/`; the Windows
+   runner points it to the file in the output folder. The stub OCS answers whatever the scenario sends, so the run proves
+   that Seagull reads the file and sends the values, not that an OCS accepts them.
 
 ## The data file
 

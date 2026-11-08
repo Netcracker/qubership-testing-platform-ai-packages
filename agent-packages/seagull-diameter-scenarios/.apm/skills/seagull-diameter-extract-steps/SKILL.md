@@ -14,6 +14,14 @@ source, and the skill does what was said.
 The command [/seagull-diameter-steps-extract](../seagull-diameter-steps-extract/SKILL.md) runs the same steps from a
 formal line, `<source> -- <how to read it>`. What this page says holds for both.
 
+## Required inputs
+
+What the task needs before it starts, and what it takes from each place.
+
+- **From the user:** the source (an `xlsx`, `csv`, JSON, or log file, or a folder in the step format) and, for a file,
+  the description of how it is built.
+- **From the settings:** nothing. Seagull is not started.
+
 ## What to take from the request
 
 | Parameter     | How the user says it                                               | Rule                                                                           |

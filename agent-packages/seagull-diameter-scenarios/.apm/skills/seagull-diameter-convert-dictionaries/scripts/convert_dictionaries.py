@@ -85,7 +85,7 @@ def main(argv: list[str]) -> int:
 
 def runner_line() -> str:
     """Return the line that says where the check in Seagull would run, or an empty line."""
-    session = seagull_config.session_folder(Path.cwd())
+    session = seagull_config.settings_folder(Path.cwd())
     try:
         return seagull_config.runner_summary(session, Path.home(), dict(os.environ))
     except seagull_config.ConfigError:
