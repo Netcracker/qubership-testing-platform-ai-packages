@@ -26,6 +26,7 @@ PLAIN_SKILLS = {
     "seagull-diameter-scenario-generate": "seagull-diameter-generate-scenarios",
     "seagull-diameter-scenario-templatize": "seagull-diameter-templatize-scenarios",
     "seagull-diameter-scenario-externalize": "seagull-diameter-externalize-scenarios",
+    "seagull-diameter-settings": "seagull-diameter-manage-settings",
 }
 LINK = re.compile(r"\]\(([^)\s]+)\)")
 

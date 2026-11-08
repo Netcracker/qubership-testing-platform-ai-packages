@@ -27,8 +27,11 @@ SKILLS = Path(__file__).resolve().parents[1] / ".apm" / "skills"
 sys.path.insert(0, str(SKILLS / "seagull-diameter-common" / "scripts"))
 sys.path.insert(0, str(SKILLS / "seagull-diameter-generate-scenarios" / "scripts"))
 sys.path.insert(0, str(SKILLS / "seagull-diameter-convert-dictionaries" / "scripts"))
+sys.path.insert(0, str(SKILLS / "seagull-diameter-manage-settings" / "scripts"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 config = importlib.import_module("seagull_config")
+seagull_run = importlib.import_module("seagull_run")
+show_settings = importlib.import_module("show_settings")
 runner = importlib.import_module("seagull_windows_run")
 generate = importlib.import_module("generate_scenarios")
 convert = importlib.import_module("convert_dictionaries")
@@ -129,6 +132,131 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual(status, 2)
         self.assertIn("no file", error)
         self.assertFalse((self.session / ".seagull-diameter").exists())
+
+    def test_settings_folder_is_the_nearest_folder_upward_that_has_the_file(self) -> None:
+        """A script run from any subfolder finds the file of the session above it."""
+        self.command("set", "SEAGULL_DOCKER_IMAGE", "seagull:test")
+        deep = self.session / "work" / "output"
+        deep.mkdir(parents=True)
+        self.assertEqual(config.settings_folder(deep), self.session)
+        self.assertEqual(config.settings_folder(self.home), self.home)
+
+
+class SeagullRunTest(unittest.TestCase):
+    """seagull_run.py picks the runner from the settings and asks only when a setting has no value."""
+
+    def setUp(self) -> None:
+        """Make a session folder with no settings, and run from it."""
+        folder = tempfile.mkdtemp(prefix="seagull-selftest-")
+        self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        self.session = Path(folder) / "session"
+        self.session.mkdir()
+        for target in (
+            mock.patch.dict(os.environ, clear=True),
+            mock.patch.object(Path, "home", return_value=Path(folder) / "home"),
+            mock.patch.object(Path, "cwd", return_value=self.session),
+        ):
+            target.start()
+            self.addCleanup(target.stop)
+
+    def run_script(self, *argv: str) -> tuple[int, str]:
+        """Run seagull_run.py; return the exit status and the error output."""
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            status = seagull_run.main(list(argv))
+        return status, stderr.getvalue()
+
+    def test_an_unset_runner_exits_with_4_and_says_to_ask(self) -> None:
+        """Without SEAGULL_RUNNER the script starts nothing and exits with 4."""
+        status, error = self.run_script("dry-run", str(self.session))
+        self.assertEqual(status, 4)
+        self.assertIn("SEAGULL_RUNNER is not set; ask the user", error)
+
+    def test_windows_without_a_path_exits_with_4(self) -> None:
+        """The runner is windows and the path of seagull.exe is missing: exit 4, not a guess."""
+        with mock.patch.dict(os.environ, {"SEAGULL_RUNNER": "windows"}):
+            status, error = self.run_script("check-converted", str(self.session))
+        self.assertEqual(status, 4)
+        self.assertIn("SEAGULL_WINDOWS_PATH is not set", error)
+
+    def test_windows_runs_the_windows_runner_with_the_path_of_the_settings(self) -> None:
+        """The path comes from the settings; the folder and the options of the call are forwarded."""
+        env = {"SEAGULL_RUNNER": "windows", "SEAGULL_WINDOWS_PATH": "C:/Seagull/seagull.exe"}
+        with mock.patch.dict(os.environ, env), mock.patch.object(seagull_run.seagull_windows_run, "main") as run:
+            run.return_value = 0
+            status, _ = self.run_script("dry-run", "out", "--logs", "logs")
+        self.assertEqual(status, 0)
+        forwarded = run.call_args.args[0]
+        self.assertEqual(forwarded[:4], ["dry-run", "out", "--seagull-exe", "C:/Seagull/seagull.exe"])
+        self.assertEqual(forwarded[-2:], ["--logs", "logs"])
+
+    def test_an_option_wins_over_the_settings(self) -> None:
+        """--runner and --seagull-exe override the settings for one run."""
+        env = {"SEAGULL_RUNNER": "docker"}
+        with mock.patch.dict(os.environ, env), mock.patch.object(seagull_run.seagull_windows_run, "main") as run:
+            run.return_value = 3
+            status, _ = self.run_script("dry-run", "out", "--runner", "windows", "--seagull-exe", "x.exe")
+        self.assertEqual(status, 3)
+        self.assertIn("x.exe", run.call_args.args[0])
+
+    def test_docker_runs_the_script_of_the_image_with_the_image_of_the_settings(self) -> None:
+        """The Docker script gets the folder and the image; the exit status is the script's."""
+        env = {"SEAGULL_RUNNER": "docker", "SEAGULL_DOCKER_IMAGE": "seagull:test"}
+        with mock.patch.dict(os.environ, env), mock.patch.object(seagull_run.subprocess, "run") as run:
+            run.return_value = mock.Mock(returncode=1)
+            status, _ = self.run_script("check-converted", str(self.session))
+        command = run.call_args.args[0]
+        self.assertEqual(status, 1)
+        self.assertEqual(command[-1], "seagull:test")
+        self.assertIn("check-converted.sh", " ".join(command))
+
+    @unittest.skipUnless(os.name == "nt", "drive letters exist on Windows")
+    def test_a_windows_path_is_given_to_wsl_as_a_mnt_path(self) -> None:
+        """to_wsl turns C:\\work\\out into /mnt/c/work/out."""
+        self.assertEqual(seagull_run.to_wsl(Path("C:/work/out")), "/mnt/c/work/out")
+
+
+class ShowSettingsTest(unittest.TestCase):
+    """show_settings.py prints the settings, the dictionary options, and the note on scenario options."""
+
+    def setUp(self) -> None:
+        """Make a session folder, a home folder, and a converted dictionary with its options file."""
+        folder = tempfile.mkdtemp(prefix="seagull-selftest-")
+        self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        self.session, self.home = Path(folder) / "session", Path(folder) / "home"
+        self.session.mkdir()
+        self.home.mkdir()
+        self.dictionary = Path(folder) / "converted" / "diameter-dictionary.xml"
+        self.dictionary.parent.mkdir()
+        self.dictionary.write_text("<dictionary/>", encoding="utf-8")
+        patcher = mock.patch.dict(os.environ, clear=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def report(self) -> str:
+        """Return the report for the session folder."""
+        return show_settings.build_report(self.session, self.home, dict(os.environ))
+
+    def test_unset_settings_and_no_dictionary(self) -> None:
+        """Every key says not set, the dictionary part says why it is empty, and the note ends the report."""
+        text = self.report()
+        self.assertIn("## Settings\n- SEAGULL_RUNNER: not set", text)
+        self.assertIn("SEAGULL_DICTIONARY_PATH is not set, so there is no dictionary", text)
+        self.assertTrue(text.rstrip().endswith("in the folder of that set."))
+
+    def test_the_options_next_to_the_dictionary_are_shown_under_their_heading(self) -> None:
+        """dictionary-options.ini is read from the folder of the dictionary of the settings, and only there."""
+        (self.dictionary.parent / "dictionary-options.ini").write_text("[command-flags]\nCCR = 192\n", encoding="utf-8")
+        config.save("SEAGULL_DICTIONARY_PATH", str(self.dictionary), self.session, self.home)
+        text = self.report()
+        self.assertIn("## Dictionary options\nDictionary: " + str(self.dictionary), text)
+        self.assertIn("CCR = 192", text)
+        self.assertIn(f"- SEAGULL_DICTIONARY_PATH: {self.dictionary}", text)
+
+    def test_a_missing_options_file_is_named(self) -> None:
+        """A dictionary without dictionary-options.ini next to it gets one line, not a search."""
+        config.save("SEAGULL_DICTIONARY_PATH", str(self.dictionary), self.session, self.home)
+        self.assertIn("dictionary-options.ini was not found next to it.", self.report())
 
 
 class RunnerHelpersTest(unittest.TestCase):

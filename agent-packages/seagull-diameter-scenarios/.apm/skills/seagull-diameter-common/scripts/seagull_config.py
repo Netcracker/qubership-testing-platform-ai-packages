@@ -5,11 +5,13 @@ Usage:
   python seagull_config.py get KEY [--folder DIR]
   python seagull_config.py set KEY VALUE [--home] [--folder DIR]
 
-The settings are in one JSON file, .seagull-diameter/config.json. Only two paths are read, in
-this order: the one in the session folder (DIR, by default the current folder; when the current
-folder is inside .claude/skills or a similar hidden skills folder, the folder above it), then the
-one in the user's home folder. Nothing else is searched. A value is taken from the environment
-variable of the same name first, then from the file, then from the default of the key.
+The settings are in one JSON file, .seagull-diameter/config.json. Two files are read, in this
+order: the one in the nearest folder, from DIR upward, that holds it (DIR is by default the current
+folder), then the one in the user's home folder. Where no folder holds one, DIR is the session
+folder: the current folder, or the folder above .claude/skills or a similar hidden skills folder
+when the current folder is inside it. The disk is not searched otherwise. A value is taken from
+the environment variable of the same name first, then from the file, then from the default of the
+key.
 
   SEAGULL_RUNNER        docker or windows: where the dry run and the dictionary check start Seagull
   SEAGULL_DOCKER_IMAGE  the Seagull image for docker (default seagull:local)
@@ -54,6 +56,18 @@ def session_folder(cwd: Path) -> Path:
         if parent.name == "skills" and parent.parent.name.startswith("."):
             return parent.parent.parent
     return cwd
+
+
+def settings_folder(cwd: Path) -> Path:
+    """Return the folder whose .seagull-diameter/config.json the settings come from.
+
+    It is the nearest folder, from cwd upward, that holds the file. When no folder does, it is
+    the session folder (see session_folder), so that a first "set" writes there.
+    """
+    for parent in (cwd, *cwd.parents):
+        if (parent / CONFIG_DIR / CONFIG_NAME).is_file():
+            return parent
+    return session_folder(cwd)
 
 
 def runner_summary(folder: Path, home: Path, environ: dict[str, str]) -> str:
@@ -141,8 +155,8 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--folder",
         type=Path,
-        default=session_folder(Path.cwd()),
-        help="the session folder (default: the current folder, or the folder above .agent/skills)",
+        default=settings_folder(Path.cwd()),
+        help="the folder of .seagull-diameter (default: the nearest one upward from the current folder)",
     )
     return parser.parse_args(argv)
 
@@ -168,8 +182,16 @@ def run(args: argparse.Namespace, home: Path | None = None) -> int:
     return 0
 
 
+def use_utf8_output() -> None:
+    """Write UTF-8 to the output, so that a path with Cyrillic letters reaches the agent intact."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
+
+
 def main(argv: list[str]) -> int:
     """Run the command line; return the exit status."""
+    use_utf8_output()
     args = parse_arguments(argv)
     try:
         return run(args)

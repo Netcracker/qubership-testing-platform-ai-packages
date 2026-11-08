@@ -15,6 +15,17 @@ the agent runs it, reads its report, and tells the user what to review.
 The command [/seagull-diameter-scenario-generate](../seagull-diameter-scenario-generate/SKILL.md) runs the same steps
 from formal arguments, and the dry run is part of it. What this page says holds for both.
 
+## Required inputs
+
+What the task needs before it starts, and what it takes from each place.
+
+- **From the user:** the folder of recorded steps.
+- **From the settings:** one ready Seagull dictionary, from `dictionary=` in the request or from
+  `SEAGULL_DICTIONARY_PATH`. Without either, nothing is written; stop as [The dictionary](#the-dictionary) says.
+  Never convert, search for, or take a dictionary yourself.
+- **Only when Seagull is started** (the dry run): the runner and its path or image. `seagull_run.py` reads them; see
+  [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs). Don't ask for them in advance.
+
 ## What to take from the request
 
 | Parameter       | How the user says it                                                 | Rule                                                                                            |
@@ -130,16 +141,15 @@ dictionary.
      difference), and `placeholder <AVP>: matched no AVP` (a misspelled name or an AVP that is not in the steps).
 4. **Dry run.** Run it only when the user asked for it, in the request or in the answer to your offer. When the
    request did not mention it, end your reply by offering the run in one sentence, say that the scenarios are not
-   verified yet, and do not start Seagull. Find out where Seagull runs first, as
-   [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs) describes: read the setting, and ask
-   the user when it is not set.
+   verified yet, and do not start Seagull. Name the runner in the offer: `seagull_config.py show` prints it (see
+   [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs)).
 
    ```bash
-   sh <skill folder>/scripts/dry-run.sh <out folder> [<image>]
-   python <skill folder>/../seagull-diameter-common/scripts/seagull_windows_run.py dry-run <out folder> --seagull-exe <path>
+   python <skill folder>/../seagull-diameter-common/scripts/seagull_run.py dry-run <out folder>
    ```
 
-   The first line is for `docker`, the second for `windows`.
+   The script reads the settings and starts the Seagull they name. Exit status 4 means that a setting has no value; ask
+   the one question of "Where Seagull runs", save the answer, and run the script again.
 
    It starts a stub OCS that answers with the recorded answers, runs each scenario against it, and prints one line for
    each: `successful calls: 1, failed calls: 0`. A scenario that does not end so is a defect of the generation or of the

@@ -26,16 +26,43 @@ because APM deploys the files of a skill folder next to each other, so the scrip
 | `scripts/scenario_text.py`       | Reads the `<avp>` lines of a generated scenario, with their paths; the templatize and externalize scripts use it |
 | `scripts/output_folder.py`       | Picks the first free output folder (`next-free`) and describes a folder (`describe`)                             |
 | `scripts/seagull_config.py`      | Reads and writes the settings that say where Seagull runs; see "Where Seagull runs"                              |
-| `scripts/seagull_windows_run.py` | Runs the dry run and the check of converted dictionaries with a Seagull for Windows                              |
+| `scripts/seagull_run.py`         | Runs the dry run and the check of converted dictionaries with the Seagull that the settings name                 |
+| `scripts/seagull_windows_run.py` | Runs the dry run and the check of converted dictionaries with a Seagull for Windows; seagull_run.py calls it     |
 
 ## Where Seagull runs
 
 The dry run of a generation and the check of converted dictionaries start Seagull. It runs in the Seagull image in
-Docker (`dry-run.sh`, `check-converted.sh`), or as `seagull.exe` of a Seagull for Windows
-(`seagull_windows_run.py`). The settings that choose are in one JSON file, `.seagull-diameter/config.json`.
+Docker, or as `seagull.exe` of a Seagull for Windows. One script chooses, from the settings, and runs it:
 
-**Read exactly two paths, in this order:** the file in the folder the session works in, then the file in the user's
-home folder. Don't search the disk for the file or for Seagull.
+```bash
+python <skill folder>/scripts/seagull_run.py dry-run <output folder>
+python <skill folder>/scripts/seagull_run.py check-converted <converted folder>
+```
+
+The script reads the settings itself, so the caller passes only the folder. It prints the lines that the two runners
+print, `<name>: successful calls: 1, failed calls: 0`, and its exit status is that of the run. `--runner`,
+`--seagull-exe`, and `--image` override the settings for one run, and `--logs <folder>` keeps the Seagull logs of a
+Seagull for Windows. With `docker` on Windows it runs the script of the image through `wsl`. Seagull for Windows uses
+the ports of the machine, so the script gives the stub a free one in copies of the configurations, and it stops only the
+processes that it started.
+
+**Ask only when the script asks.** Exit status 4 and a message `SEAGULL_RUNNER is not set` or `SEAGULL_WINDOWS_PATH is not
+set` mean that a setting has no value. Then ask the user one question: Docker with a Seagull image, or Seagull for
+Windows and where its `seagull.exe` is (don't guess a path; the usual place is
+`C:\Program Files (x86)\Seagull\seagull.exe`). Save the answer after the user confirms, and run the script again:
+
+```bash
+python <skill folder>/scripts/seagull_config.py set SEAGULL_RUNNER windows
+python <skill folder>/scripts/seagull_config.py set SEAGULL_WINDOWS_PATH "C:\Program Files (x86)\Seagull\seagull.exe"
+```
+
+`set` writes the file of the session; add `--home` when the user wants the answer for every folder. It refuses an
+unknown runner and a path that is not a file. Never put a password or a token in the file.
+
+The settings are in one JSON file, `.seagull-diameter/config.json`. Two files are read, in this order: the one in the
+nearest folder, from the current folder upward, that holds it, then the one in the user's home folder. Don't search the
+disk for the file or for Seagull. A value in the user's request wins, then the environment variable of the same name,
+then the file, then the default.
 
 | Key                       | Meaning                                                                                   |
 | ------------------------- | ----------------------------------------------------------------------------------------- |
@@ -44,34 +71,11 @@ home folder. Don't search the disk for the file or for Seagull.
 | `SEAGULL_WINDOWS_PATH`    | The `seagull.exe` for `windows`, e.g. `C:\Program Files (x86)\Seagull\seagull.exe`        |
 | `SEAGULL_DICTIONARY_PATH` | The one Seagull dictionary file for the generator, e.g. `C:\work\diameter-dictionary.xml` |
 
-A value in the user's request wins, then the environment variable of the same name, then the file, then the default.
-Never put a password or a token in the file. Do these steps before you run Seagull, and also before you offer a run or
-say anything to the user about where Seagull runs:
-
-1. Read every setting at once: `python <skill folder>/scripts/seagull_config.py show`. It prints each key with its
-   value and where the value came from, or `not set`. (`get KEY` prints one value, and exits with 4 and prints nothing
-   when the key has no value.) When `SEAGULL_RUNNER` has a value, the answer is known. Name the runner and its path in
-   your offer, for example "with the Seagull for Windows, `C:\Program Files (x86)\Seagull\seagull.exe`". Don't ask the
-   user where Seagull runs, and don't ask for the path of `seagull.exe` or for the image when `show` printed it.
-2. Only when the runner is not set, ask the user one question: Docker with a Seagull image, or Seagull for Windows
-   (and where its `seagull.exe` is, so don't guess a path; the usual place is
-   `C:\Program Files (x86)\Seagull\seagull.exe`). Check the answer by what the user says, and save it after the user
-   confirms:
-
-   ```bash
-   python <skill folder>/scripts/seagull_config.py set SEAGULL_RUNNER windows
-   python <skill folder>/scripts/seagull_config.py set SEAGULL_WINDOWS_PATH "C:\Program Files (x86)\Seagull\seagull.exe"
-   ```
-
-   `set` writes the session folder; add `--home` when the user wants the answer for every folder. It refuses an unknown
-   runner and a path that is not a file.
-3. With `docker`, run the scripts as before, with the image from `SEAGULL_DOCKER_IMAGE`. With `windows`, run
-   `python <skill folder>/scripts/seagull_windows_run.py dry-run <output folder> --seagull-exe <path>`, or
-   `check-converted <converted folder>` for the dictionaries. They print the same lines as the scripts, and the exit
-   status is the same. `--logs <folder>` keeps the Seagull logs.
-
-Seagull for Windows uses the ports of the machine, so the runner gives the stub a free one in copies of the
-configurations. It stops only the processes that it started. Docker is not needed, and nothing is run in WSL.
+To tell the user where the next run would happen, name the runner and its path in the offer: the last line of a
+conversion, `Seagull for the check: ...`, or `python <skill folder>/scripts/seagull_config.py show`, has them. Don't ask
+where Seagull runs, or for the path of `seagull.exe` or the image, when either printed a value. To show or change the
+settings at the user's request, see
+[seagull-diameter-manage-settings](../seagull-diameter-manage-settings/SKILL.md).
 
 ## The folder of recorded steps
 
