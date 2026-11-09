@@ -71,8 +71,9 @@ then the file, then the default.
 | `SEAGULL_WINDOWS_PATH`    | The `seagull.exe` for `windows`, e.g. `C:\Program Files (x86)\Seagull\seagull.exe`        |
 | `SEAGULL_DICTIONARY_PATH` | The one Seagull dictionary file for the generator, e.g. `C:\work\diameter-dictionary.xml` |
 
-To tell the user where the next run would happen, name the runner and its path in the offer: the last line of a
-conversion, `Seagull for the check: ...`, or `python <skill folder>/scripts/seagull_config.py show`, has them. Don't ask
+To tell the user where the next run would happen, name the runner and its path in the offer: the last line that the
+conversion, the generation, the templates, and the data-file scripts print, `Seagull for the check: ...`, or
+`python <skill folder>/scripts/seagull_config.py show`, has them. Don't ask
 where Seagull runs, or for the path of `seagull.exe` or the image, when either printed a value. To show or change the
 settings at the user's request, see
 [seagull-diameter-manage-settings](../seagull-diameter-manage-settings/SKILL.md).

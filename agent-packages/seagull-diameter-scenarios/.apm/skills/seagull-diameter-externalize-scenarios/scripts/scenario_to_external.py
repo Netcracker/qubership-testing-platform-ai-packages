@@ -42,6 +42,7 @@ sys.path.insert(0, str(COMMON))
 output_folder = importlib.import_module("output_folder")
 scenario_options = importlib.import_module("scenario_options")
 scenario_text = importlib.import_module("scenario_text")
+seagull_config = importlib.import_module("seagull_config")
 
 OPTIONS_NAME = "scenario-options.ini"
 DATA_NAME = "external-data.csv"
@@ -356,7 +357,7 @@ def main(argv: list[str]) -> int:
     except (ExternalError, scenario_options.OptionsError, OSError) as error:
         sys.stderr.write(f"error: {error}\n")
         return 1
-    sys.stdout.write("\n".join(report) + "\n")
+    sys.stdout.write("\n".join([*report, seagull_config.current_runner_line()]) + "\n")
     return 0
 
 

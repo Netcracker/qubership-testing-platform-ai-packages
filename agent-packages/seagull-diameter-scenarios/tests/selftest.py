@@ -180,6 +180,13 @@ class GeneratorTest(unittest.TestCase):
         self.assertEqual(len(lines), 1)
         self.assertTrue(lines[0].endswith(". Found in the request of step 001 (Step-001-request.txt)"), lines[0])
 
+    def test_the_output_ends_with_the_line_about_the_runner(self) -> None:
+        """The last line says where Seagull would run, so that the offer of a dry run can name it."""
+        with tempfile.TemporaryDirectory(prefix="seagull-selftest-") as folder:
+            status, output, _ = run_generator(Path(folder) / "out")
+        self.assertEqual(status, 0)
+        self.assertTrue(output.rstrip().splitlines()[-1].startswith("Seagull for the check:"))
+
     def test_answer_is_checked(self) -> None:
         """Each answer is checked against the recorded and the sent values."""
         text = self.text(0)

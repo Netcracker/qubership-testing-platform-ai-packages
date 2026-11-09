@@ -973,7 +973,7 @@ def main(argv: list[str]) -> int:
     report = "\n".join(notes) + "\n"
     path = options.out / "generation-report.txt"
     path.write_text(report, encoding="utf-8", newline="\n")
-    sys.stdout.write(report)
+    sys.stdout.write(report + seagull_config.current_runner_line() + "\n")
     return 0
 
 

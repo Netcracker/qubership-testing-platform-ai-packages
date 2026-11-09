@@ -72,8 +72,8 @@ for example `placeholder=Subscription-Id-Data=MSISDN` and `calls=50`, and let th
    row of a random file; do not remove it.
 4. **The dry run** on the new folder starts Seagull. Run it only when the user asked for it, in the request or in the
    answer to your offer. Otherwise offer it in one sentence and say that the scenarios are not verified in Seagull yet.
-   Where Seagull runs is a setting that the script reads: see
-   [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs).
+   Name the runner in the offer: the last line the script printed, `Seagull for the check: ...`, has it; the run reads
+   the setting itself, see [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs).
 
    ```bash
    python <skill folder>/../seagull-diameter-common/scripts/seagull_run.py dry-run <out folder>

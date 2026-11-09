@@ -137,7 +137,8 @@ dictionary.
    answer (default `Result-Code,Session-Id,Auth-Application-Id,CC-Request-Type,CC-Request-Number`; an AVP that the
    recorded answer lacks is skipped and named in the report).
 3. **Read the report** that the script prints and saves as `generation-report.txt`, and tell the user:
-   - The scenarios that were written, one for each Diameter session.
+   - The numbers first: how many steps were read, and how many scenarios were written, one for each Diameter session
+     ("3 steps read, 2 scenarios"). Then name each scenario and its steps.
    - Every AVP name with several definitions in the dictionaries (`<name>: definitions (vendor, code) ...; used ...`).
      The generator picks the one with the vendor of the enclosing group, else the first. The user knows the real AVP;
      ask for a confirmation.
@@ -157,7 +158,8 @@ dictionary.
      difference), and `placeholder <AVP>: matched no AVP` (a misspelled name or an AVP that is not in the steps).
 4. **Dry run.** Run it only when the user asked for it, in the request or in the answer to your offer. When the
    request did not mention it, end your reply by offering the run in one sentence, say that the scenarios are not
-   verified yet, and do not start Seagull. Name the runner in the offer: `seagull_config.py show` prints it (see
+   verified yet, and do not start Seagull. Name the runner in the offer: the last line the script printed,
+   `Seagull for the check: ...`, has it (see
    [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs)).
 
    ```bash
