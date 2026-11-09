@@ -44,6 +44,13 @@ fall into pairs with none left over, and in more than one reading the pairs woul
 before the script (step 2 of the run) and in the report ("the response is in the row above its request; all 20 rows form 10 pairs"). When the
 data does not confirm one rule, or some message is left over, ask.
 
+The questions may come with a proposal. After the look at the source (step 1 of the run), write what the data shows
+(sheets, columns, kinds of rows, counts) and, for each open point, the reading that the data suggests, for example
+"Diameter step: the request text starts with `<CCR`, the response with `<CCA`". Ask the user to confirm or correct it,
+and wait. A proposal is a question, not an answer: write no file, and run no extraction script, until the user has
+agreed to it in this conversation. Present what is not in the data (the order of the rows, a skip for another reason) as
+a question without a proposal.
+
 1. Which sheet, table, or section holds the steps.
 2. Whether the order of the rows is the order in which the steps ran, or what to sort by.
 3. How one step's request and its response are recognized: a column and the values that mark a request and a response,
