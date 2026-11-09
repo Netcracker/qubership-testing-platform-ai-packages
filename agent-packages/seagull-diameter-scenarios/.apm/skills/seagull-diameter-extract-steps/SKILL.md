@@ -37,7 +37,12 @@ report.
 ## What the description must cover
 
 A file source has to be described. When the request does not answer one of these, ask the user once, all questions in
-one message, and wait. Never guess the structure of a file.
+one message, and wait. Never guess the structure of a file. One point may be filled from the data and not from the user:
+how a request is tied to its response (point 3), when the user did not say. Take the rule only if the data confirms it
+completely, for example every selected message has a neighbor of the other kind in the same place, so that all of them
+fall into pairs with none left over, and in more than one reading the pairs would be the same. Then use it and state it,
+in the restatement and in the report ("the response is in the row above its request; all 20 rows form 10 pairs"). When the
+data does not confirm one rule, or some message is left over, ask.
 
 1. Which sheet, table, or section holds the steps.
 2. Whether the order of the rows is the order in which the steps ran, or what to sort by.
@@ -48,21 +53,24 @@ one message, and wait. Never guess the structure of a file.
    angle brackets, such as `<CCR` or `<CCA`.
 6. Whether the file has steps that must be skipped for another reason.
 
-When the user described the source in running text, restate the six points as you understood them before you write the
-extraction script, and let the user correct them.
-
 ## Run
 
-1. **Look before extracting.** Open the source read-only. Print the sheet names, the header row, the number of rows, and
-   a few rows, and compare them with the description. If they disagree (a column is not there, a value is not used),
-   say what differs and ask; do not adapt the description silently. Never change the source file.
-2. **Write a throwaway extraction script** outside the repository the user works in, in a temporary folder. It reads the
+1. **Restate the description.** When the user described the source in running text, write a short message before the
+   extraction script, as plain text: the six points as you understood them (the sheet, the order, how a request is tied
+   to its response, where the text is, how a Diameter message is recognized, what is skipped), the names of the files, and
+   the folder. Let the user correct it, and go on without waiting unless a point is open.
+2. **Look before extracting.** Open the source read-only, by the path the user gave: test it directly (`test -f`, or open
+   it with the library). Don't list folders to find it, don't cut a listing with `head` to look for it, and never search
+   the disk; when the path does not exist, say so and ask for the right one. Print the sheet names, the header row, the
+   number of rows, and a few rows, and compare them with the description. If they disagree (a column is not there, a
+   value is not used), say what differs and ask; do not adapt the description silently. Never change the source file.
+3. **Write a throwaway extraction script** outside the repository the user works in, in a temporary folder. It reads the
    rows in the order the user gave, and groups each request with its response by the rule from the description. Read
    `xlsx` files with a library that gives cell values (for example `openpyxl` with `data_only=True`), not with
    formatting applied.
-3. **Select the Diameter steps** by the rule from the description. A step is kept only if both its request and its
+4. **Select the Diameter steps** by the rule from the description. A step is kept only if both its request and its
    response are found; any other case is listed in the report.
-4. **Choose the output folder, then write the files.** The folder must be new or empty; a folder with files is never
+5. **Choose the output folder, then write the files.** The folder must be new or empty; a folder with files is never
    written into. When the user gave none, take the first free `Diameter-Steps[-N]` next to the source:
 
    ```bash
@@ -79,11 +87,11 @@ extraction script, and let the user correct them.
    default, that `check_steps.py` and the generator need `--request-name` and `--response-name` for them. Write the
    message text exactly as it is in the source, in UTF-8, with no trimming and no change of line breaks. Do not repair
    or reformat it here: the generator reports what it repairs.
-5. **Write `Steps-index.csv`** (UTF-8 with a BOM, separator `;`) with the columns `Step file number`,
+6. **Write `Steps-index.csv`** (UTF-8 with a BOM, separator `;`) with the columns `Step file number`,
    `Step number in the scenario` (the position of the step in the source, counting every step, not only the kept ones),
    `Step ID` (any identifier the source has), `Status`, `Request` and `Response` (the command of each message), and
-   `Step description`.
-6. **Check the folder.**
+   `Step description`. Read the file back and compare a few rows with the source before you go on.
+7. **Check the folder.**
 
    ```bash
    python <skill folder>/../seagull-diameter-common/scripts/check_steps.py <output folder> \
@@ -93,8 +101,10 @@ extraction script, and let the user correct them.
    Any `PROBLEM` line means the folder is not ready. Fix what the script names when the cause is in the extraction, such
    as a request paired with the wrong response. When the cause is in the source text, such as a message that is not XML,
    report it and let the user fix the source.
-7. **Report**: how many steps the source has, how many are Diameter steps, the folder, and the repairs the check lists.
+8. **Report**: how many steps the source has, how many are Diameter steps, the folder, and the repairs the check lists.
    Say that the files hold the recorded messages with their subscriber data, so they are not for a repository.
+   Report the final state. A first version of a script or of the index that you rewrote on the way is not part of it: do
+   not mention it.
 
 ## Don't
 

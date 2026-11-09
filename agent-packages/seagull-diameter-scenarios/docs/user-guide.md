@@ -132,7 +132,11 @@ free. It must say:
    files; it tells you what the folder holds and asks.
 
 If the text leaves a point open, the agent asks one message with all its questions and waits. It never guesses the
-structure.
+structure of a file. One exception: when you do not say how a request is tied to its response, the agent may take the rule
+from the data, but only if the data confirms it completely (every message falls into a pair, none is left over). It then
+says which rule it used, for example "the response is in the row above its request; all 20 rows form 10 pairs". Before it
+writes the extraction script, the agent restates the points of your description as it understood them, and it goes on
+unless a point is open.
 
 **Example prompt.**
 
