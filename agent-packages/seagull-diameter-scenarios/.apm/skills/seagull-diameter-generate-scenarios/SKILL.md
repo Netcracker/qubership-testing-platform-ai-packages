@@ -31,6 +31,7 @@ What the task needs before it starts, and what it takes from each place.
 | Parameter       | How the user says it                                                 | Rule                                                                                            |
 | --------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | steps folder    | "generate scenarios from C:\work\Diameter-Steps"                     | Required. Ask when missing                                                                      |
+| filenames       | "the files are request_NN.xml and response_NN.xml"                   | The templates of the names; default `Step-NNN-request.txt` and `Step-NNN-response.txt`. See Run |
 | dictionary      | "the dictionary is C:\work\diameter-dictionary.xml"                  | One Seagull dictionary file. From the request, else the setting. Without it, stop. See below    |
 | `out=`          | "write them to C:\work\Seagull-Scenario"                             | Optional. The folder must be new or empty                                                       |
 | `replace=yes`   | "generate again into the same folder", "replace the old output"      | Only when the user asked, or answered your question. Never to get past the refusal              |
@@ -102,8 +103,16 @@ dictionary.
 1. **Check the steps folder.**
 
    ```bash
-   python <skill folder>/../seagull-diameter-common/scripts/check_steps.py <steps folder>
+   python <skill folder>/../seagull-diameter-common/scripts/check_steps.py <steps folder> \
+       [--request-name <template> --response-name <template>]
    ```
+
+   The files of the folder are named `Step-NNN-request.txt` and `Step-NNN-response.txt` unless the user says otherwise or
+   the folder shows otherwise. When the user gives templates (`request_NN.xml`, `response_NN.xml`), or the folder holds
+   files whose names show the number of a step and whether the file is a request or a response (`req_01.xml` and
+   `resp_01.xml`), derive the two templates, say how you understood them, and pass them to this script and to the
+   generator as `--request-name` and `--response-name`. Ask only when the number or the kind of a file cannot be told from
+   its name. Don't rename the user's files.
 
    Stop at a `PROBLEM` line. A line without it is a repair: a comment or a broken closing tag in a recorded message. The
    generator makes the same repairs, so say which steps had them and carry on.
@@ -111,6 +120,7 @@ dictionary.
 
    ```bash
    python <skill folder>/scripts/generate_scenarios.py --steps <steps folder> [--dictionary <file>] \
+       [--request-name <template> --response-name <template>] \
        (--out <out folder> | --out-auto <parent of the steps folder>) [--replace] \
        [--timeout-ms <ms>] [--dest <host:port>] [--host-ip <ip>]
    ```

@@ -2,7 +2,7 @@
 name: seagull-diameter-scenario-generate
 description: Use only when the user types /seagull-diameter-scenario-generate. Generates Seagull client scenarios or templates with placeholders, configuration, and a stub OCS from a folder of recorded Diameter requests and responses and one ready Seagull dictionary, and runs them in a dry run.
 disable-model-invocation: true
-argument-hint: "<steps folder> [dictionary=<file>] [out=<folder>] [replace=yes] [timeout=<ms>] [dest=<host:port>] [host-ip=<ip>] [mode=scenario|template] [placeholder=<AVP>=<NAME> ...] [option=<key>=<value> ...] [options=<file>]"
+argument-hint: "<steps folder> [request-name=<template>] [response-name=<template>] [dictionary=<file>] [out=<folder>] [replace=yes] [timeout=<ms>] [dest=<host:port>] [host-ip=<ip>] [mode=scenario|template] [placeholder=<AVP>=<NAME> ...] [option=<key>=<value> ...] [options=<file>]"
 metadata:
   opencode/slash: "true"
   opencode/autoinvoke: "false"
@@ -19,12 +19,14 @@ instead.
 ## Arguments
 
 ```text
-/seagull-diameter-scenario-generate <steps folder> [dictionary=<file>] [out=<folder>] [replace=yes] [timeout=<ms>] [dest=<host:port>] [host-ip=<ip>] [mode=scenario|template] [placeholder=<AVP>=<NAME> ...] [option=<key>=<value> ...] [options=<file>]
+/seagull-diameter-scenario-generate <steps folder> [request-name=<template>] [response-name=<template>] [dictionary=<file>] [out=<folder>] [replace=yes] [timeout=<ms>] [dest=<host:port>] [host-ip=<ip>] [mode=scenario|template] [placeholder=<AVP>=<NAME> ...] [option=<key>=<value> ...] [options=<file>]
 ```
 
 | Argument         | Meaning                                                                                                                                       | Default                                                                                |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | `<steps folder>` | The folder of recorded steps                                                                                                                  | required                                                                               |
+| `request-name=`  | The name of a request file, with the step number as NN, such as `request_NN.xml`; give `response-name=` with it                               | `Step-NNN-request.txt` and `Step-NNN-response.txt`                                     |
+| `response-name=` | The name of a response file, such as `response_NN.xml`                                                                                        | `Step-NNN-response.txt`                                                                |
 | `dictionary=`    | The one Seagull dictionary file for the scenarios; a folder is refused. /seagull-diameter-dictionary-convert makes it                         | the setting SEAGULL_DICTIONARY_PATH; without both, the command stops                   |
 | `out=`           | The folder to write to. It must be new or empty, unless `replace=yes`                                                                         | a new folder, `Seagull-Scenario` or `Seagull-Scenario-2`, ... next to the steps folder |
 | `replace=`       | `yes` moves the old contents of a non-empty `out=` aside, then generates. The options file is kept                                            | no                                                                                     |

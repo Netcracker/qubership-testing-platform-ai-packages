@@ -3,12 +3,15 @@
 Usage:
   python generate_scenarios.py --steps STEPS_DIR [--dictionary FILE]
       (--out OUT_DIR | --out-auto PARENT) [--replace]
+      [--request-name TEMPLATE] [--response-name TEMPLATE]
       [--timeout-ms 5000] [--dest HOST:PORT]
       [--host-ip IP] [--check-avps LIST]
       [--options FILE] [--option KEY=VALUE ...] [--placeholder AVP=NAME ...]
 
-STEPS_DIR holds Step-NNN-request.txt and Step-NNN-response.txt (see the
-seagull-diameter-common skill). FILE is the one dictionary in the Seagull format that
+STEPS_DIR holds one request file and one response file for each step (see the
+seagull-diameter-common skill). They are named Step-NNN-request.txt and
+Step-NNN-response.txt unless --request-name and --response-name give other templates, with the
+step number written as NN, for example request_NN.xml. FILE is the one dictionary in the Seagull format that
 the scenarios use; convert_dictionaries.py writes it. Without --dictionary the path is the
 setting SEAGULL_DICTIONARY_PATH (see seagull_config.py). With neither the script stops with
 exit status 1 and says so. The dictionary gives the vendor, the code, and the type of every
@@ -753,6 +756,18 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
     """Parse the command line."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", maxsplit=1)[0])
     parser.add_argument("--steps", type=Path, required=True)
+    parser.add_argument(
+        "--request-name",
+        default=steps_format.DEFAULT_REQUEST_NAME,
+        metavar="TEMPLATE",
+        help="the name of a request file, with the step number as NN",
+    )
+    parser.add_argument(
+        "--response-name",
+        default=steps_format.DEFAULT_RESPONSE_NAME,
+        metavar="TEMPLATE",
+        help="the name of a response file, with the step number as NN",
+    )
     parser.add_argument("--dictionary", type=Path, help="the one Seagull dictionary file")
     parser.add_argument("--out", type=Path, help="a folder that is new or empty")
     parser.add_argument(
@@ -862,7 +877,10 @@ def prepare(
 
     A default-dwr tag is switched off, with a note, when the dictionary lacks DWR.
     """
-    steps, problems = steps_format.load_steps(options.steps)
+    try:
+        steps, problems = steps_format.load_steps(options.steps, options.request_name, options.response_name)
+    except ValueError as error:
+        raise GenerationError(str(error)) from error
     if problems or not steps:
         raise GenerationError("the steps folder has problems: " + "; ".join(problems))
     notes = repair_notes(steps)

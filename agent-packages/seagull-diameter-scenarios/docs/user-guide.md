@@ -27,7 +27,8 @@ You need:
   [The base protocol](dictionary-conversion.md#the-base-protocol). Seagull reads its own format, so the generator
   converts them.
 - The recorded run: either a file you can describe (an `xlsx` export of a test database, for example) or a folder that
-  already has the `Step-NNN-request.txt` and `Step-NNN-response.txt` files.
+  already has the step files: `Step-NNN-request.txt` and `Step-NNN-response.txt` by default, or other names that show
+  the number of the step and whether a file is a request or a response, such as `request_01.xml` and `response_01.xml`.
 
 ## Install the package
 
@@ -124,7 +125,9 @@ free. It must say:
 4. where the text of a message is;
 5. how to tell a Diameter step from any other step, for example that the text starts with `<CCR` or `<CCA`;
 6. which other steps to skip, if any;
-7. optionally, the output folder, which must be new or empty. Default: a new folder named `Diameter-Steps` next to the
+7. optionally, how to name the files, with the number as `NN`, for example "`request_NN.xml` and `response_NN.xml`". Default:
+   `Step-NNN-request.txt` and `Step-NNN-response.txt`, which the next commands read without further arguments;
+8. optionally, the output folder, which must be new or empty. Default: a new folder named `Diameter-Steps` next to the
    source, or `Diameter-Steps-2` and so on when that name is taken. The agent never writes into a folder that holds
    files; it tells you what the folder holds and asks.
 
@@ -151,7 +154,9 @@ C:\work\Diameter-Steps\
   Steps-index.csv
 ```
 
-Each file holds one Diameter command as XML, exactly as it was in the source. The format is in
+Each file holds one Diameter command as XML, exactly as it was in the source. If you asked for other names, the files
+have them, and the agent tells you that `/seagull-diameter-scenario-generate` needs them as `request-name=` and
+`response-name=`. The format is in
 [the common skill](../.apm/skills/seagull-diameter-common/SKILL.md#the-folder-of-recorded-steps).
 
 **What the agent tells you.** It looks at the source first and reports any difference from your description before it
@@ -184,22 +189,24 @@ another folder or `replace=yes`.
 **Arguments.**
 
 ```text
-/seagull-diameter-scenario-generate <steps folder> [dictionary=<file>] [out=<folder>] [replace=yes] [timeout=<ms>] [dest=<host:port>] [host-ip=<ip>] [mode=scenario|template] [placeholder=<AVP>=<NAME> ...] [option=<key>=<value> ...] [options=<file>]
+/seagull-diameter-scenario-generate <steps folder> [request-name=<template>] [response-name=<template>] [dictionary=<file>] [out=<folder>] [replace=yes] [timeout=<ms>] [dest=<host:port>] [host-ip=<ip>] [mode=scenario|template] [placeholder=<AVP>=<NAME> ...] [option=<key>=<value> ...] [options=<file>]
 ```
 
-| Argument         | Meaning                                                                                                   | Default                                                      |
-| ---------------- | --------------------------------------------------------------------------------------------------------- |--------------------------------------------------------------|
-| first argument   | The folder of recorded steps                                                                              | required                                                     |
-| `dictionary=`    | The one Seagull dictionary file; a folder is refused. Convert the dictionaries first                      | the setting `SEAGULL_DICTIONARY_PATH`, else a stop           |
-| `out=`           | Where to write. A folder with files is refused, see [the output folder](#the-output-folder)               | a new `Seagull-Scenario`, `-2`, ... next to the steps folder |
-| `replace=`       | `yes` moves the old contents of a non-empty `out=` aside and generates anew                               | no                                                           |
-| `timeout=`       | How long Seagull waits for each answer, in milliseconds                                                   | 5000                                                         |
-| `dest=`          | Address and port of the OCS                                                                               | `127.0.0.1:3868`, the stub OCS                               |
-| `host-ip=`       | The IP address that the capabilities exchange announces as the client's                                   | a placeholder address                                        |
-| `mode=`          | `scenario` for fixed values, `template` for placeholders                                                  | the options file, else `scenario`                            |
-| `placeholder=`   | One `<AVP>=<NAME>` pair; repeat it. An empty `<NAME>` removes the pair                                    | the pairs in the options file                                |
-| `option=`        | One `<key>=<value>` option, see [Options and tags](#options-and-tags)                                     | the options file                                             |
-| `options=`       | An older options file to start from; it is only read. The result goes to the output folder                | `scenario-options.ini` in the output folder                  |
+| Argument         | Meaning                                                                                       | Default                                                      |
+| ---------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| first argument   | The folder of recorded steps                                                                  | required                                                     |
+| `request-name=`  | The name of a request file, with the step number as `NN`, such as `request_NN.xml`            | `Step-NNN-request.txt`                                       |
+| `response-name=` | The name of a response file, such as `response_NN.xml`; give it together with `request-name=` | `Step-NNN-response.txt`                                      |
+| `dictionary=`    | The one Seagull dictionary file; a folder is refused. Convert the dictionaries first          | the setting `SEAGULL_DICTIONARY_PATH`, else a stop           |
+| `out=`           | Where to write. A folder with files is refused, see [the output folder](#the-output-folder)   | a new `Seagull-Scenario`, `-2`, ... next to the steps folder |
+| `replace=`       | `yes` moves the old contents of a non-empty `out=` aside and generates anew                   | no                                                           |
+| `timeout=`       | How long Seagull waits for each answer, in milliseconds                                       | 5000                                                         |
+| `dest=`          | Address and port of the OCS                                                                   | `127.0.0.1:3868`, the stub OCS                               |
+| `host-ip=`       | The IP address that the capabilities exchange announces as the client's                       | a placeholder address                                        |
+| `mode=`          | `scenario` for fixed values, `template` for placeholders                                      | the options file, else `scenario`                            |
+| `placeholder=`   | One `<AVP>=<NAME>` pair; repeat it. An empty `<NAME>` removes the pair                        | the pairs in the options file                                |
+| `option=`        | One `<key>=<value>` option, see [Options and tags](#options-and-tags)                         | the options file                                             |
+| `options=`       | An older options file to start from; it is only read. The result goes to the output folder    | `scenario-options.ini` in the output folder                  |
 
 The dictionary gives the vendor, the code, and the type of each AVP. A name of an enumeration value, such as
 `INITIAL_REQUEST`, becomes its number only when the dictionary lists the values in a comment above the AVP, as the

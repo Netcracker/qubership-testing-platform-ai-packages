@@ -24,11 +24,12 @@ What the task needs before it starts, and what it takes from each place.
 
 ## What to take from the request
 
-| Parameter     | How the user says it                                               | Rule                                                                           |
-| ------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| source        | "take the steps from C:\work\Steps.xlsx"                           | Required: an `xlsx`, `csv`, JSON, or log file, or a folder in the step format  |
-| description   | "sheet Main, a row per step, column F is the request, column G..." | Required for a file. See the next section. Never guess the structure of a file |
-| output folder | "write them to C:\work\steps"                                      | Optional. It must be new or empty. Default: a new folder next to the source    |
+| Parameter     | How the user says it                                               | Rule                                                                                                 |
+| ------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| source        | "take the steps from C:\work\Steps.xlsx"                           | Required: an `xlsx`, `csv`, JSON, or log file, or a folder in the step format                        |
+| description   | "sheet Main, a row per step, column F is the request, column G..." | Required for a file. See the next section. Never guess the structure of a file                       |
+| filenames     | "write request_NN.xml and response_NN.xml", "as req_NN.xml..."     | Only when the user gives them: use them. Default: `Step-NNN-request.txt` and `Step-NNN-response.txt` |
+| output folder | "write them to C:\work\steps"                                      | Optional. It must be new or empty. Default: a new folder next to the source                          |
 
 If the source is a folder that already follows the format, skip the extraction: run the check in the last step and
 report.
@@ -71,7 +72,11 @@ extraction script, and let the user correct them.
    When the user gave a folder, check it with `output_folder.py describe <folder>`. If it prints that the folder holds
    files (exit status 1), stop and tell the user what it printed, then ask for another folder or for permission to use
    a new one; never clear a folder or write beside its files, because the step files of two runs mix. Number the kept
-   steps one by one from `001` in the order they ran, as `Step-001-request.txt` and `Step-001-response.txt`. Write the
+   steps one by one from `001` in the order they ran, as `Step-001-request.txt` and `Step-001-response.txt`. When the user
+   gave a template for the names, such as `request_NN.xml` and `response_NN.xml`, use it for both files of each step,
+   with the number in the width the user showed (`NN` is two digits, `NNN` three; a longer number is not cut). The
+   next skills read the default names without further arguments, so say which names you used and, when they are not the
+   default, that `check_steps.py` and the generator need `--request-name` and `--response-name` for them. Write the
    message text exactly as it is in the source, in UTF-8, with no trimming and no change of line breaks. Do not repair
    or reformat it here: the generator reports what it repairs.
 5. **Write `Steps-index.csv`** (UTF-8 with a BOM, separator `;`) with the columns `Step file number`,
@@ -81,7 +86,8 @@ extraction script, and let the user correct them.
 6. **Check the folder.**
 
    ```bash
-   python <skill folder>/../seagull-diameter-common/scripts/check_steps.py <output folder>
+   python <skill folder>/../seagull-diameter-common/scripts/check_steps.py <output folder> \
+       [--request-name <template> --response-name <template>]
    ```
 
    Any `PROBLEM` line means the folder is not ready. Fix what the script names when the cause is in the extraction, such
