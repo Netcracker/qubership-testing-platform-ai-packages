@@ -145,6 +145,12 @@ dictionary.
      by name and sends the first definition of the name wherever a scenario uses it, so the scenario sends a different
      AVP than the recorded one, and Seagull reports no error. Tell the user which AVP it is; only a change of the
      dictionary, which the owners of the dictionary decide, can fix it.
+
+   Both kinds of line end with `Found in the request of step N (file)` or `the answer of step N (file)`: they are about
+   AVPs that the steps contain, so they are about the scenarios just written, and not about the dictionary in general.
+   Say so, and name the step, the file, and the scenario that holds the step (the scenario name lists its steps). A
+   name that the dictionary defines twice and that no step uses is not in this report. It is a warning of the conversion
+   of the dictionary; if you mention it, call it a possible problem for other steps.
    - The repairs of the recorded messages, and the checks that were skipped.
    - The lines about the options: `default-dwr is off` (the dictionary has no DWR and DWA), `<NAME>: values 'a' and
      'b'; used the first` (one placeholder stands for one value, so two AVPs with different values lose the

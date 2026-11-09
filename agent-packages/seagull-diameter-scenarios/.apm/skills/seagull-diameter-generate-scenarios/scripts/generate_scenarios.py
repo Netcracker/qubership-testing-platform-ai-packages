@@ -135,8 +135,23 @@ class Resolver:
     """Find the definition of an AVP of a message in the Seagull dictionary."""
 
     definitions: dict[str, list[Any]]
-    notes: set[str] = field(default_factory=set)
+    notes: dict[str, list[str]] = field(default_factory=dict)
     counters: Counter = field(default_factory=Counter)
+    where: str = ""
+
+    def note(self, text: str) -> None:
+        """Record a note, with the message being converted (see where) as one of its places."""
+        places = self.notes.setdefault(text, [])
+        if self.where and self.where not in places:
+            places.append(self.where)
+
+    def report_lines(self) -> list[str]:
+        """Return the notes in order; each says in which messages of the steps it was found."""
+        lines = []
+        for text in sorted(self.notes):
+            places = self.notes[text]
+            lines.append(text + (f". Found in {'; '.join(places)}" if places else ""))
+        return lines
 
     def resolve(self, name: str, parent_vendor: int | None) -> tuple[str, Any]:
         """Return the name in the dictionary and the definition of an AVP name.
@@ -153,12 +168,12 @@ class Resolver:
         if len(candidates) > 1:
             same = [c for c in candidates if c.vendor_id == parent_vendor]
             chosen = same[0] if same else chosen
-            self.notes.add(describe_choice(key, candidates, chosen, bool(same)))
+            self.note(describe_choice(key, candidates, chosen, bool(same)))
             first = candidates[0]
             if chosen is not first:
                 needed = f"vendor {chosen.vendor_id} code {chosen.code}"
                 sent = f"vendor {first.vendor_id} code {first.code}"
-                self.notes.add(
+                self.note(
                     f"{key}: the message needs {needed}, but Seagull sends {sent}, "
                     "the first definition of the name in the Seagull dictionary"
                 )
@@ -495,6 +510,7 @@ class ClientScenario:
         options = self.options
         skip_session = options.tags.generated_session_id
         names = [n for n in self.context.check_avps if not (n == "Session-Id" and skip_session)]
+        self.context.resolver.where = f"the answer of step {step.number} ({step.response.path.name})"
         pairs, skipped = expected_checks(step, self.context.resolver, names, self.substitution)
         self.context.notes.extend(skipped)
         avps, checks = "", ""
@@ -518,6 +534,7 @@ class ClientScenario:
     def step_block(self, index: int, step: Any) -> str:
         """Return the pause, the send block, and the receive block of one step."""
         self.substitution.hits.clear()
+        self.context.resolver.where = f"the request of step {step.number} ({step.request.path.name})"
         command = command_xml(step.request, self.context.resolver, self.layout)
         number = step.request.avp_text("CC-Request-Number")
         where = "" if number is None else f", CC-Request-Number {number}"
@@ -573,6 +590,7 @@ class ClientScenario:
 
 def stub_step_block(step: Any, resolver: Resolver) -> str:
     """Return the receive and send blocks of the stub OCS for one step."""
+    resolver.where = f"the answer of step {step.number} ({step.response.path.name})"
     answer = body_xml(step.response.root, resolver, Layout(4), skip=("Session-Id",))
     return f"""  <receive channel="channel-1">
     <command name="{step.request.command}">
@@ -950,7 +968,7 @@ def main(argv: list[str]) -> int:
         sys.stderr.write(f"error: {error}\n")
         return 1
     notes.append(f"options: {path}")
-    notes += sorted(resolver.notes)
+    notes += resolver.report_lines()
     notes += [f"{what}: {count} time(s)" for what, count in resolver.counters.items()]
     report = "\n".join(notes) + "\n"
     path = options.out / "generation-report.txt"

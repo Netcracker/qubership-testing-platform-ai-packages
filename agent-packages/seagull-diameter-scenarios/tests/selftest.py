@@ -174,6 +174,12 @@ class GeneratorTest(unittest.TestCase):
         needed = "Node-Id: the message needs vendor 99999 code 5, "
         self.assertIn(needed + "but Seagull sends vendor 10415 code 2064", self.report)
 
+    def test_a_note_about_a_name_says_in_which_message_it_was_found(self) -> None:
+        """The note names the step and the file, so that it is clear it concerns this scenario."""
+        lines = [line for line in self.report.splitlines() if line.startswith("Node-Id: the message needs")]
+        self.assertEqual(len(lines), 1)
+        self.assertTrue(lines[0].endswith(". Found in the request of step 001 (Step-001-request.txt)"), lines[0])
+
     def test_answer_is_checked(self) -> None:
         """Each answer is checked against the recorded and the sent values."""
         text = self.text(0)
