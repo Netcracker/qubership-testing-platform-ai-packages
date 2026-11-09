@@ -88,7 +88,9 @@ a question without a proposal.
 
    When the user gave a folder, check it with `output_folder.py describe <folder>`. If it prints that the folder holds
    files (exit status 1), stop and tell the user what it printed, then ask for another folder or for permission to use
-   a new one; never clear a folder or write beside its files, because the step files of two runs mix. Number the kept
+   a new one; never clear a folder or write beside its files, because the step files of two runs mix. A folder that
+   does not exist yet is fine (`describe` says so, and `next-free` returns a path that is not created): the script makes
+   it before it writes the first file. Number the kept
    steps one by one from `001` in the order they ran, as `Step-001-request.txt` and `Step-001-response.txt`. When the user
    gave a template for the names, such as `request_NN.xml` and `response_NN.xml`, use it for both files of each step,
    with the number in the width the user showed (`NN` is two digits, `NNN` three; a longer number is not cut). The

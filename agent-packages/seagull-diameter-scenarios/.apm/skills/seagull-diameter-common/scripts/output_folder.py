@@ -37,6 +37,8 @@ def is_empty(folder: Path) -> bool:
 
 def describe(folder: Path) -> str:
     """Return a one-line summary of a folder: the file count and the dates."""
+    if not folder.exists():
+        return f"{folder} does not exist yet; create it before writing"
     files = [p for p in folder.rglob("*") if p.is_file()]
     if not files:
         return f"{folder} holds no files"
