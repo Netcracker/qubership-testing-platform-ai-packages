@@ -41,7 +41,7 @@ one message, and wait. Never guess the structure of a file. One point may be fil
 how a request is tied to its response (point 3), when the user did not say. Take the rule only if the data confirms it
 completely, for example every selected message has a neighbor of the other kind in the same place, so that all of them
 fall into pairs with none left over, and in more than one reading the pairs would be the same. Then use it and state it,
-in the restatement and in the report ("the response is in the row above its request; all 20 rows form 10 pairs"). When the
+before the script (step 2 of the run) and in the report ("the response is in the row above its request; all 20 rows form 10 pairs"). When the
 data does not confirm one rule, or some message is left over, ask.
 
 1. Which sheet, table, or section holds the steps.
@@ -55,15 +55,17 @@ data does not confirm one rule, or some message is left over, ask.
 
 ## Run
 
-1. **Restate the description.** When the user described the source in running text, write a short message before the
-   extraction script, as plain text: the six points as you understood them (the sheet, the order, how a request is tied
-   to its response, where the text is, how a Diameter message is recognized, what is skipped), the names of the files, and
-   the folder. Let the user correct it, and go on without waiting unless a point is open.
-2. **Look before extracting.** Open the source read-only, by the path the user gave: test it directly (`test -f`, or open
+1. **Look before extracting.** Open the source read-only, by the path the user gave: test it directly (`test -f`, or open
    it with the library). Don't list folders to find it, don't cut a listing with `head` to look for it, and never search
    the disk; when the path does not exist, say so and ask for the right one. Print the sheet names, the header row, the
    number of rows, and a few rows, and compare them with the description. If they disagree (a column is not there, a
    value is not used), say what differs and ask; do not adapt the description silently. Never change the source file.
+2. **Say what you took from the data or read into the words.** Write a short message, as plain text, before the
+   extraction script, when you filled a point of the description from the data (the tie between a request and its
+   response, as above) or had to interpret the user's wording. Name each such point and the rule you use, for example
+   "the response is in the row above its request; all 20 rows form 10 pairs", and let the user correct it. Go on without
+   waiting unless a point is open. When the request already said everything, skip this step; the report says how the
+   file was read.
 3. **Write a throwaway extraction script** outside the repository the user works in, in a temporary folder. It reads the
    rows in the order the user gave, and groups each request with its response by the rule from the description. Read
    `xlsx` files with a library that gives cell values (for example `openpyxl` with `data_only=True`), not with

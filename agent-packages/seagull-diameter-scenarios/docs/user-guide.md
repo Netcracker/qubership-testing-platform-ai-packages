@@ -134,9 +134,10 @@ free. It must say:
 If the text leaves a point open, the agent asks one message with all its questions and waits. It never guesses the
 structure of a file. One exception: when you do not say how a request is tied to its response, the agent may take the rule
 from the data, but only if the data confirms it completely (every message falls into a pair, none is left over). It then
-says which rule it used, for example "the response is in the row above its request; all 20 rows form 10 pairs". Before it
-writes the extraction script, the agent restates the points of your description as it understood them, and it goes on
-unless a point is open.
+says which rule it used, for example "the response is in the row above its request; all 20 rows form 10 pairs". When it
+filled such a point from the data, or had to interpret your wording, it says so in a message before it writes the
+extraction script, and goes on unless a point is open. When your description said everything, the report at the end says
+how the file was read.
 
 **Example prompt.**
 
