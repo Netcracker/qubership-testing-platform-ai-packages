@@ -83,6 +83,14 @@ def runner_summary(folder: Path, home: Path, environ: dict[str, str]) -> str:
     return f"Seagull for the check: docker, image {image}"
 
 
+def current_runner_line() -> str:
+    """Return runner_summary for the settings of the current folder; empty when a file cannot be read."""
+    try:
+        return runner_summary(settings_folder(Path.cwd()), Path.home(), dict(os.environ))
+    except ConfigError:
+        return ""
+
+
 def config_paths(folder: Path, home: Path) -> list[Path]:
     """Return the two places of the file, the session folder first."""
     return [folder / CONFIG_DIR / CONFIG_NAME, home / CONFIG_DIR / CONFIG_NAME]

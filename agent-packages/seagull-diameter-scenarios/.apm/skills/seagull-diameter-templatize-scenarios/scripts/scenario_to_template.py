@@ -31,6 +31,7 @@ COMMON = Path(__file__).resolve().parents[2] / "seagull-diameter-common" / "scri
 sys.path.insert(0, str(COMMON))
 scenario_options = importlib.import_module("scenario_options")
 scenario_text = importlib.import_module("scenario_text")
+seagull_config = importlib.import_module("seagull_config")
 
 OPTIONS_NAME = "scenario-options.ini"
 
@@ -129,7 +130,7 @@ def main(argv: list[str]) -> int:
     except (scenario_options.OptionsError, OSError) as error:
         sys.stderr.write(f"error: {error}\n")
         return 1
-    sys.stdout.write("\n".join([*notes, f"options: {path}"]) + "\n")
+    sys.stdout.write("\n".join([*notes, f"options: {path}", seagull_config.current_runner_line()]) + "\n")
     return 0
 
 

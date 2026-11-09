@@ -31,6 +31,7 @@ What the task needs before it starts, and what it takes from each place.
 | Parameter       | How the user says it                                                 | Rule                                                                                            |
 | --------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | steps folder    | "generate scenarios from C:\work\Diameter-Steps"                     | Required. Ask when missing                                                                      |
+| filenames       | "the files are request_NN.xml and response_NN.xml"                   | The templates of the names; default `Step-NNN-request.txt` and `Step-NNN-response.txt`. See Run |
 | dictionary      | "the dictionary is C:\work\diameter-dictionary.xml"                  | One Seagull dictionary file. From the request, else the setting. Without it, stop. See below    |
 | `out=`          | "write them to C:\work\Seagull-Scenario"                             | Optional. The folder must be new or empty                                                       |
 | `replace=yes`   | "generate again into the same folder", "replace the old output"      | Only when the user asked, or answered your question. Never to get past the refusal              |
@@ -102,8 +103,16 @@ dictionary.
 1. **Check the steps folder.**
 
    ```bash
-   python <skill folder>/../seagull-diameter-common/scripts/check_steps.py <steps folder>
+   python <skill folder>/../seagull-diameter-common/scripts/check_steps.py <steps folder> \
+       [--request-name <template> --response-name <template>]
    ```
+
+   The files of the folder are named `Step-NNN-request.txt` and `Step-NNN-response.txt` unless the user says otherwise or
+   the folder shows otherwise. When the user gives templates (`request_NN.xml`, `response_NN.xml`), or the folder holds
+   files whose names show the number of a step and whether the file is a request or a response (`req_01.xml` and
+   `resp_01.xml`), derive the two templates, say how you understood them, and pass them to this script and to the
+   generator as `--request-name` and `--response-name`. Ask only when the number or the kind of a file cannot be told from
+   its name. Don't rename the user's files.
 
    Stop at a `PROBLEM` line. A line without it is a repair: a comment or a broken closing tag in a recorded message. The
    generator makes the same repairs, so say which steps had them and carry on.
@@ -111,6 +120,7 @@ dictionary.
 
    ```bash
    python <skill folder>/scripts/generate_scenarios.py --steps <steps folder> [--dictionary <file>] \
+       [--request-name <template> --response-name <template>] \
        (--out <out folder> | --out-auto <parent of the steps folder>) [--replace] \
        [--timeout-ms <ms>] [--dest <host:port>] [--host-ip <ip>]
    ```
@@ -127,7 +137,8 @@ dictionary.
    answer (default `Result-Code,Session-Id,Auth-Application-Id,CC-Request-Type,CC-Request-Number`; an AVP that the
    recorded answer lacks is skipped and named in the report).
 3. **Read the report** that the script prints and saves as `generation-report.txt`, and tell the user:
-   - The scenarios that were written, one for each Diameter session.
+   - The numbers first: how many steps were read, and how many scenarios were written, one for each Diameter session
+     ("3 steps read, 2 scenarios"). Then name each scenario and its steps.
    - Every AVP name with several definitions in the dictionaries (`<name>: definitions (vendor, code) ...; used ...`).
      The generator picks the one with the vendor of the enclosing group, else the first. The user knows the real AVP;
      ask for a confirmation.
@@ -135,13 +146,20 @@ dictionary.
      by name and sends the first definition of the name wherever a scenario uses it, so the scenario sends a different
      AVP than the recorded one, and Seagull reports no error. Tell the user which AVP it is; only a change of the
      dictionary, which the owners of the dictionary decide, can fix it.
+
+   Both kinds of line end with `Found in the request of step N (file)` or `the answer of step N (file)`: they are about
+   AVPs that the steps contain, so they are about the scenarios just written, and not about the dictionary in general.
+   Say so, and name the step, the file, and the scenario that holds the step (the scenario name lists its steps). A
+   name that the dictionary defines twice and that no step uses is not in this report. It is a warning of the conversion
+   of the dictionary; if you mention it, call it a possible problem for other steps.
    - The repairs of the recorded messages, and the checks that were skipped.
    - The lines about the options: `default-dwr is off` (the dictionary has no DWR and DWA), `<NAME>: values 'a' and
      'b'; used the first` (one placeholder stands for one value, so two AVPs with different values lose the
      difference), and `placeholder <AVP>: matched no AVP` (a misspelled name or an AVP that is not in the steps).
 4. **Dry run.** Run it only when the user asked for it, in the request or in the answer to your offer. When the
    request did not mention it, end your reply by offering the run in one sentence, say that the scenarios are not
-   verified yet, and do not start Seagull. Name the runner in the offer: `seagull_config.py show` prints it (see
+   verified yet, and do not start Seagull. Name the runner in the offer: the last line the script printed,
+   `Seagull for the check: ...`, has it (see
    [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs)).
 
    ```bash

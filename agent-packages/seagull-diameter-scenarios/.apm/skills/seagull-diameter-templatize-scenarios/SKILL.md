@@ -80,8 +80,9 @@ When you had to interpret the wording to fill a pair, say how you understood it 
    stops and names every placeholder that has no value. With the unchanged values file the result equals the original
    scenario.
 5. **The dry run** on the filled-in scenario, as the generate skill describes, starts Seagull. Run it only when the
-   user asked for it; otherwise offer it in one sentence and say that the template is not verified in Seagull yet. Where
-   Seagull runs is a setting: see [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs).
+   user asked for it; otherwise offer it in one sentence and say that the template is not verified in Seagull yet. Name
+   the runner in the offer: the last line the script printed, `Seagull for the check: ...`, has it; see
+   [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs).
 
 ## Limits
 

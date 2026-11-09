@@ -3,12 +3,15 @@
 Usage:
   python generate_scenarios.py --steps STEPS_DIR [--dictionary FILE]
       (--out OUT_DIR | --out-auto PARENT) [--replace]
+      [--request-name TEMPLATE] [--response-name TEMPLATE]
       [--timeout-ms 5000] [--dest HOST:PORT]
       [--host-ip IP] [--check-avps LIST]
       [--options FILE] [--option KEY=VALUE ...] [--placeholder AVP=NAME ...]
 
-STEPS_DIR holds Step-NNN-request.txt and Step-NNN-response.txt (see the
-seagull-diameter-common skill). FILE is the one dictionary in the Seagull format that
+STEPS_DIR holds one request file and one response file for each step (see the
+seagull-diameter-common skill). They are named Step-NNN-request.txt and
+Step-NNN-response.txt unless --request-name and --response-name give other templates, with the
+step number written as NN, for example request_NN.xml. FILE is the one dictionary in the Seagull format that
 the scenarios use; convert_dictionaries.py writes it. Without --dictionary the path is the
 setting SEAGULL_DICTIONARY_PATH (see seagull_config.py). With neither the script stops with
 exit status 1 and says so. The dictionary gives the vendor, the code, and the type of every
@@ -132,8 +135,23 @@ class Resolver:
     """Find the definition of an AVP of a message in the Seagull dictionary."""
 
     definitions: dict[str, list[Any]]
-    notes: set[str] = field(default_factory=set)
+    notes: dict[str, list[str]] = field(default_factory=dict)
     counters: Counter = field(default_factory=Counter)
+    where: str = ""
+
+    def note(self, text: str) -> None:
+        """Record a note, with the message being converted (see where) as one of its places."""
+        places = self.notes.setdefault(text, [])
+        if self.where and self.where not in places:
+            places.append(self.where)
+
+    def report_lines(self) -> list[str]:
+        """Return the notes in order; each says in which messages of the steps it was found."""
+        lines = []
+        for text in sorted(self.notes):
+            places = self.notes[text]
+            lines.append(text + (f". Found in {'; '.join(places)}" if places else ""))
+        return lines
 
     def resolve(self, name: str, parent_vendor: int | None) -> tuple[str, Any]:
         """Return the name in the dictionary and the definition of an AVP name.
@@ -150,12 +168,12 @@ class Resolver:
         if len(candidates) > 1:
             same = [c for c in candidates if c.vendor_id == parent_vendor]
             chosen = same[0] if same else chosen
-            self.notes.add(describe_choice(key, candidates, chosen, bool(same)))
+            self.note(describe_choice(key, candidates, chosen, bool(same)))
             first = candidates[0]
             if chosen is not first:
                 needed = f"vendor {chosen.vendor_id} code {chosen.code}"
                 sent = f"vendor {first.vendor_id} code {first.code}"
-                self.notes.add(
+                self.note(
                     f"{key}: the message needs {needed}, but Seagull sends {sent}, "
                     "the first definition of the name in the Seagull dictionary"
                 )
@@ -492,6 +510,7 @@ class ClientScenario:
         options = self.options
         skip_session = options.tags.generated_session_id
         names = [n for n in self.context.check_avps if not (n == "Session-Id" and skip_session)]
+        self.context.resolver.where = f"the answer of step {step.number} ({step.response.path.name})"
         pairs, skipped = expected_checks(step, self.context.resolver, names, self.substitution)
         self.context.notes.extend(skipped)
         avps, checks = "", ""
@@ -515,6 +534,7 @@ class ClientScenario:
     def step_block(self, index: int, step: Any) -> str:
         """Return the pause, the send block, and the receive block of one step."""
         self.substitution.hits.clear()
+        self.context.resolver.where = f"the request of step {step.number} ({step.request.path.name})"
         command = command_xml(step.request, self.context.resolver, self.layout)
         number = step.request.avp_text("CC-Request-Number")
         where = "" if number is None else f", CC-Request-Number {number}"
@@ -570,6 +590,7 @@ class ClientScenario:
 
 def stub_step_block(step: Any, resolver: Resolver) -> str:
     """Return the receive and send blocks of the stub OCS for one step."""
+    resolver.where = f"the answer of step {step.number} ({step.response.path.name})"
     answer = body_xml(step.response.root, resolver, Layout(4), skip=("Session-Id",))
     return f"""  <receive channel="channel-1">
     <command name="{step.request.command}">
@@ -753,6 +774,18 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
     """Parse the command line."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", maxsplit=1)[0])
     parser.add_argument("--steps", type=Path, required=True)
+    parser.add_argument(
+        "--request-name",
+        default=steps_format.DEFAULT_REQUEST_NAME,
+        metavar="TEMPLATE",
+        help="the name of a request file, with the step number as NN",
+    )
+    parser.add_argument(
+        "--response-name",
+        default=steps_format.DEFAULT_RESPONSE_NAME,
+        metavar="TEMPLATE",
+        help="the name of a response file, with the step number as NN",
+    )
     parser.add_argument("--dictionary", type=Path, help="the one Seagull dictionary file")
     parser.add_argument("--out", type=Path, help="a folder that is new or empty")
     parser.add_argument(
@@ -862,7 +895,10 @@ def prepare(
 
     A default-dwr tag is switched off, with a note, when the dictionary lacks DWR.
     """
-    steps, problems = steps_format.load_steps(options.steps)
+    try:
+        steps, problems = steps_format.load_steps(options.steps, options.request_name, options.response_name)
+    except ValueError as error:
+        raise GenerationError(str(error)) from error
     if problems or not steps:
         raise GenerationError("the steps folder has problems: " + "; ".join(problems))
     notes = repair_notes(steps)
@@ -932,12 +968,12 @@ def main(argv: list[str]) -> int:
         sys.stderr.write(f"error: {error}\n")
         return 1
     notes.append(f"options: {path}")
-    notes += sorted(resolver.notes)
+    notes += resolver.report_lines()
     notes += [f"{what}: {count} time(s)" for what, count in resolver.counters.items()]
     report = "\n".join(notes) + "\n"
     path = options.out / "generation-report.txt"
     path.write_text(report, encoding="utf-8", newline="\n")
-    sys.stdout.write(report)
+    sys.stdout.write(report + seagull_config.current_runner_line() + "\n")
     return 0
 
 

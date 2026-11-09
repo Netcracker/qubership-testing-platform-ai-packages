@@ -43,6 +43,7 @@ sys.path.insert(0, str(TEMPLATIZE_DIR))
 sys.path.insert(0, str(SKILLS / "seagull-diameter-externalize-scenarios" / "scripts"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 check_steps = importlib.import_module("check_steps")
+steps_format = importlib.import_module("steps_format")
 generate = importlib.import_module("generate_scenarios")
 options_module = importlib.import_module("scenario_options")
 apply_placeholders = importlib.import_module("apply_placeholders")
@@ -172,6 +173,19 @@ class GeneratorTest(unittest.TestCase):
         """The report says where a message needs a definition that Seagull does not send."""
         needed = "Node-Id: the message needs vendor 99999 code 5, "
         self.assertIn(needed + "but Seagull sends vendor 10415 code 2064", self.report)
+
+    def test_a_note_about_a_name_says_in_which_message_it_was_found(self) -> None:
+        """The note names the step and the file, so that it is clear it concerns this scenario."""
+        lines = [line for line in self.report.splitlines() if line.startswith("Node-Id: the message needs")]
+        self.assertEqual(len(lines), 1)
+        self.assertTrue(lines[0].endswith(". Found in the request of step 001 (Step-001-request.txt)"), lines[0])
+
+    def test_the_output_ends_with_the_line_about_the_runner(self) -> None:
+        """The last line says where Seagull would run, so that the offer of a dry run can name it."""
+        with tempfile.TemporaryDirectory(prefix="seagull-selftest-") as folder:
+            status, output, _ = run_generator(Path(folder) / "out")
+        self.assertEqual(status, 0)
+        self.assertTrue(output.rstrip().splitlines()[-1].startswith("Seagull for the check:"))
 
     def test_answer_is_checked(self) -> None:
         """Each answer is checked against the recorded and the sent values."""
@@ -728,6 +742,82 @@ class FailureTest(unittest.TestCase):
         problems, notes = check_steps.check(FIXTURES / "steps")
         self.assertEqual(problems, [])
         self.assertIn("3 complete step(s)", notes[0])
+
+
+class StepNameTemplatesTest(unittest.TestCase):
+    """The files of a folder of steps may have any names that show the number and the kind."""
+
+    def setUp(self) -> None:
+        """Copy the fixture steps to a folder whose files are named request_NNN.xml and response_NNN.xml."""
+        folder = tempfile.mkdtemp(prefix="seagull-selftest-")
+        self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        self.root = Path(folder)
+        self.steps = self.root / "steps"
+        self.steps.mkdir()
+        for path in (FIXTURES / "steps").iterdir():
+            name = path.name.replace("Step-", "").replace("-request.txt", "").replace("-response.txt", "")
+            kind = "request" if path.name.endswith("-request.txt") else "response"
+            target = f"{kind}_{name}.xml" if path.suffix == ".txt" else path.name
+            shutil.copy(path, self.steps / target)
+
+    def test_a_template_has_one_number_mark(self) -> None:
+        """NN stands for the number of any width; no mark or two marks are refused."""
+        pattern = steps_format.name_pattern("request_NN.xml")
+        self.assertEqual(
+            [pattern.match(name) is not None for name in ("request_1.xml", "request_001.xml")], [True, True]
+        )
+        self.assertIsNone(pattern.match("response_1.xml"))
+        self.assertIsNone(pattern.match("request_1.txt"))
+        for bad in ("request.xml", "request_NN_NN.xml", "request_N.xml"):
+            with self.assertRaises(ValueError):
+                steps_format.name_pattern(bad)
+
+    def test_check_steps_reads_the_names_it_is_told(self) -> None:
+        """With the templates there is no problem; without them every file is named as a problem."""
+        problems, notes = check_steps.check(self.steps, "request_NN.xml", "response_NN.xml")
+        self.assertEqual(problems, [])
+        self.assertIn("3 complete step(s)", notes[0])
+        default_problems, _ = check_steps.check(self.steps)
+        self.assertTrue(any("request_001.xml: not a Step-NNN-request.txt" in p for p in default_problems))
+
+    def test_check_steps_refuses_a_bad_template_with_status_2(self) -> None:
+        """A template without the number mark is a usage error, not a folder problem."""
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            status = check_steps.main([str(self.steps), "--request-name", "request.xml"])
+        self.assertEqual(status, 2)
+        self.assertIn("write the step number once", stderr.getvalue())
+
+    def test_the_same_number_in_another_width_is_one_step(self) -> None:
+        """request_1.xml and response_001.xml are the two halves of step 1; a second request_01.xml is a problem."""
+        for path in list(self.steps.iterdir()):
+            path.rename(self.steps / path.name.replace("_00", "_"))
+        (self.steps / "response_1.xml").rename(self.steps / "response_001.xml")
+        pairs, problems = steps_format.find_pairs(self.steps, "request_NN.xml", "response_NN.xml")
+        self.assertEqual(problems, [])
+        self.assertEqual(sorted(pairs, key=int), ["1", "2", "3"])
+        shutil.copy(self.steps / "request_1.xml", self.steps / "request_01.xml")
+        _, problems = steps_format.find_pairs(self.steps, "request_NN.xml", "response_NN.xml")
+        self.assertEqual(len(problems), 1)
+        self.assertIn("already has the file", problems[0])
+
+    def test_the_generator_makes_the_same_scenarios_from_other_names(self) -> None:
+        """The scenarios do not depend on how the step files are named."""
+        names = ("--request-name", "request_NN.xml", "--response-name", "response_NN.xml")
+        status, _, error = run_generator(self.root / "named", self.steps, names)
+        self.assertEqual(status, 0, error)
+        status, _, error = run_generator(self.root / "default")
+        self.assertEqual(status, 0, error)
+        for scenario in sorted((self.root / "default" / "scenario").glob("*.client.xml")):
+            other = self.root / "named" / "scenario" / scenario.name
+            self.assertEqual(scenario.read_text(encoding="iso-8859-1"), other.read_text(encoding="iso-8859-1"))
+
+    def test_the_generator_stops_on_names_that_match_nothing(self) -> None:
+        """Default names on a folder of other names give the problems, and write nothing."""
+        status, _, error = run_generator(self.root / "none", self.steps)
+        self.assertEqual(status, 1)
+        self.assertIn("not a Step-NNN-request.txt or Step-NNN-response.txt file", error)
+        self.assertFalse((self.root / "none").exists())
 
 
 @unittest.skipUnless(IMAGE, "set SEAGULL_IMAGE for the dry run")

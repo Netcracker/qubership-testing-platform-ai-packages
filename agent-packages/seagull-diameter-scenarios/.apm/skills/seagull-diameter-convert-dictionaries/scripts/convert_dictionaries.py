@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import argparse
 import importlib
-import os
 import sys
 from pathlib import Path
 
@@ -79,17 +78,8 @@ def main(argv: list[str]) -> int:
     sys.stdout.write(f"output folder: {out}\n")
     status = int(dict2seagull.main([str(args.input_dir), str(out), *forwarded]))
     if status == 0:
-        sys.stdout.write(runner_line() + "\n")
+        sys.stdout.write(seagull_config.current_runner_line() + "\n")
     return status
-
-
-def runner_line() -> str:
-    """Return the line that says where the check in Seagull would run, or an empty line."""
-    session = seagull_config.settings_folder(Path.cwd())
-    try:
-        return seagull_config.runner_summary(session, Path.home(), dict(os.environ))
-    except seagull_config.ConfigError:
-        return ""
 
 
 if __name__ == "__main__":

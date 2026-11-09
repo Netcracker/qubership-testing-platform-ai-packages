@@ -21,11 +21,12 @@ that skill directly instead.
 /seagull-diameter-steps-extract <source> -- <how to read it>
 ```
 
-| Part               | Meaning                                                                                                                                                                      |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<source>`         | An `xlsx`, `csv`, JSON, or log file, or a folder that already has the `Step-NNN-...` files                                                                                   |
-| `<how to read it>` | Free text. It must say what is needed to answer the questions in the skill                                                                                                   |
-| output folder      | Optional, in the text: where to write; it must be new or empty. Default: a new folder next to the source, `Diameter-Steps`, or `Diameter-Steps-2` and so on when that exists |
+| Part               | Meaning                                                                                                                                                                           |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<source>`         | An `xlsx`, `csv`, JSON, or log file, or a folder that already has the step files, named in any way that shows the number and request or response                                  |
+| `<how to read it>` | Free text. It must say what is needed to answer the questions in the skill                                                                                                        |
+| output folder      | Optional, in the text: where to write; it must be new or empty. Default: a new folder next to the source, `Diameter-Steps`, or `Diameter-Steps-2` and so on when that exists      |
+| filenames          | Optional, in the text: how to name the files, such as `request_NN.xml` and `response_NN.xml` (NN is the step number). Default: `Step-NNN-request.txt` and `Step-NNN-response.txt` |
 
 ## Behavior
 

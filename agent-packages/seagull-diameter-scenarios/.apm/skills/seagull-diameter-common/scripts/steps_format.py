@@ -1,8 +1,9 @@
 """Read a folder of recorded Diameter steps.
 
-The folder holds Step-NNN-request.txt and Step-NNN-response.txt. The text of a
-message is a Diameter command as XML: the root element is the command (CCR, CCA,
-...) and each child is an AVP, for example:
+The folder holds one request file and one response file for each step. By default they are
+Step-NNN-request.txt and Step-NNN-response.txt; two name templates, such as request_NN.xml and
+response_NN.xml, say otherwise. The text of a message is a Diameter command as XML: the root element
+is the command (CCR, CCA, ...) and each child is an AVP, for example:
 
     <CCR><Session-Id>x</Session-Id><Auth-Application-Id>4</Auth-Application-Id></CCR>
 
@@ -23,7 +24,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from xml.etree import ElementTree
 
-FILE_PATTERN = re.compile(r"Step-(\d+)-(request|response)\.txt$")
+DEFAULT_REQUEST_NAME = "Step-NNN-request.txt"
+DEFAULT_RESPONSE_NAME = "Step-NNN-response.txt"
+NUMBER_MARK = re.compile(r"N{2,}")
 INDEX_NAME = "Steps-index.csv"
 COMMENT_END = re.compile(r"--\s*>|--(?=\s*<)")
 
@@ -115,16 +118,54 @@ def parse_message(path: Path) -> Message:
     return Message(path, root, repairs)
 
 
-def find_pairs(folder: Path) -> tuple[dict[str, dict[str, Path]], list[str]]:
-    """Return {number: {"request": path, "response": path}} and the file problems."""
+def name_pattern(template: str) -> re.Pattern[str]:
+    """Return the regular expression of a file name template.
+
+    The template is a file name with the step number written as two or more capital N, for
+    example request_NN.xml. The number may have any width: request_1.xml and request_01.xml
+    both match. Every other character stands for itself.
+    """
+    parts = NUMBER_MARK.split(template)
+    if len(parts) != 2:
+        raise ValueError(f"{template!r}: write the step number once, as NN (two or more capital N)")
+    return re.compile("^" + re.escape(parts[0]) + r"(\d+)" + re.escape(parts[1]) + "$")
+
+
+def normal(number: str) -> str:
+    """Return the number without leading zeros, so that 01 and 1 are one step."""
+    return str(int(number)) if number.isdigit() else number
+
+
+def find_pairs(
+    folder: Path,
+    request_name: str = DEFAULT_REQUEST_NAME,
+    response_name: str = DEFAULT_RESPONSE_NAME,
+) -> tuple[dict[str, dict[str, Path]], list[str]]:
+    """Return {number: {"request": path, "response": path}} and the file problems.
+
+    The two templates say which files are requests and which are responses, and where the number
+    is in the name; see name_pattern. The number in the result is the one in the first file seen.
+    """
+    if request_name == response_name:
+        raise ValueError("the request and the response need different file name templates")
+    patterns = {"request": name_pattern(request_name), "response": name_pattern(response_name)}
     pairs: dict[str, dict[str, Path]] = {}
+    labels: dict[str, str] = {}
     problems: list[str] = []
     for path in sorted(folder.iterdir()):
-        match = FILE_PATTERN.match(path.name)
-        if match:
-            pairs.setdefault(match.group(1), {})[match.group(2)] = path
-        elif path.name != INDEX_NAME:
-            problems.append(f"{path.name}: not a Step-NNN-request/response.txt file")
+        for kind, pattern in patterns.items():
+            match = pattern.match(path.name)
+            if not match:
+                continue
+            number = labels.setdefault(normal(match.group(1)), match.group(1))
+            if kind in pairs.setdefault(number, {}):
+                problems.append(f"{path.name}: step {number} already has the file {pairs[number][kind].name}")
+            else:
+                pairs[number][kind] = path
+            break
+        else:
+            if path.name != INDEX_NAME:
+                problems.append(f"{path.name}: not a {request_name} or {response_name} file")
     for number, files in pairs.items():
         for kind in ("request", "response"):
             if kind not in files:
@@ -142,13 +183,17 @@ def read_index(folder: Path) -> dict[str, str]:
     index: dict[str, str] = {}
     for row in rows:
         if "Step file number" in row:
-            index[row["Step file number"]] = row.get("Step number in the scenario", "")
+            index[normal(row["Step file number"])] = row.get("Step number in the scenario", "")
     return index
 
 
-def load_steps(folder: Path) -> tuple[list[Step], list[str]]:
+def load_steps(
+    folder: Path,
+    request_name: str = DEFAULT_REQUEST_NAME,
+    response_name: str = DEFAULT_RESPONSE_NAME,
+) -> tuple[list[Step], list[str]]:
     """Read every complete pair of the folder; return the steps and the problems."""
-    pairs, problems = find_pairs(folder)
+    pairs, problems = find_pairs(folder, request_name, response_name)
     index = read_index(folder)
     steps: list[Step] = []
     for number in sorted(pairs, key=int):
@@ -161,5 +206,5 @@ def load_steps(folder: Path) -> tuple[list[Step], list[str]]:
         except ValueError as error:
             problems.append(str(error))
             continue
-        steps.append(Step(number, request, response, index.get(number, "")))
+        steps.append(Step(number, request, response, index.get(normal(number), "")))
     return steps, problems

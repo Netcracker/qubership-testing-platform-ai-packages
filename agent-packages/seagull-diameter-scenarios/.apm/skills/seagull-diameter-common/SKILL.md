@@ -71,8 +71,9 @@ then the file, then the default.
 | `SEAGULL_WINDOWS_PATH`    | The `seagull.exe` for `windows`, e.g. `C:\Program Files (x86)\Seagull\seagull.exe`        |
 | `SEAGULL_DICTIONARY_PATH` | The one Seagull dictionary file for the generator, e.g. `C:\work\diameter-dictionary.xml` |
 
-To tell the user where the next run would happen, name the runner and its path in the offer: the last line of a
-conversion, `Seagull for the check: ...`, or `python <skill folder>/scripts/seagull_config.py show`, has them. Don't ask
+To tell the user where the next run would happen, name the runner and its path in the offer: the last line that the
+conversion, the generation, the templates, and the data-file scripts print, `Seagull for the check: ...`, or
+`python <skill folder>/scripts/seagull_config.py show`, has them. Don't ask
 where Seagull runs, or for the path of `seagull.exe` or the image, when either printed a value. To show or change the
 settings at the user's request, see
 [seagull-diameter-manage-settings](../seagull-diameter-manage-settings/SKILL.md).
@@ -91,6 +92,15 @@ One folder holds the Diameter steps of one recorded run, in the order they ran.
 ```
 
 - `NNN` is a number of any width; the steps are read in numeric order. A step needs both of its files.
+- **The names are a default, not a rule.** A folder may name its files in any way that shows the number of the step and
+  whether the file is a request or a response, for example `request_01.xml` and `response_01.xml`, or `req_1.xml` and
+  `resp_1.xml`. Two templates describe the names, with the number written as `NN` (two or more capital N, once in each
+  template): `request_NN.xml` and `response_NN.xml`. `check_steps.py` and `generate_scenarios.py` take them as
+  `--request-name` and `--response-name`; without them the templates are `Step-NNN-request.txt` and
+  `Step-NNN-response.txt`. A number is compared as a number, so `request_1.xml` and `response_01.xml` are one step.
+  When a user gives a folder of other names, derive the two templates from the names, say how you understood them
+  (`request_NN.xml` and `response_NN.xml`), and pass them; ask only when the number or the kind of a file cannot be told
+  from its name. A file that matches neither template is reported as a problem.
 - The text of a file is one Diameter command as XML, written exactly as it was recorded, in UTF-8. The root element is
   the
   command (`CCR`, `CCA`, and so on). Each child element is an AVP, named as the project dictionary names it. A grouped
