@@ -65,9 +65,15 @@ user decide whether to list the dictionaries.
 
 ## Run
 
-Write every path in a command in quotes. Single quotes keep a Windows path whole: Bash reads an unquoted
+Write every path in a command in quotes, including `<skill folder>` and the other `<...>` placeholders of the
+commands below, which are shown without them. Single quotes keep a Windows path whole: Bash reads an unquoted
 backslash as an escape and turns `C:\work\steps` into `C:worksteps`, and it splits a path with a space into two
 arguments. Forward slashes (`'C:/work/steps'`) work on Windows too.
+
+A path in the user's plain request has no quotes, and the text may go on after it. Take the longest run of words,
+without trailing punctuation, that names an existing file or folder (test it before you use it), tell the user which
+path you took, and ask when no run does or two do. A slash command with an unquoted value that holds a space is
+refused, as its page says.
 
 Run every script by its path from the folder the session works in, and don't change into the skill folder first: the
 settings of Seagull are read from the session folder.
