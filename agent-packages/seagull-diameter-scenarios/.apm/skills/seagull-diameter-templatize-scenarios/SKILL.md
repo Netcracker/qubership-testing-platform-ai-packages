@@ -46,6 +46,13 @@ pick them.
 When you had to interpret the wording to fill a pair, say how you understood it before you run anything, for example
 `placeholder=Subscription-Id-Data=SUBSCRIBER_ID`, and let the user correct it. When a name could be several AVPs, ask.
 
+When the user specifies a value in words ("the subscriber number") and not an AVP, find the AVPs of the scenario files
+that carry that recorded value. A placeholder replaces the AVPs it names and no others, so an AVP with the same value
+that you leave out, such as `Called-Party-Number` next to `Subscription-Id-Data`, keeps the recorded value in the
+template. Write the `placeholder=` pairs you chose as plain text before the script. When one AVP carries the value, go
+on. When several do, ask which become placeholders and wait: in plain text, never in a dialog, one AVP to a row with
+its recorded value.
+
 ## Run
 
 1. **Look for files that the run would replace.** The script writes `X.client.xml.tpl` and `X.client.xml.values` next to

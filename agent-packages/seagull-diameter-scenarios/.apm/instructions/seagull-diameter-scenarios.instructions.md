@@ -36,3 +36,10 @@ of commands or AVPs, or an option such as a time method. When the request doesn'
 
 When you filled a parameter by interpreting the user's wording, say how you understood it before you run anything,
 using the name of the parameter (`combine=Gy,Sy`), and let the user correct it.
+
+## How to ask
+
+Ask in plain text, never in a dialog, when the answer is a pick from a list that can be long or is the user's own
+description: the AVPs that become placeholders, the dictionaries to merge, how a recorded run is built. A dialog holds
+four options, and a list squeezed into four labels merges items that must stay apart. List the candidates one to a
+row, each by its own name.

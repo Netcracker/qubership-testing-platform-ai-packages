@@ -1,6 +1,6 @@
 ---
 name: seagull-diameter-generate-scenarios
-description: Use when the user asks to generate Seagull scenarios or templates from a folder of recorded Diameter requests and responses, for example to replay a recorded run. Reads one ready Seagull dictionary and writes client scenarios, configuration, and a stub OCS into a new folder, and runs the dry run against the stub only when the user asks for it.
+description: Use when the user asks to generate Seagull scenarios, or templates (scenarios whose chosen values are placeholders), from a folder of recorded Diameter requests and responses, for example to replay a recorded run. Reads one ready Seagull dictionary and writes client scenarios, configuration, and a stub OCS into a new folder, and runs the dry run against the stub only when the user asks for it.
 user-invocable: false
 ---
 
@@ -38,14 +38,17 @@ What the task needs before it starts, and what it takes from each place.
 | `timeout=`      | "wait 10 seconds for an answer"                                      | Milliseconds. Default 5000                                                                      |
 | `dest=`         | "the OCS is at 10.0.0.5:3868"                                        | Default `127.0.0.1:3868`. Never invent an address                                               |
 | `host-ip=`      | "the client IP in the CER is 10.0.0.9"                               | Default `192.0.2.10`                                                                            |
-| `mode=template` | "make templates", "I need placeholders"                              | Default `scenario`, or what the options file holds                                              |
+| `mode=template` | "make templates", "I need placeholders"                              | `template` for templates or placeholders. Else `scenario`, or what the options file holds       |
 | `placeholder=`  | "make the subscriber number a placeholder SUBSCRIBER_ID"             | Only pairs that the user gives. When placeholders are wanted but none given, ask which AVPs     |
 | `option=`       | "log every step", "add check-presence", "pause 500 ms between steps" | `log=true`, `check-presence=true`, `wait-ms=500`; see the options file. Only what the user asks |
 | `options=`      | "start from the options of the earlier generation"                   | An older `scenario-options.ini`                                                                 |
 | dry run         | "and run it against the stub", "check that it works in Seagull"      | Starts Seagull. Run it only when the user asked; otherwise offer it at the end                  |
 
-When you had to interpret the wording to fill a parameter, say how you understood it before you run anything, for
-example `option=log=true`, and let the user correct it.
+A parameter that the user gave in words, and not as `name=value`, is one you interpreted, however plain the words are:
+"log every step" is `option=log=true`. Before you run anything, write as plain text how you read the request, as the
+parameters (`option=log=true`, `option=wait-ms=500`, `dest=10.0.0.5:3868`), and let the user correct it. Go on without
+waiting unless a point is open. The report comes after the files are written, too late to correct anything. A request
+for templates is `mode=template`, even when the user did not write the parameter.
 
 **The output folder is never reused silently.** Without `out=` the script takes the first free
 `Seagull-Scenario[-N]` next to the steps folder (`--out-auto <parent>`), so an earlier output stays as it was. With
@@ -61,8 +64,18 @@ file is read before the old contents move, so the new run starts from it.
 
 `mode=`, `placeholder=`, and `option=` change the options file, and the generator writes the result back. Pass them only
 when the user states them in the request. A later run without them uses what the file holds, so the user states a
-placeholder once and changes it only by naming it again. When the user asks for placeholders but gives none, ask which
-AVP values should become placeholders; never pick them.
+placeholder once and changes it only by naming it again. When the user asks for placeholders or templates but gives
+none, ask which AVP values should become placeholders; never pick them. Ask in plain text, never in a dialog: a dialog
+holds four options, and a list of AVPs is longer. List the candidates from the request files one AVP to a row, with its
+name and its recorded value, and never merge AVPs under one label such as "subscriber number" or "Origin-Host /
+Destination-Host". Mark the AVPs that carry the same recorded value (`Called-Party-Number` next to
+`Subscription-Id-Data`) and the ones whose value differs between steps, because one placeholder keeps one value.
+
+When the user specifies a value in words ("the subscriber number") and not an AVP, find the AVPs of the request files that
+carry that recorded value. A placeholder replaces the AVPs it names and no others, so an AVP with the same value that
+is left out, such as `Called-Party-Number` next to `Subscription-Id-Data`, keeps the recorded value in the template.
+Say which AVPs you found, as `placeholder=` pairs, before the script. When one AVP carries the value, go on; when
+several do, ask which become placeholders and wait.
 
 ## The dictionary
 
@@ -131,6 +144,9 @@ dictionary.
    When the script says `there is no Seagull dictionary`, nothing was written. Stop and tell the user as "The dictionary"
    describes.
 
+   Any other `error:` line also ends the run with the output folder as it was before: a folder that the run created is
+   removed, and old contents that `--replace` moved aside are moved back. Say so, together with the line.
+
    The parameters `mode=`, `placeholder=`, `option=`, and `options=` become `--option mode=<value>`,
    `--placeholder <AVP>=<NAME>`, `--option <key>=<value>`, and `--options <file>`; repeat a flag for each pair.
    Options that the table does not list: `--check-avps <A,B,...>` sets the AVPs that the scenario compares in each
@@ -156,8 +172,9 @@ dictionary.
    - The lines about the options: `default-dwr is off` (the dictionary has no DWR and DWA), `<NAME>: values 'a' and
      'b'; used the first` (one placeholder stands for one value, so two AVPs with different values lose the
      difference), and `placeholder <AVP>: matched no AVP` (a misspelled name or an AVP that is not in the steps).
-4. **Dry run.** Run it only when the user asked for it, in the request or in the answer to your offer. When the
-   request did not mention it, end your reply by offering the run in one sentence, say that the scenarios are not
+4. **Dry run.** Run it only when the user asked for it, in the request or in the answer to your offer. The command
+   `/seagull-diameter-scenario-generate` is that request: when you were started by it, run the dry run without asking
+   and without an offer. When a plain request did not mention it, end your reply by offering the run in one sentence, say that the scenarios are not
    verified yet, and do not start Seagull. Name the runner in the offer: the last line the script printed,
    `Seagull for the check: ...`, has it (see
    [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs)).
@@ -172,6 +189,8 @@ dictionary.
    It starts a stub OCS that answers with the recorded answers, runs each scenario against it, and prints one line for
    each: `successful calls: 1, failed calls: 0`. A scenario that does not end so is a defect of the generation or of the
    dictionary; read the `|E|` line that the script prints. Never report the scenarios as working without this run.
+
+   Report the result as the part "Dry run" of [The final reply](#the-final-reply).
 5. **Say how to run against the OCS**: put the address in `dest` of `config/conf.client.xml`, replace the placeholder
    address of the CER with `host-ip=`, and run one scenario. Never run it against a real OCS yourself.
 
@@ -181,6 +200,26 @@ dictionary.
    ```
 
    Without a terminal `-bg` is needed; wait until the log ends with `STOP  log`.
+
+## The final reply
+
+Write the report once, as your last message, with these parts in this order. Every part after the opening paragraph
+starts with a bold heading line of its own. Never fold one part into another paragraph.
+
+1. The opening paragraph: the folder, the numbers (steps read, scenarios written), and a table of the scenarios with
+   their steps. Nothing about the dry run in it.
+2. **Dry run.** Always give this part, under its heading. When it ran: one sentence with the verdict (how many scenarios of how many ended with
+   `successful calls: 1, failed calls: 0`, and which did not) and the Seagull that ran it. Then the `|E|` lines that the
+   script printed next to a passed scenario. For the `Current Size` lines write "Not an error: the receiver of the stub
+   logs it for a vendor AVP whose code is also a base AVP code; the bytes the client sends are correct", and name the
+   scenarios where it appears. When it did not run, say that the scenarios are not verified yet.
+3. **Repairs** of the recorded messages, and the checks that were skipped.
+4. **Seagull sends another AVP than the record.** A table: the AVP, the recorded vendor and code, the vendor and code
+   that Seagull sends, the steps and their scenarios. Say that the dry run does not show it and that only a change of
+   the dictionary fixes it, which the owners of the dictionary decide.
+5. **Please confirm.** The AVP names with several definitions, and the lines about the options.
+6. **Conversions.** The counts.
+7. The last line: the offer of the dry run, when it did not run, or how to run against the OCS (step 5), when it did.
 
 ## What the output holds
 

@@ -711,22 +711,66 @@ class ApplyPlaceholdersTest(unittest.TestCase):
         self.assertEqual(text, "")
         self.assertIn("no value for placeholder(s) A", error)
 
+    def test_misspelled_set_name_stops_the_script(self) -> None:
+        """A --set name that is no placeholder of the template is an error, and nothing is written."""
+        status, text, error = self.render("--set", "A=1", "--set", "AA=2")
+        self.assertEqual(status, 1)
+        self.assertEqual(text, "")
+        self.assertIn("--set AA: the template has no such placeholder (it has A)", error)
+
 
 class FailureTest(unittest.TestCase):
     """The generator stops, with a message, when the input is wrong."""
 
+    @staticmethod
+    def steps_with_unknown_avp(folder: Path) -> Path:
+        """Copy the fixture steps into the folder and add an AVP that no dictionary defines."""
+        steps = folder / "steps"
+        shutil.copytree(FIXTURES / "steps", steps)
+        request = steps / "Step-002-request.txt"
+        text = request.read_text(encoding="utf-8")
+        extra = "<No-Such-Avp>1</No-Such-Avp></CCR>"
+        request.write_text(text.replace("</CCR>", extra), encoding="utf-8")
+        return steps
+
     def test_avp_without_a_definition(self) -> None:
         """An AVP that no merged dictionary defines is an error that names it."""
         with tempfile.TemporaryDirectory(prefix="seagull-selftest-") as folder:
-            steps = Path(folder) / "steps"
-            shutil.copytree(FIXTURES / "steps", steps)
-            request = steps / "Step-002-request.txt"
-            text = request.read_text(encoding="utf-8")
-            extra = "<No-Such-Avp>1</No-Such-Avp></CCR>"
-            request.write_text(text.replace("</CCR>", extra), encoding="utf-8")
+            steps = self.steps_with_unknown_avp(Path(folder))
             status, _, error = run_generator(Path(folder) / "out", steps)
         self.assertEqual(status, 1)
         self.assertIn("AVP No-Such-Avp is not in the Seagull dictionary", error)
+
+    def test_failed_run_leaves_no_output_folder(self) -> None:
+        """An error after the first file is written removes the files and the new folder."""
+        with tempfile.TemporaryDirectory(prefix="seagull-selftest-") as folder:
+            steps = self.steps_with_unknown_avp(Path(folder))
+            out = Path(folder) / "out"
+            status, _, _ = run_generator(out, steps)
+            left = out.exists()
+        self.assertEqual((status, left), (1, False))
+
+    def test_failed_run_keeps_an_empty_folder_empty(self) -> None:
+        """A folder that was given empty is empty again after an error."""
+        with tempfile.TemporaryDirectory(prefix="seagull-selftest-") as folder:
+            steps = self.steps_with_unknown_avp(Path(folder))
+            out = Path(folder) / "out"
+            out.mkdir()
+            status, _, _ = run_generator(out, steps)
+            names = [p.name for p in out.iterdir()]
+        self.assertEqual((status, names), (1, []))
+
+    def test_failed_replace_puts_the_old_output_back(self) -> None:
+        """An error after --replace moved the old output aside moves it back."""
+        with tempfile.TemporaryDirectory(prefix="seagull-selftest-") as folder:
+            steps = self.steps_with_unknown_avp(Path(folder))
+            out = Path(folder) / "out"
+            run_generator(out)
+            before = sorted(str(p.relative_to(out)) for p in out.rglob("*"))
+            status, _, _ = run_generator(out, steps, extra=("--replace",))
+            after = sorted(str(p.relative_to(out)) for p in out.rglob("*"))
+            aside = [p.name for p in Path(folder).iterdir() if ".previous-" in p.name]
+        self.assertEqual((status, after, aside), (1, before, []))
 
     def test_check_steps_reports_an_unpaired_file(self) -> None:
         """check_steps names a request that has no response."""
