@@ -61,12 +61,17 @@ def session_folder(cwd: Path) -> Path:
 def settings_folder(cwd: Path) -> Path:
     """Return the folder whose .seagull-diameter/config.json the settings come from.
 
-    It is the nearest folder, from cwd upward, that holds the file. When no folder does, it is
-    the session folder (see session_folder), so that a first "set" writes there.
+    It is the nearest folder, from cwd upward, that holds the file. An agent may run a script from
+    a folder outside the session, such as an output folder; then the session that holds this script
+    is the next candidate. When no folder has the file, it is the session folder (see session_folder),
+    so that a first "set" writes there.
     """
     for parent in (cwd, *cwd.parents):
         if (parent / CONFIG_DIR / CONFIG_NAME).is_file():
             return parent
+    of_script = session_folder(Path(__file__).resolve())
+    if (of_script / CONFIG_DIR / CONFIG_NAME).is_file():
+        return of_script
     return session_folder(cwd)
 
 

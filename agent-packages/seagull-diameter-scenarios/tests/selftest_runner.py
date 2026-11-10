@@ -141,6 +141,17 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual(config.settings_folder(deep), self.session)
         self.assertEqual(config.settings_folder(self.home), self.home)
 
+    def test_settings_folder_falls_back_to_the_session_that_holds_the_script(self) -> None:
+        """A script run from a folder outside the session still reads the settings of its own session."""
+        self.command("set", "SEAGULL_DOCKER_IMAGE", "seagull:test")
+        script = self.session / ".claude" / "skills" / "seagull-diameter-common" / "scripts" / "seagull_config.py"
+        outside = self.home / "elsewhere"
+        outside.mkdir()
+        with mock.patch.object(config, "__file__", str(script)):
+            found = config.settings_folder(outside)
+        self.assertEqual(found.resolve(), self.session.resolve())
+        self.assertEqual(config.settings_folder(outside), outside)
+
 
 class SeagullRunTest(unittest.TestCase):
     """seagull_run.py picks the runner from the settings and asks only when a setting has no value."""
