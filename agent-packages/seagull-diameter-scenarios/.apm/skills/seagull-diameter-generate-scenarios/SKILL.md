@@ -144,6 +144,9 @@ dictionary.
    When the script says `there is no Seagull dictionary`, nothing was written. Stop and tell the user as "The dictionary"
    describes.
 
+   Any other `error:` line also ends the run with the output folder as it was before: a folder that the run created is
+   removed, and old contents that `--replace` moved aside are moved back. Say so, together with the line.
+
    The parameters `mode=`, `placeholder=`, `option=`, and `options=` become `--option mode=<value>`,
    `--placeholder <AVP>=<NAME>`, `--option <key>=<value>`, and `--options <file>`; repeat a flag for each pair.
    Options that the table does not list: `--check-avps <A,B,...>` sets the AVPs that the scenario compares in each

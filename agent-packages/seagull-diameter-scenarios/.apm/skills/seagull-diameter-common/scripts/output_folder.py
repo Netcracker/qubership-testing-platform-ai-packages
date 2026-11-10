@@ -15,6 +15,7 @@ Requires Python 3.9 or later.
 
 from __future__ import annotations
 
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -53,6 +54,19 @@ def archive_name(folder: Path) -> Path:
     """Return the sibling path to which the old contents of a folder are moved."""
     stamp = time.strftime("%Y%m%d-%H%M%S")
     return next_free(folder.parent, f"{folder.name}.previous-{stamp}")
+
+
+def restore(folder: Path, archive: Path | None, existed: bool) -> None:
+    """Undo a failed run: remove what it wrote and put the output folder back as it was.
+
+    The folder is new or empty when a run starts to write, so everything in it is from that run.
+    The old contents, if the run moved them to archive, go back; a folder that was given empty is empty again.
+    """
+    shutil.rmtree(folder, ignore_errors=True)
+    if archive is not None:
+        archive.rename(folder)
+    elif existed:
+        folder.mkdir(parents=True, exist_ok=True)
 
 
 def main(argv: list[str]) -> int:

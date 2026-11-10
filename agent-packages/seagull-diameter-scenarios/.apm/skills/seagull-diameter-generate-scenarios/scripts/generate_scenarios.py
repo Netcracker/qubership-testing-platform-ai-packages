@@ -811,6 +811,7 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument("--option", action="append", default=[], metavar="KEY=VALUE")
     parser.add_argument("--placeholder", action="append", default=[], metavar="AVP=NAME")
+    parser.set_defaults(undo=None)
     return parser.parse_args(argv)
 
 
@@ -937,13 +938,20 @@ def choose_output(options: argparse.Namespace) -> list[str]:
 
 
 def archive_old(options: argparse.Namespace) -> list[str]:
-    """Move the old contents of the output folder aside when --replace is given."""
-    if not options.replace or output_folder.is_empty(options.out):
-        return []
-    summary = output_folder.describe(options.out)
-    target = output_folder.archive_name(options.out)
-    options.out.rename(target)
-    return [f"replaced the old output: {summary}; moved to {target}"]
+    """Move the old contents of the output folder aside when --replace is given.
+
+    Records in options.undo how to put the folder back if the run fails.
+    """
+    existed = options.out.exists()
+    notes: list[str] = []
+    target = None
+    if options.replace and not output_folder.is_empty(options.out):
+        summary = output_folder.describe(options.out)
+        target = output_folder.archive_name(options.out)
+        options.out.rename(target)
+        notes.append(f"replaced the old output: {summary}; moved to {target}")
+    options.undo = (options.out, target, existed)
+    return notes
 
 
 def main(argv: list[str]) -> int:
@@ -965,6 +973,8 @@ def main(argv: list[str]) -> int:
         path = options.out / OPTIONS_NAME
         scenario_options.save_options(path, settings)
     except GenerationError as error:
+        if options.undo is not None:
+            output_folder.restore(*options.undo)
         sys.stderr.write(f"error: {error}\n")
         return 1
     notes.append(f"options: {path}")
