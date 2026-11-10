@@ -20,7 +20,7 @@ import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from unittest import mock
 
 SKILLS = Path(__file__).resolve().parents[1] / ".apm" / "skills"
@@ -294,9 +294,16 @@ class RunnerHelpersTest(unittest.TestCase):
     def test_with_data_file_sets_the_path(self) -> None:
         """The external-data-file of a configuration gets the path on this machine."""
         text = '<define name="external-data-file" value="/work/external-data.csv"></define>'
-        result = runner.with_data_file(text, Path("C:/out/external-data.csv"))
-        self.assertIn(str(Path("C:/out/external-data.csv")), result)
+        result = runner.with_data_file(text, PureWindowsPath("C:/out/external-data.csv"))
+        self.assertIn('value="C:/out/external-data.csv"', result)
         self.assertNotIn("/work/", result)
+
+    def test_with_data_file_writes_no_backslash(self) -> None:
+        """Seagull reads \\t of C:\\temp as a tab, so the path of the data file has forward slashes only."""
+        text = '<define name="external-data-file" value="/work/external-data.csv"></define>'
+        result = runner.with_data_file(text, PureWindowsPath(r"C:\temp\out\external-data.csv"))
+        self.assertIn('value="C:/temp/out/external-data.csv"', result)
+        self.assertNotIn("\\", result)
 
     def test_free_port_is_a_port_number(self) -> None:
         """free_port returns a usable port number."""
