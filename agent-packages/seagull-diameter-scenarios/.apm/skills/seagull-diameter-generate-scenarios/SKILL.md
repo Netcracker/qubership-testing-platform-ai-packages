@@ -65,7 +65,11 @@ file is read before the old contents move, so the new run starts from it.
 `mode=`, `placeholder=`, and `option=` change the options file, and the generator writes the result back. Pass them only
 when the user states them in the request. A later run without them uses what the file holds, so the user states a
 placeholder once and changes it only by naming it again. When the user asks for placeholders or templates but gives
-none, ask which AVP values should become placeholders; never pick them.
+none, ask which AVP values should become placeholders; never pick them. Ask in plain text, never in a dialog: a dialog
+holds four options, and a list of AVPs is longer. List the candidates from the request files one AVP to a row, with its
+name and its recorded value, and never merge AVPs under one label such as "subscriber number" or "Origin-Host /
+Destination-Host". Mark the AVPs that carry the same recorded value (`Called-Party-Number` next to
+`Subscription-Id-Data`) and the ones whose value differs between steps, because one placeholder keeps one value.
 
 When the user specifies a value in words ("the subscriber number") and not an AVP, find the AVPs of the request files that
 carry that recorded value. A placeholder replaces the AVPs it names and no others, so an AVP with the same value that
