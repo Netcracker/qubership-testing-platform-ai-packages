@@ -36,3 +36,13 @@ of commands or AVPs, or an option such as a time method. When the request doesn'
 
 When you filled a parameter by interpreting the user's wording, say how you understood it before you run anything,
 using the name of the parameter (`combine=Gy,Sy`), and let the user correct it.
+
+## How to ask
+
+Ask a question that has a short, fixed set of answers as a choice dialog: whether to run the dry run, whether to replace
+an output folder or use another one, which AVPs become placeholders. Use the question tool of the environment when it has
+one (`AskUserQuestion` in Claude Code): the question, and one option for each answer, the one you recommend first. For
+the dry run the options are "Run it" and "Not now". Where there is no such tool, ask the same question in plain text and
+list the options in it.
+
+A question that needs the user's own description, such as how a recorded run is built, stays plain text.
