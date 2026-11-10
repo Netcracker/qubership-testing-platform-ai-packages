@@ -47,6 +47,15 @@ with underscores) and say so.
 When you had to interpret the wording to fill a pair or a number, say how you understood it before you run anything,
 for example `placeholder=Subscription-Id-Data=MSISDN` and `calls=50`, and let the user correct it.
 
+When the user specifies a value in words ("the subscriber number", "the session ID") and not an AVP, find the AVPs of the
+scenario files that carry that recorded value. A pair replaces the AVPs it names and no others, so an AVP with the same
+value that you leave out, such as `Called-Party-Number` next to `Subscription-Id-Data`, keeps the recorded value. Write
+the pairs with their columns as plain text before the script. Unless the user gave a column, it is the AVP name in
+capitals with underscores (`SUBSCRIPTION_ID_DATA`). When one AVP carries the value, go on. When several do, ask which
+come from the data file and wait: in plain text, never in a dialog, one AVP to a row with its recorded value. A value that
+differs between the sessions of the scenarios, such as the Session-Id, ends in one column with the first value; say so
+before the run.
+
 ## Run
 
 1. **Convert.**
@@ -83,6 +92,10 @@ for example `placeholder=Subscription-Id-Data=MSISDN` and `calls=50`, and let th
    the script again. In the image, the dry-run configuration reads the data file from `/work/scenario/`; the Windows
    runner points it to the file in the output folder. The stub OCS answers whatever the scenario sends, so the run proves
    that Seagull reads the file and sends the values, not that an OCS accepts them.
+
+   Report the result as the part "Dry run" of [The final reply](../seagull-diameter-generate-scenarios/SKILL.md#the-final-reply)
+   in the generation skill: the verdict first, then whether the `|E|` lines are errors (the `Current Size` lines are not),
+   then what the run does not show.
 
 ## The data file
 
