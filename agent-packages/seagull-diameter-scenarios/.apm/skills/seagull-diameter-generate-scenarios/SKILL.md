@@ -217,8 +217,9 @@ refused, as its page says.
 When the request is to run a scenario file, or a folder of generated scenarios, in Seagull and to show the result or the
 logs, don't generate anything: do step 4 of "Run" for that path. A folder runs every scenario of it, and a client scenario
 file, `<output folder>/scenario/<name>.client.xml`, runs that one scenario. The request is the user's word for the run, so
-don't ask for it first. Add `--logs <folder>` and read the client log (`*.client`) and the stub log (`*.stub`) under
-`<folder>/<scenario>/logs` to show what they hold. The runner and its path come from the settings; when the script exits
+don't ask for it first. With Seagull for Windows, add `--logs <folder>`, a folder outside the output folder, and read the
+client log (`*.client`) and the stub log (`*.stub`) under `<folder>/<scenario>/logs` to show what they hold. A Docker dry
+run keeps no logs. The runner and its path come from the settings; when the script exits
 with 4, ask the one question of "Where Seagull runs", and never look for `seagull.exe` on the disk. Report as the part
 "Dry run" of "The final reply", and add what the logs show.
 
@@ -231,6 +232,8 @@ invent one; when the request names an OCS but no address, ask for it.
 ```bash
 python <skill folder>/scripts/seagull_run.py run "<output folder>/scenario/<scenario>.client.xml" --dest <host>:<port> --logs "<folder>"
 ```
+
+Make `<folder>` a folder outside the output folder, so the generated set stays as it was.
 
 The script starts no stub. It sets `dest` in a copy of `config/conf.client.xml` and runs the one scenario with the
 Seagull of the settings, so leave the files of the output folder as they are and write no command of your own. When it

@@ -49,7 +49,7 @@ processes that it started.
 To run one scenario, give its file instead of the folder:
 `seagull_run.py dry-run <output folder>/scenario/<scenario>.client.xml`. The script reads a folder as the output folder of a
 generation and runs every scenario of it, and a file as one client scenario and runs only that one, with the configuration
-and the dictionary of its output folder. With Seagull for Windows, add `--logs <folder>` to keep the logs:
+and the dictionary of its output folder. With Seagull for Windows, add `--logs <folder>`, a folder outside the output folder, to keep the logs:
 `<folder>/<scenario>/logs` then holds the client log (`*.client`), the stub log (`*.stub`), and the two statistics files.
 Use this script for a request to run a scenario and show the logs; don't write a script of your own that calls the runner.
 

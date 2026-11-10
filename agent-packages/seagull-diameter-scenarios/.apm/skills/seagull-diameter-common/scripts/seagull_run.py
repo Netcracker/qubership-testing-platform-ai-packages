@@ -109,6 +109,8 @@ def run_docker(args: argparse.Namespace) -> int:
         folder, name = seagull_windows_run.split_target(args.folder)
     as_path = to_wsl if os.name == "nt" else str
     tail = docker_tail(args, name, as_path)
+    if args.logs and args.command != "run":
+        sys.stderr.write(f"note: --logs is ignored; the Docker runner keeps no logs for {args.command}\n")
     command = ["sh", as_path(script), as_path(folder), image, *tail]
     return subprocess.run(["wsl", *command] if os.name == "nt" else command, check=False).returncode
 
