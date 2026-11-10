@@ -316,6 +316,20 @@ class SeagullRunTest(unittest.TestCase):
         self.assertEqual(with_logs[-4:-1], ["seagull:test", "01-voice", "10.0.0.5:3868"])
         self.assertTrue(with_logs[-1].endswith("logs"), with_logs)
 
+    def test_logs_of_a_docker_dry_run_are_ignored_with_a_note(self) -> None:
+        """A Docker dry run keeps no logs, so --logs gets a note on stderr; run keeps them and says nothing."""
+        scenario = self.make_scenario()
+        env = {"SEAGULL_RUNNER": "docker"}
+        logs = ["--logs", str(self.session / "logs")]
+        with mock.patch.dict(os.environ, env), mock.patch.object(seagull_run.subprocess, "run") as run:
+            run.return_value = mock.Mock(returncode=0)
+            _, dry_run_error = self.run_script("dry-run", str(scenario), *logs)
+            _, run_error = self.run_script("run", str(scenario), "--dest", "10.0.0.5:3868", *logs)
+            _, no_logs_error = self.run_script("dry-run", str(scenario))
+        self.assertIn("note: --logs is ignored", dry_run_error)
+        self.assertEqual(run_error, "")
+        self.assertEqual(no_logs_error, "")
+
     def test_run_takes_a_scenario_file_and_not_a_folder_in_docker(self) -> None:
         """A folder gives run nothing to run: status 2, and the Docker script does not start."""
         env = {"SEAGULL_RUNNER": "docker"}
