@@ -33,7 +33,7 @@ import sys
 import tempfile
 import time
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePath
 
 PORT_PATTERN = re.compile(r"((?:source|dest)=[^;\"':]*:)\d+")
 CALLS_PATTERN = re.compile(r'<define[^>]*name="number-calls"[^>]*>(?:</define>)?\s*')
@@ -77,9 +77,14 @@ def with_calls(text: str, calls: int) -> str:
     return CALLS_PATTERN.sub("", text).replace("</configuration>", f"{line}\n</configuration>")
 
 
-def with_data_file(text: str, path: Path) -> str:
-    """Return a configuration whose external-data-file, if it has one, is the given path."""
-    return DATA_PATTERN.sub(lambda match: f"{match.group(1)}{path}{match.group(2)}", text)
+def with_data_file(text: str, path: PurePath) -> str:
+    """Return a configuration whose external-data-file, if it has one, is the given path.
+
+    The path is written with forward slashes. Seagull reads a backslash in a parameter as the start of
+    an escape, so `C:\\temp\\data.csv` becomes a tab inside the name, the file does not open, and the
+    client stops before the first call. Windows accepts the forward slashes.
+    """
+    return DATA_PATTERN.sub(lambda match: f"{match.group(1)}{path.as_posix()}{match.group(2)}", text)
 
 
 def read_stats(logs: Path) -> tuple[int, int] | None:
