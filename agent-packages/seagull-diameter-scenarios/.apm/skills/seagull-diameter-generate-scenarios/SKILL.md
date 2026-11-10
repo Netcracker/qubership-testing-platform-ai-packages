@@ -185,6 +185,13 @@ dictionary.
    It starts a stub OCS that answers with the recorded answers, runs each scenario against it, and prints one line for
    each: `successful calls: 1, failed calls: 0`. A scenario that does not end so is a defect of the generation or of the
    dictionary; read the `|E|` line that the script prints. Never report the scenarios as working without this run.
+
+   Report the result in this order. First the verdict, in one sentence: how many scenarios of how many ended with
+   `successful calls: 1, failed calls: 0`, and which did not. Then, if the script printed `|E|` lines next to a passed
+   scenario, say at the start of the sentence whether they are errors. For the `Current Size` lines, write: "Not an
+   error: the receiver of the stub logs it for a vendor AVP whose code is also a base AVP code; the bytes the client
+   sends are correct", and name the scenarios where it appears. Last, say what the dry run does not show: the AVPs for
+   which the report says that Seagull sends another vendor and code.
 5. **Say how to run against the OCS**: put the address in `dest` of `config/conf.client.xml`, replace the placeholder
    address of the CER with `host-ip=`, and run one scenario. Never run it against a real OCS yourself.
 
