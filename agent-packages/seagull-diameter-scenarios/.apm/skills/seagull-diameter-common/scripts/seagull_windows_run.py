@@ -1,8 +1,12 @@
 """Run Seagull for Windows for the dry run and for the check of converted dictionaries.
 
 Usage:
-  python seagull_windows_run.py dry-run OUTPUT_DIR --seagull-exe PATH [--logs DIR] [--timeout S]
+  python seagull_windows_run.py dry-run OUTPUT_DIR_OR_SCENARIO --seagull-exe PATH [--logs DIR] [--timeout S]
   python seagull_windows_run.py check-converted CONVERTED_DIR --seagull-exe PATH [--logs DIR]
+
+A folder is the output folder of a generation, and every scenario of it runs. A file is one client
+scenario, OUTPUT_DIR/scenario/<name>.client.xml, and only that scenario runs, with the configuration
+and the dictionary of its output folder.
 
 It does what dry-run.sh and check-converted.sh do in the Seagull image, with the seagull.exe of
 a Seagull for Windows installation, and prints the same lines:
@@ -234,6 +238,31 @@ def dry_run_jobs(output: Path) -> list[Job]:
     return jobs
 
 
+def split_target(target: Path) -> tuple[Path, str | None]:
+    """Return the output folder and the one scenario to run for the target of a dry run.
+
+    A folder is an output folder, and every scenario runs (the name is None). A file is one client scenario,
+    `<output folder>/scenario/<name>.client.xml`, and only that scenario runs.
+    """
+    if target.is_dir():
+        return target, None
+    if not target.is_file():
+        raise ValueError(f"no such file or folder: {target}")
+    if not target.name.endswith(".client.xml"):
+        raise ValueError(f"{target} is not a client scenario; a scenario file is named <name>.client.xml")
+    return target.parent.parent, target.name.removesuffix(".client.xml")
+
+
+def select_jobs(jobs: list[Job], name: str | None) -> list[Job]:
+    """Return the job of the scenario name, or all jobs when the name is None."""
+    if name is None:
+        return jobs
+    chosen = [job for job in jobs if job.name == name]
+    if not chosen:
+        raise ValueError(f"no scenario {name} in the output folder; it has {', '.join(j.name for j in jobs) or 'none'}")
+    return chosen
+
+
 def check_jobs(converted: Path, exe: str) -> tuple[list[Job], list[str]]:
     """Return the jobs for the converted dictionaries that define CCR, and lines for the others."""
     config = Path(exe).parent / "diameter-env" / "config"
@@ -274,7 +303,15 @@ def main(argv: list[str]) -> int:
         return 2
     skipped: list[str] = []
     if args.command == "dry-run":
-        jobs = dry_run_jobs(args.folder)
+        try:
+            folder, name = split_target(args.folder)
+            jobs = select_jobs(dry_run_jobs(folder), name)
+        except ValueError as error:
+            sys.stderr.write(f"error: {error}\n")
+            return 2
+    elif not args.folder.is_dir():
+        sys.stderr.write(f"error: check-converted takes a folder, and {args.folder} is not one\n")
+        return 2
     else:
         jobs, skipped = check_jobs(args.folder, args.seagull_exe)
     if not jobs and not skipped:

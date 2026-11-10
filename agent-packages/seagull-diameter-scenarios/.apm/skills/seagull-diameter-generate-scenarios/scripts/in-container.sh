@@ -1,14 +1,21 @@
 #!/bin/sh
 # Runs inside the Seagull container, started by dry-run.sh. For each client scenario in /work/scenario it starts the
-# matching stub OCS, runs the client against it, and reads the statistics. Argument: the suffix of the stub scenarios
-# (default stub-server). Exits non-zero unless every scenario ends with at least 1 successful call and 0 failed calls (number-calls of the configuration says how many calls are made; the generated one makes 1).
+# matching stub OCS, runs the client against it, and reads the statistics. Arguments: the suffix of the stub scenarios
+# (default stub-server), and the name of the one scenario to run (default: every scenario). Exits non-zero unless every scenario ends with at least 1 successful call and 0 failed calls (number-calls of the configuration says how many calls are made; the generated one makes 1).
 export LD_LIBRARY_PATH=/usr/local/bin
 suffix="${1:-stub-server}"
+only="${2:-}"
+only="${only%.client.xml}"
 dictionary=/work/dictionary/diameter-dictionary.xml
 cd /opt/seagull/diameter-env/run || exit 2
 status=0
+ran=0
 for client in /work/scenario/*.client.xml; do
     name=$(basename "${client}" .client.xml)
+    if [ -n "${only}" ] && [ "${name}" != "${only}" ]; then
+        continue
+    fi
+    ran=$((ran + 1))
     rm -f ../logs/*
 
     seagull -conf /work/config/conf.stub-server.xml -dico "${dictionary}" \
@@ -47,4 +54,8 @@ for client in /work/scenario/*.client.xml; do
     pkill -x seagull 2> /dev/null
     sleep 1
 done
+if [ "${ran}" -eq 0 ]; then
+    echo "error: no scenario ${only} in /work/scenario" >&2
+    exit 2
+fi
 exit "${status}"

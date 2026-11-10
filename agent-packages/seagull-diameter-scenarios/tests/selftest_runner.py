@@ -183,6 +183,15 @@ class SeagullRunTest(unittest.TestCase):
         self.assertEqual(status, 4)
         self.assertIn("SEAGULL_RUNNER is not set; ask the user", error)
 
+    def test_the_message_names_the_settings_that_are_known(self) -> None:
+        """The path of seagull.exe that the settings hold is in the message, so the agent does not ask for it."""
+        with mock.patch.dict(os.environ, {"SEAGULL_WINDOWS_PATH": "C:/Seagull/seagull.exe"}):
+            status, error = self.run_script("dry-run", str(self.session))
+        self.assertEqual(status, 4)
+        self.assertIn("docker (image seagull:local) or windows (seagull.exe at C:/Seagull/seagull.exe)", error)
+        status, error = self.run_script("dry-run", str(self.session))
+        self.assertIn("windows (and where its seagull.exe is)", error)
+
     def test_windows_without_a_path_exits_with_4(self) -> None:
         """The runner is windows and the path of seagull.exe is missing: exit 4, not a guess."""
         with mock.patch.dict(os.environ, {"SEAGULL_RUNNER": "windows"}):
@@ -220,6 +229,40 @@ class SeagullRunTest(unittest.TestCase):
         self.assertEqual(status, 1)
         self.assertEqual(command[-1], "seagull:test")
         self.assertIn("check-converted.sh", " ".join(command))
+
+    def test_a_scenario_file_runs_that_scenario_in_docker(self) -> None:
+        """A client scenario file gives the Docker script its output folder and, last, the name of the scenario."""
+        scenario = self.session / "out" / "scenario" / "01-voice.client.xml"
+        scenario.parent.mkdir(parents=True)
+        scenario.write_text("<scenario/>", encoding="utf-8")
+        env = {"SEAGULL_RUNNER": "docker", "SEAGULL_DOCKER_IMAGE": "seagull:test"}
+        with mock.patch.dict(os.environ, env), mock.patch.object(seagull_run.subprocess, "run") as run:
+            run.return_value = mock.Mock(returncode=0)
+            status, _ = self.run_script("dry-run", str(scenario))
+        command = run.call_args.args[0]
+        self.assertEqual(status, 0)
+        self.assertEqual(command[-2:], ["seagull:test", "01-voice"])
+        self.assertTrue(command[-3].endswith("out"), command)
+
+    def test_a_folder_runs_every_scenario_in_docker(self) -> None:
+        """A folder gives the Docker script no scenario name."""
+        env = {"SEAGULL_RUNNER": "docker", "SEAGULL_DOCKER_IMAGE": "seagull:test"}
+        with mock.patch.dict(os.environ, env), mock.patch.object(seagull_run.subprocess, "run") as run:
+            run.return_value = mock.Mock(returncode=0)
+            self.run_script("dry-run", str(self.session))
+        self.assertEqual(run.call_args.args[0][-1], "seagull:test")
+
+    def test_a_file_that_is_no_client_scenario_is_refused(self) -> None:
+        """Another file, or a path that does not exist, stops the run with status 2 and starts nothing."""
+        other = self.session / "notes.txt"
+        other.write_text("x", encoding="utf-8")
+        env = {"SEAGULL_RUNNER": "docker"}
+        for target in (other, self.session / "missing"):
+            with mock.patch.dict(os.environ, env), mock.patch.object(seagull_run.subprocess, "run") as run:
+                status, error = self.run_script("dry-run", str(target))
+            self.assertEqual(status, 2)
+            self.assertIn("error:", error)
+            run.assert_not_called()
 
     @unittest.skipUnless(os.name == "nt", "drive letters exist on Windows")
     def test_a_windows_path_is_given_to_wsl_as_a_mnt_path(self) -> None:
@@ -290,6 +333,32 @@ class RunnerHelpersTest(unittest.TestCase):
         self.assertNotIn('value="5"', runner.with_calls(defined, 1))
         added = runner.with_calls("<configuration></configuration>", 3)
         self.assertIn('name="number-calls" value="3"', added)
+
+    def test_split_target_tells_a_folder_from_a_scenario_file(self) -> None:
+        """A folder runs every scenario; a client scenario file runs itself, in the output folder two levels up."""
+        folder = Path(tempfile.mkdtemp(prefix="seagull-selftest-"))
+        self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        scenario = folder / "scenario" / "01-voice.client.xml"
+        scenario.parent.mkdir()
+        scenario.write_text("<scenario/>", encoding="utf-8")
+        template = folder / "scenario" / "01-voice.client.xml.tpl"
+        template.write_text("<scenario/>", encoding="utf-8")
+        self.assertEqual(runner.split_target(folder), (folder, None))
+        self.assertEqual(runner.split_target(scenario), (folder, "01-voice"))
+        for target in (template, folder / "missing"):
+            with self.assertRaises(ValueError):
+                runner.split_target(target)
+
+    def test_select_jobs_picks_one_scenario_by_name(self) -> None:
+        """The name of a scenario picks its job, and a name that matches none lists the known ones."""
+        jobs = [
+            runner.Job(n, Path("d"), (Path("s"), Path("c")), (Path("s"), Path("c"))) for n in ("01-voice", "02-sms")
+        ]
+        self.assertEqual(runner.select_jobs(jobs, None), jobs)
+        self.assertEqual([j.name for j in runner.select_jobs(jobs, "02-sms")], ["02-sms"])
+        with self.assertRaises(ValueError) as caught:
+            runner.select_jobs(jobs, "03-data")
+        self.assertIn("no scenario 03-data in the output folder; it has 01-voice, 02-sms", str(caught.exception))
 
     def test_with_data_file_sets_the_path(self) -> None:
         """The external-data-file of a configuration gets the path on this machine."""

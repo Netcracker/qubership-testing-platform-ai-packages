@@ -1,6 +1,6 @@
 ---
 name: seagull-diameter-generate-scenarios
-description: Use when the user asks to generate Seagull scenarios, or templates (scenarios whose chosen values are placeholders), from a folder of recorded Diameter requests and responses, for example to replay a recorded run. Reads one ready Seagull dictionary and writes client scenarios, configuration, and a stub OCS into a new folder, and runs the dry run against the stub only when the user asks for it.
+description: Use when the user asks to generate Seagull scenarios, or templates (scenarios whose chosen values are placeholders), from a folder of recorded Diameter requests and responses, for example to replay a recorded run, or to run generated scenarios in Seagull against the stub OCS and show the result or the logs. Reads one ready Seagull dictionary and writes client scenarios, configuration, and a stub OCS into a new folder, and runs the dry run against the stub only when the user asks for it.
 user-invocable: false
 ---
 
@@ -210,6 +210,16 @@ refused, as its page says.
    ```
 
    Without a terminal `-bg` is needed; wait until the log ends with `STOP  log`.
+
+## Run scenarios that already exist
+
+When the request is to run a scenario file, or a folder of generated scenarios, in Seagull and to show the result or the
+logs, don't generate anything: do step 4 of "Run" for that path. A folder runs every scenario of it, and a client scenario
+file, `<output folder>/scenario/<name>.client.xml`, runs that one scenario. The request is the user's word for the run, so
+don't ask for it first. Add `--logs <folder>` and read the client log (`*.client`) and the stub log (`*.stub`) under
+`<folder>/<scenario>/logs` to show what they hold. The runner and its path come from the settings; when the script exits
+with 4, ask the one question of "Where Seagull runs", and never look for `seagull.exe` on the disk. Report as the part
+"Dry run" of "The final reply", and add what the logs show.
 
 ## The final reply
 
