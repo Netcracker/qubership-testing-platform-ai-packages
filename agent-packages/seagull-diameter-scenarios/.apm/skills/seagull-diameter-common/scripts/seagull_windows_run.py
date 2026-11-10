@@ -1,12 +1,17 @@
-"""Run Seagull for Windows for the dry run and for the check of converted dictionaries.
+"""Run Seagull for Windows for the dry run, for the check of converted dictionaries, and against an OCS.
 
 Usage:
   python seagull_windows_run.py dry-run OUTPUT_DIR_OR_SCENARIO --seagull-exe PATH [--logs DIR] [--timeout S]
   python seagull_windows_run.py check-converted CONVERTED_DIR --seagull-exe PATH [--logs DIR]
+  python seagull_windows_run.py run SCENARIO --dest HOST:PORT --seagull-exe PATH [--logs DIR] [--timeout S]
 
 A folder is the output folder of a generation, and every scenario of it runs. A file is one client
 scenario, OUTPUT_DIR/scenario/<name>.client.xml, and only that scenario runs, with the configuration
 and the dictionary of its output folder.
+
+`run` takes a client scenario file only. It starts no stub: the client runs against the OCS at
+HOST:PORT, with a copy of OUTPUT_DIR/config/conf.client.xml whose dest is that address. The copy is
+made in a temporary folder, and nothing in OUTPUT_DIR is changed.
 
 It does what dry-run.sh and check-converted.sh do in the Seagull image, with the seagull.exe of
 a Seagull for Windows installation, and prints the same lines:
@@ -28,6 +33,7 @@ Requires Python 3.9 or later, and Windows to run Seagull.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import csv
 import re
 import shutil
@@ -40,6 +46,8 @@ from dataclasses import dataclass
 from pathlib import Path, PurePath
 
 PORT_PATTERN = re.compile(r"((?:source|dest)=[^;\"':]*:)\d+")
+DEST_PATTERN = re.compile(r"(dest=)[^;\"']*")
+DEST_VALUE = re.compile(r"[A-Za-z0-9._-]+:\d{1,5}")
 CALLS_PATTERN = re.compile(r'<define[^>]*name="number-calls"[^>]*>(?:</define>)?\s*')
 DATA_PATTERN = re.compile(r'(name="external-data-file"\s+value=")[^"]*(")')
 ENCODING = "iso-8859-1"
@@ -69,6 +77,11 @@ def free_port() -> int:
 def with_port(text: str, port: int) -> str:
     """Return a configuration with the port of its source= and dest= replaced."""
     return PORT_PATTERN.sub(lambda match: f"{match.group(1)}{port}", text)
+
+
+def with_dest(text: str, dest: str) -> str:
+    """Return a configuration whose dest= is the given host:port."""
+    return DEST_PATTERN.sub(lambda match: f"{match.group(1)}{dest}", text)
 
 
 def with_calls(text: str, calls: int) -> str:
@@ -191,6 +204,59 @@ def run_job(exe: str, job: Job, work: Path, timeout: int) -> tuple[int, int, str
     return None if stats is None else (stats[0], stats[1], error_lines(logs))
 
 
+def client_options(output: Path, name: str, dest: str, conf: Path) -> list[str]:
+    """Write the copy of the client configuration with dest at conf; return the seagull.exe arguments.
+
+    The copy gets the data file of the generation, if there is one, as a path on this machine.
+    """
+    text = with_dest((output / "config" / "conf.client.xml").read_text(encoding=ENCODING), dest)
+    data = output / "scenario" / "external-data.csv"
+    if data.exists():
+        text = with_data_file(text, data)
+    conf.write_text(text, encoding=ENCODING, newline="\n")
+    dictionary = output / "dictionary" / "diameter-dictionary.xml"
+    scenario = output / "scenario" / f"{name}.client.xml"
+    return ["-conf", str(conf), "-dico", str(dictionary), "-scen", str(scenario), "-log", f"../logs/{name}.client"]
+
+
+def run_client(exe: str, options: list[str], work: Path, timeout: int) -> tuple[int, int, str]:
+    """Run one client with the given arguments; return successful, failed, and errors.
+
+    A run that wrote no statistics counts 0 and 0, so the errors of the logs reach the caller.
+    """
+    run_dir, logs = work / "run", work / "logs"
+    run_dir.mkdir(parents=True)
+    logs.mkdir()
+    client = start(exe, run_dir, options)
+    try:
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            client.wait(timeout=timeout)
+    finally:
+        stop(client)
+    stats = read_stats(logs) or (0, 0)
+    return stats[0], stats[1], error_lines(logs)
+
+
+def run_against_ocs(exe: str, target: Path, dest: str, logs_dir: Path | None, timeout: int) -> int:
+    """Run one client scenario against an OCS, print its line, and return the exit status."""
+    output, name = split_target(target)
+    if name is None:
+        raise ValueError(f"run takes one client scenario file, and {target} is a folder")
+    if not DEST_VALUE.fullmatch(dest):
+        raise ValueError(f"--dest must be HOST:PORT, for example 10.0.0.5:3868, and not {dest}")
+    base = Path(tempfile.mkdtemp(prefix="seagull-run-"))
+    try:
+        work = (logs_dir or base) / name
+        shutil.rmtree(work, ignore_errors=True)
+        work.mkdir(parents=True)
+        options = client_options(output, name, dest, work / "client.xml")
+        line, passed = report(name, run_client(exe, options, work, timeout))
+    finally:
+        shutil.rmtree(base, ignore_errors=True)
+    sys.stdout.write(line + "\n")
+    return 0 if passed else 1
+
+
 def report(name: str, outcome: tuple[int, int, str] | None) -> tuple[str, bool]:
     """Return the output line of a job and whether the job passed."""
     if outcome is None:
@@ -287,12 +353,23 @@ def check_jobs(converted: Path, exe: str) -> tuple[list[Job], list[str]]:
 def parse_arguments(argv: list[str]) -> argparse.Namespace:
     """Parse the command line."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", maxsplit=1)[0])
-    parser.add_argument("command", choices=("dry-run", "check-converted"))
+    parser.add_argument("command", choices=("dry-run", "check-converted", "run"))
     parser.add_argument("folder", type=Path)
     parser.add_argument("--seagull-exe", required=True)
+    parser.add_argument("--dest")
     parser.add_argument("--logs", type=Path)
     parser.add_argument("--timeout", type=int, default=60)
     return parser.parse_args(argv)
+
+
+def choose_jobs(args: argparse.Namespace) -> tuple[list[Job], list[str]]:
+    """Return the jobs of a dry run or of a check, and the lines for what the check skips; raise ValueError."""
+    if args.command == "dry-run":
+        folder, name = split_target(args.folder)
+        return select_jobs(dry_run_jobs(folder), name), []
+    if not args.folder.is_dir():
+        raise ValueError(f"check-converted takes a folder, and {args.folder} is not one")
+    return check_jobs(args.folder, args.seagull_exe)
 
 
 def main(argv: list[str]) -> int:
@@ -301,21 +378,14 @@ def main(argv: list[str]) -> int:
     if not Path(args.seagull_exe).is_file():
         sys.stderr.write(f"error: no file {args.seagull_exe}\n")
         return 2
-    skipped: list[str] = []
-    if args.command == "dry-run":
-        try:
-            folder, name = split_target(args.folder)
-            jobs = select_jobs(dry_run_jobs(folder), name)
-        except ValueError as error:
-            sys.stderr.write(f"error: {error}\n")
-            return 2
-    elif not args.folder.is_dir():
-        sys.stderr.write(f"error: check-converted takes a folder, and {args.folder} is not one\n")
-        return 2
-    else:
-        jobs, skipped = check_jobs(args.folder, args.seagull_exe)
-    if not jobs and not skipped:
-        sys.stderr.write(f"error: nothing to run in {args.folder}\n")
+    try:
+        if args.command == "run":
+            return run_against_ocs(args.seagull_exe, args.folder, args.dest or "", args.logs, args.timeout)
+        jobs, skipped = choose_jobs(args)
+        if not jobs and not skipped:
+            raise ValueError(f"nothing to run in {args.folder}")
+    except ValueError as error:
+        sys.stderr.write(f"error: {error}\n")
         return 2
     sys.stdout.write("".join(line + "\n" for line in skipped))
     return run_jobs(args.seagull_exe, jobs, args.logs, args.timeout)

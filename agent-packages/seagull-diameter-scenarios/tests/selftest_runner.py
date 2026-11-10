@@ -264,6 +264,67 @@ class SeagullRunTest(unittest.TestCase):
             self.assertIn("error:", error)
             run.assert_not_called()
 
+    def make_scenario(self) -> Path:
+        """Write a client scenario file in an output folder of the session; return its path."""
+        scenario = self.session / "out" / "scenario" / "01-voice.client.xml"
+        scenario.parent.mkdir(parents=True)
+        scenario.write_text("<scenario/>", encoding="utf-8")
+        return scenario
+
+    def test_run_needs_a_host_and_port_and_only_run_takes_one(self) -> None:
+        """run without a valid --dest, and another command with one, stop with status 2 and start nothing."""
+        scenario = self.make_scenario()
+        env = {"SEAGULL_RUNNER": "docker"}
+        cases = [
+            ("run", str(scenario)),
+            ("run", str(scenario), "--dest", "10.0.0.5"),
+            ("run", str(scenario), "--dest", "10.0.0.5:3868; rm -rf /"),
+            ("dry-run", str(scenario), "--dest", "10.0.0.5:3868"),
+        ]
+        for argv in cases:
+            with mock.patch.dict(os.environ, env), mock.patch.object(seagull_run.subprocess, "run") as run:
+                status, error = self.run_script(*argv)
+            self.assertEqual(status, 2, argv)
+            self.assertIn("--dest", error)
+            run.assert_not_called()
+
+    def test_run_gives_the_windows_runner_the_address(self) -> None:
+        """The address and the logs folder reach seagull_windows_run.py, with the path of seagull.exe."""
+        env = {"SEAGULL_RUNNER": "windows", "SEAGULL_WINDOWS_PATH": "C:/Seagull/seagull.exe"}
+        with mock.patch.dict(os.environ, env), mock.patch.object(seagull_run.seagull_windows_run, "main") as run:
+            run.return_value = 0
+            status, _ = self.run_script("run", "x.client.xml", "--dest", "10.0.0.5:3868", "--logs", "logs")
+        self.assertEqual(status, 0)
+        forwarded = run.call_args.args[0]
+        self.assertEqual(forwarded[:4], ["run", "x.client.xml", "--seagull-exe", "C:/Seagull/seagull.exe"])
+        self.assertEqual(forwarded[-4:], ["--logs", "logs", "--dest", "10.0.0.5:3868"])
+
+    def test_run_gives_the_docker_script_the_scenario_the_address_and_the_logs(self) -> None:
+        """The Docker script gets the output folder, the image, the scenario name, the address, and the logs folder."""
+        scenario = self.make_scenario()
+        env = {"SEAGULL_RUNNER": "docker", "SEAGULL_DOCKER_IMAGE": "seagull:test"}
+        argv = ["run", str(scenario), "--dest", "10.0.0.5:3868"]
+        with mock.patch.dict(os.environ, env), mock.patch.object(seagull_run.subprocess, "run") as run:
+            run.return_value = mock.Mock(returncode=1)
+            status, _ = self.run_script(*argv)
+            command = run.call_args.args[0]
+            self.run_script(*argv, "--logs", str(self.session / "logs"))
+            with_logs = run.call_args.args[0]
+        self.assertEqual(status, 1)
+        self.assertIn("run-ocs.sh", " ".join(command))
+        self.assertEqual(command[-3:], ["seagull:test", "01-voice", "10.0.0.5:3868"])
+        self.assertEqual(with_logs[-4:-1], ["seagull:test", "01-voice", "10.0.0.5:3868"])
+        self.assertTrue(with_logs[-1].endswith("logs"), with_logs)
+
+    def test_run_takes_a_scenario_file_and_not_a_folder_in_docker(self) -> None:
+        """A folder gives run nothing to run: status 2, and the Docker script does not start."""
+        env = {"SEAGULL_RUNNER": "docker"}
+        with mock.patch.dict(os.environ, env), mock.patch.object(seagull_run.subprocess, "run") as run:
+            status, error = self.run_script("run", str(self.session), "--dest", "10.0.0.5:3868")
+        self.assertEqual(status, 2)
+        self.assertIn("one client scenario file", error)
+        run.assert_not_called()
+
     @unittest.skipUnless(os.name == "nt", "drive letters exist on Windows")
     def test_a_windows_path_is_given_to_wsl_as_a_mnt_path(self) -> None:
         """to_wsl turns C:\\work\\out into /mnt/c/work/out."""
@@ -325,6 +386,35 @@ class RunnerHelpersTest(unittest.TestCase):
         )
         client = 'open-args="mode=client;dest=10.0.0.1:3868"'
         self.assertEqual(runner.with_port(client, 7), 'open-args="mode=client;dest=10.0.0.1:7"')
+
+    def test_with_dest_sets_the_address_of_the_channel_only(self) -> None:
+        """The host and the port of dest= are replaced, and no other attribute is."""
+        text = 'transport="trans-1" open-args="mode=client;dest=127.0.0.1:3868" value="127.0.0.1:3868"'
+        self.assertEqual(
+            runner.with_dest(text, "ocs.example:30151"),
+            'transport="trans-1" open-args="mode=client;dest=ocs.example:30151" value="127.0.0.1:3868"',
+        )
+
+    def test_run_refuses_a_folder_a_bad_address_and_a_missing_scenario(self) -> None:
+        """run exits with 2 before it starts Seagull; the file named as seagull.exe is never executed."""
+        folder = Path(tempfile.mkdtemp(prefix="seagull-selftest-"))
+        self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        scenario = folder / "scenario" / "01-voice.client.xml"
+        scenario.parent.mkdir()
+        scenario.write_text("<scenario/>", encoding="utf-8")
+        cases = [
+            (str(folder), "10.0.0.5:3868"),
+            (str(folder / "missing.client.xml"), "10.0.0.5:3868"),
+            (str(scenario), "10.0.0.5"),
+            (str(scenario), ""),
+        ]
+        for target, dest in cases:
+            stderr = io.StringIO()
+            with mock.patch.object(runner, "start") as start, redirect_stderr(stderr):
+                argv = ["run", target, "--dest", dest, "--seagull-exe", sys.executable]
+                self.assertEqual(runner.main(argv), 2, (target, dest))
+            self.assertIn("error:", stderr.getvalue())
+            start.assert_not_called()
 
     def test_with_calls_replaces_or_adds(self) -> None:
         """number-calls is replaced where it is defined and added where it is not."""
@@ -418,6 +508,36 @@ class WindowsRunTest(unittest.TestCase):
             status, output = self.run_runner("dry-run", folder + "/out")
         self.assertEqual(status, 0, output)
         self.assertEqual(output.count("successful calls: 1, failed calls: 0"), 2, output)
+
+    def test_run_against_an_ocs_that_listens(self) -> None:
+        """A scenario runs against the address it is given, and a closed port ends with a failure and the error."""
+        with tempfile.TemporaryDirectory(prefix="seagull-selftest-") as folder:
+            out = Path(folder) / "out"
+            argv = ["--steps", str(FIXTURES / "steps")]
+            dictionaries = importlib.import_module("selftest_dictionaries")
+            argv += ["--dictionary", str(dictionaries.converted_gy()), "--out", str(out)]
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(generate.main(argv), 0)
+            job = runner.dry_run_jobs(out)[0]
+            port = runner.free_port()
+            work = Path(folder) / "stub"
+            (work / "run").mkdir(parents=True)
+            (work / "logs").mkdir()
+            stub_conf = work / "server.xml"
+            stub_text = runner.with_port(job.server[1].read_text(encoding=runner.ENCODING), port)
+            stub_conf.write_text(stub_text, encoding=runner.ENCODING, newline="\n")
+            stub = runner.start(SEAGULL_EXE, work / "run", runner.arguments(job, stub_conf, job.server[0], "stub"))
+            self.addCleanup(runner.stop, stub)
+            runner.time.sleep(runner.SETTLE_SECONDS)
+            scenario = out / "scenario" / f"{job.name}.client.xml"
+            status, output = self.run_runner("run", str(scenario), "--dest", f"127.0.0.1:{port}")
+            self.assertEqual(status, 0, output)
+            self.assertIn(f"{job.name}: successful calls: 1, failed calls: 0", output)
+            runner.stop(stub)
+            status, output = self.run_runner("run", str(scenario), "--dest", f"127.0.0.1:{port}", "--timeout", "30")
+        self.assertEqual(status, 1, output)
+        self.assertIn("successful calls: 0, failed calls: 0", output)
+        self.assertIn("|E|", output)
 
     def test_check_of_a_converted_dictionary(self) -> None:
         """A combined dictionary completes the exchange, and a dictionary without CCR is skipped."""
