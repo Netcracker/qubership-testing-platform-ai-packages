@@ -18,8 +18,9 @@ The result is a new folder, never an old one: --out must name a new or empty fol
 untouched stub scenarios, copies of config/ and dictionary/ with the data file named in
 the client configurations, and scenario/external-data.csv, whose first row is the
 recorded values. Put more rows into that file. --data-path is the path to the file as
-Seagull will see it when you run it (default ../scenario/external-data.csv); the dry-run
-configuration always uses the path inside the Seagull image.
+Seagull will see it when you run it (default ../scenario/external-data.csv; backslashes
+are written as forward slashes); the dry-run configuration always uses the path inside
+the Seagull image.
 
 Requires Python 3.9 or later.
 """
@@ -223,11 +224,16 @@ def csv_text(external: External, select: str) -> str:
 
 
 def client_config(text: str, data_path: str, select: str, calls: int | None) -> str:
-    """Return a client configuration that names the data file."""
+    """Return a client configuration that names the data file.
+
+    The path is written with forward slashes. Seagull reads a backslash in a parameter as the start of an
+    escape, so `C:\\temp\\data.csv` would hold a tab and the file would not open. Windows accepts the
+    forward slashes.
+    """
     if calls is not None:
         text = re.sub(r'(name="number-calls" value=")[^"]*"', rf'\g<1>{calls}"', text)
     pad = '  <define entity="traffic-param" name="%s" value="%s"></define>\n'
-    defines = pad % ("external-data-file", data_path)
+    defines = pad % ("external-data-file", data_path.replace("\\", "/"))
     defines += pad % ("external-data-select", select)
     return text.replace("</configuration>", defines + "</configuration>")
 

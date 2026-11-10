@@ -583,6 +583,13 @@ class ExternalizeTest(unittest.TestCase):
             self.assertEqual(text.count(line), steps, line)  # the steps that carry it
         self.assertNotIn('<set-value name="Session-Id"', text)
 
+    def test_data_path_is_written_with_forward_slashes(self) -> None:
+        """A Windows path of --data-path has no backslash, which Seagull would read as an escape."""
+        out = self.convert("slashes", "--data-path", r"C:\temp\data dir\external-data.csv")
+        text = (out / "config" / "conf.client.xml").read_text("iso-8859-1")
+        self.assertIn('name="external-data-file" value="C:/temp/data dir/external-data.csv"', text)
+        self.assertNotIn("\\", text)
+
     def test_check_of_a_varied_avp_is_removed(self) -> None:
         """The answer check of the Session-Id goes, because its value now varies."""
         out = self.convert("checks")
