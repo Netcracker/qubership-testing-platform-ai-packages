@@ -46,10 +46,19 @@ Seagull for Windows. With `docker` on Windows it runs the script of the image th
 the ports of the machine, so the script gives the stub a free one in copies of the configurations, and it stops only the
 processes that it started.
 
+To run one scenario, give its file instead of the folder:
+`seagull_run.py dry-run <output folder>/scenario/<scenario>.client.xml`. The script reads a folder as the output folder of a
+generation and runs every scenario of it, and a file as one client scenario and runs only that one, with the configuration
+and the dictionary of its output folder. With Seagull for Windows, add `--logs <folder>` to keep the logs:
+`<folder>/<scenario>/logs` then holds the client log (`*.client`), the stub log (`*.stub`), and the two statistics files.
+Use this script for a request to run a scenario and show the logs; don't write a script of your own that calls the runner.
+
 **Ask only when the script asks.** Exit status 4 and a message `SEAGULL_RUNNER is not set` or `SEAGULL_WINDOWS_PATH is not
-set` mean that a setting has no value. Then ask the user one question: Docker with a Seagull image, or Seagull for
-Windows and where its `seagull.exe` is (don't guess a path; the usual place is
-`C:\Program Files (x86)\Seagull\seagull.exe`). Save the answer after the user confirms, and run the script again:
+set` mean that a setting has no value. Then ask the user one question, and only for what the message says is missing. The
+message for a missing runner names the image and the path of `seagull.exe` that the settings hold: ask Docker or
+Windows, and do not ask for a path that the message gives. When the path is missing too, ask where `seagull.exe` is
+(don't guess a path; the usual place is `C:\Program Files (x86)\Seagull\seagull.exe`). Save the answer after the user
+confirms, and run the script again:
 
 ```bash
 python <skill folder>/scripts/seagull_config.py set SEAGULL_RUNNER windows

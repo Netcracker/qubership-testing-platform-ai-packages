@@ -1,12 +1,15 @@
 """Run the dry run or the check of converted dictionaries with the Seagull that the settings name.
 
 Usage:
-  python seagull_run.py dry-run OUTPUT_DIR [--runner docker|windows] [--seagull-exe PATH] [--image IMAGE]
-      [--logs DIR] [--timeout S]
+  python seagull_run.py dry-run OUTPUT_DIR_OR_SCENARIO [--runner docker|windows] [--seagull-exe PATH]
+      [--image IMAGE] [--logs DIR] [--timeout S]
   python seagull_run.py check-converted CONVERTED_DIR [the same options]
 
+For dry-run, a folder is the output folder of a generation and every scenario of it runs. A file is one
+client scenario, OUTPUT_DIR/scenario/<name>.client.xml, and only that scenario runs.
+
 The script reads SEAGULL_RUNNER, SEAGULL_WINDOWS_PATH, and SEAGULL_DOCKER_IMAGE the way
-seagull_config.py does, so the caller passes only the folder. With windows it runs
+seagull_config.py does, so the caller passes only the folder or the file. With windows it runs
 seagull_windows_run.py; with docker it runs dry-run.sh or check-converted.sh in the Seagull image
 (through wsl on Windows, where the folders are given as /mnt/<drive>/... paths). --runner,
 --seagull-exe, and --image override the settings. --logs and --timeout apply to windows only.
@@ -73,10 +76,12 @@ def run_docker(args: argparse.Namespace) -> int:
     """Run the Docker script of the command; return its exit status."""
     script = DOCKER_SCRIPTS[args.command]
     image = args.image or setting("SEAGULL_DOCKER_IMAGE")
+    folder, name = seagull_windows_run.split_target(args.folder) if args.command == "dry-run" else (args.folder, None)
+    scenario = [name] if name else []
     if os.name == "nt":
-        command = ["wsl", "sh", to_wsl(script), to_wsl(args.folder), image]
+        command = ["wsl", "sh", to_wsl(script), to_wsl(folder), image, *scenario]
     else:
-        command = ["sh", str(script), str(args.folder), image]
+        command = ["sh", str(script), str(folder), image, *scenario]
     return subprocess.run(command, check=False).returncode
 
 
@@ -98,10 +103,14 @@ def main(argv: list[str]) -> int:
     try:
         runner = args.runner or setting("SEAGULL_RUNNER")
         if not runner:
-            sys.stderr.write("error: SEAGULL_RUNNER is not set; ask the user which Seagull to use\n")
+            path = setting("SEAGULL_WINDOWS_PATH")
+            windows = f"windows (seagull.exe at {path})" if path else "windows (and where its seagull.exe is)"
+            image = setting("SEAGULL_DOCKER_IMAGE")
+            options = f"docker (image {image}) or {windows}"
+            sys.stderr.write(f"error: SEAGULL_RUNNER is not set; ask the user which Seagull to use: {options}\n")
             return EXIT_UNSET
         return run_windows(args) if runner == "windows" else run_docker(args)
-    except seagull_config.ConfigError as error:
+    except (seagull_config.ConfigError, ValueError) as error:
         sys.stderr.write(f"error: {error}\n")
         return 2
 
