@@ -711,6 +711,13 @@ class ApplyPlaceholdersTest(unittest.TestCase):
         self.assertEqual(text, "")
         self.assertIn("no value for placeholder(s) A", error)
 
+    def test_misspelled_set_name_stops_the_script(self) -> None:
+        """A --set name that is no placeholder of the template is an error, and nothing is written."""
+        status, text, error = self.render("--set", "A=1", "--set", "AA=2")
+        self.assertEqual(status, 1)
+        self.assertEqual(text, "")
+        self.assertIn("--set AA: the template has no such placeholder (it has A)", error)
+
 
 class FailureTest(unittest.TestCase):
     """The generator stops, with a message, when the input is wrong."""

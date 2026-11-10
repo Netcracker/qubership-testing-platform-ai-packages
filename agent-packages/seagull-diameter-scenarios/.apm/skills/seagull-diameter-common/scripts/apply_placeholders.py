@@ -6,7 +6,9 @@ Usage:
 
 A value comes from, in order of precedence: --set, then the process environment
 when --env is given, then the --values files (NAME=value lines). The script stops
-and names every placeholder that has no value. The scenario is written in ISO-8859-1
+and names every placeholder that has no value, and every --set name that is not a
+placeholder of the template, so that a misspelled name cannot leave the recorded
+value in place. The scenario is written in ISO-8859-1
 with LF line endings, as Seagull reads it.
 
 Requires Python 3.9 or later.
@@ -47,6 +49,9 @@ def collect_values(options: argparse.Namespace, names: list[str]) -> dict[str, s
         name, separator, value = pair.partition("=")
         if not separator:
             raise options_module.OptionsError(f"--set {pair!r}: expected NAME=VALUE")
+        if name not in names:
+            known = ", ".join(names) or "none"
+            raise options_module.OptionsError(f"--set {name}: the template has no such placeholder (it has {known})")
         values[name] = value
     return values
 
