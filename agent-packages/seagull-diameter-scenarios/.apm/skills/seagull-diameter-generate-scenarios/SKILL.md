@@ -169,8 +169,9 @@ dictionary.
    - The lines about the options: `default-dwr is off` (the dictionary has no DWR and DWA), `<NAME>: values 'a' and
      'b'; used the first` (one placeholder stands for one value, so two AVPs with different values lose the
      difference), and `placeholder <AVP>: matched no AVP` (a misspelled name or an AVP that is not in the steps).
-4. **Dry run.** Run it only when the user asked for it, in the request or in the answer to your offer. When the
-   request did not mention it, end your reply by offering the run in one sentence, say that the scenarios are not
+4. **Dry run.** Run it only when the user asked for it, in the request or in the answer to your offer. The command
+   `/seagull-diameter-scenario-generate` is that request: when you were started by it, run the dry run without asking
+   and without an offer. When a plain request did not mention it, end your reply by offering the run in one sentence, say that the scenarios are not
    verified yet, and do not start Seagull. Name the runner in the offer: the last line the script printed,
    `Seagull for the check: ...`, has it (see
    [Where Seagull runs](../seagull-diameter-common/SKILL.md#where-seagull-runs)).
@@ -186,12 +187,7 @@ dictionary.
    each: `successful calls: 1, failed calls: 0`. A scenario that does not end so is a defect of the generation or of the
    dictionary; read the `|E|` line that the script prints. Never report the scenarios as working without this run.
 
-   Report the result in this order. First the verdict, in one sentence: how many scenarios of how many ended with
-   `successful calls: 1, failed calls: 0`, and which did not. Then, if the script printed `|E|` lines next to a passed
-   scenario, say at the start of the sentence whether they are errors. For the `Current Size` lines, write: "Not an
-   error: the receiver of the stub logs it for a vendor AVP whose code is also a base AVP code; the bytes the client
-   sends are correct", and name the scenarios where it appears. Last, say what the dry run does not show: the AVPs for
-   which the report says that Seagull sends another vendor and code.
+   Report the result as the part "Dry run" of [The final reply](#the-final-reply).
 5. **Say how to run against the OCS**: put the address in `dest` of `config/conf.client.xml`, replace the placeholder
    address of the CER with `host-ip=`, and run one scenario. Never run it against a real OCS yourself.
 
@@ -201,6 +197,26 @@ dictionary.
    ```
 
    Without a terminal `-bg` is needed; wait until the log ends with `STOP  log`.
+
+## The final reply
+
+Write the report once, as your last message, with these parts in this order. Every part after the opening paragraph
+starts with a bold heading line of its own. Never fold one part into another paragraph.
+
+1. The opening paragraph: the folder, the numbers (steps read, scenarios written), and a table of the scenarios with
+   their steps. Nothing about the dry run in it.
+2. **Dry run.** Always give this part, under its heading. When it ran: one sentence with the verdict (how many scenarios of how many ended with
+   `successful calls: 1, failed calls: 0`, and which did not) and the Seagull that ran it. Then the `|E|` lines that the
+   script printed next to a passed scenario. For the `Current Size` lines write "Not an error: the receiver of the stub
+   logs it for a vendor AVP whose code is also a base AVP code; the bytes the client sends are correct", and name the
+   scenarios where it appears. When it did not run, say that the scenarios are not verified yet.
+3. **Repairs** of the recorded messages, and the checks that were skipped.
+4. **Seagull sends another AVP than the record.** A table: the AVP, the recorded vendor and code, the vendor and code
+   that Seagull sends, the steps and their scenarios. Say that the dry run does not show it and that only a change of
+   the dictionary fixes it, which the owners of the dictionary decide.
+5. **Please confirm.** The AVP names with several definitions, and the lines about the options.
+6. **Conversions.** The counts.
+7. The last line: the offer of the dry run, when it did not run, or how to run against the OCS (step 5), when it did.
 
 ## What the output holds
 
