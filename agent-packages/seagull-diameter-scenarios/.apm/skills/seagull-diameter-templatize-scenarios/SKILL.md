@@ -55,6 +55,10 @@ its recorded value.
 
 ## Run
 
+Write every path in a command in quotes. Single quotes keep a Windows path whole: Bash reads an unquoted
+backslash as an escape and turns `C:\work\steps` into `C:worksteps`, and it splits a path with a space into two
+arguments. Forward slashes (`'C:/work/steps'`) work on Windows too.
+
 1. **Look for files that the run would replace.** The script writes `X.client.xml.tpl` and `X.client.xml.values` next to
    each scenario `X.client.xml`, over earlier files of the same name. Before you run, look for them. When some exist
    and the user did not ask to replace them, don't run: tell the user which files exist, and ask for another folder

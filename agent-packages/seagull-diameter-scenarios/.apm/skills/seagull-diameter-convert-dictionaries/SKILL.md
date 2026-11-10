@@ -65,6 +65,10 @@ user decide whether to list the dictionaries.
 
 ## Run
 
+Write every path in a command in quotes. Single quotes keep a Windows path whole: Bash reads an unquoted
+backslash as an escape and turns `C:\work\steps` into `C:worksteps`, and it splits a path with a space into two
+arguments. Forward slashes (`'C:/work/steps'`) work on Windows too.
+
 Run every script by its path from the folder the session works in, and don't change into the skill folder first: the
 settings of Seagull are read from the session folder.
 

@@ -187,3 +187,9 @@ reports a different value of a later one. A hexadecimal value keeps its `0x` out
 
 The scripts need Python 3.9 or later and no other package. Start them as `python`, `python3`, or `py -3`, whichever the
 machine has.
+
+## Paths in commands
+
+Write every path in a command in quotes. Single quotes keep a Windows path whole: Bash reads an unquoted
+backslash as an escape and turns `C:\work\steps` into `C:worksteps`, and it splits a path with a space into two
+arguments. Forward slashes (`'C:/work/steps'`) work on Windows too.

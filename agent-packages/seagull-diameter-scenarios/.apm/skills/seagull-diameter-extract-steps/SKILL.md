@@ -62,6 +62,10 @@ a question without a proposal.
 
 ## Run
 
+Write every path in a command in quotes. Single quotes keep a Windows path whole: Bash reads an unquoted
+backslash as an escape and turns `C:\work\steps` into `C:worksteps`, and it splits a path with a space into two
+arguments. Forward slashes (`'C:/work/steps'`) work on Windows too.
+
 1. **Look before extracting.** Open the source read-only, by the path the user gave: test it directly (`test -f`, or open
    it with the library). Don't list folders to find it, don't cut a listing with `head` to look for it, and never search
    the disk; when the path does not exist, say so and ask for the right one. Print the sheet names, the header row, the

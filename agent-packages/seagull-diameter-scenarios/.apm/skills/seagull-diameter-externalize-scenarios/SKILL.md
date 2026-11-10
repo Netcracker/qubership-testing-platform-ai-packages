@@ -49,6 +49,10 @@ for example `placeholder=Subscription-Id-Data=MSISDN` and `calls=50`, and let th
 
 ## Run
 
+Write every path in a command in quotes. Single quotes keep a Windows path whole: Bash reads an unquoted
+backslash as an escape and turns `C:\work\steps` into `C:worksteps`, and it splits a path with a space into two
+arguments. Forward slashes (`'C:/work/steps'`) work on Windows too.
+
 1. **Convert.**
 
    ```bash

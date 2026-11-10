@@ -37,6 +37,10 @@ its folder, read the `scenario-options.ini` of that folder and show it under the
 
 ## Change
 
+Write every path in a command in quotes. Single quotes keep a Windows path whole: Bash reads an unquoted
+backslash as an escape and turns `C:\work\steps` into `C:worksteps`, and it splits a path with a space into two
+arguments. Forward slashes (`'C:/work/steps'`) work on Windows too.
+
 Only when the user asks to change a setting, or answers yes to your offer. The keys:
 
 | Key                       | The user says                                   | Value                                 |
