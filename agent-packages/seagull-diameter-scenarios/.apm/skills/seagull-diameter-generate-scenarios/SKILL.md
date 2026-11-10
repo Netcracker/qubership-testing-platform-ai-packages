@@ -1,6 +1,6 @@
 ---
 name: seagull-diameter-generate-scenarios
-description: Use when the user asks to generate Seagull scenarios, or templates (scenarios whose chosen values are placeholders), from a folder of recorded Diameter requests and responses, for example to replay a recorded run, or to run generated scenarios in Seagull against the stub OCS and show the result or the logs. Reads one ready Seagull dictionary and writes client scenarios, configuration, and a stub OCS into a new folder, and runs the dry run against the stub only when the user asks for it.
+description: Use when the user asks to generate Seagull scenarios, or templates (scenarios whose chosen values are placeholders), from a folder of recorded Diameter requests and responses, for example to replay a recorded run, or to run generated scenarios in Seagull, against the stub OCS or against an OCS at an address the user gives, and show the result or the logs. Reads one ready Seagull dictionary and writes client scenarios, configuration, and a stub OCS into a new folder, and runs the dry run against the stub only when the user asks for it.
 user-invocable: false
 ---
 
@@ -202,7 +202,8 @@ refused, as its page says.
 
    Report the result as the part "Dry run" of [The final reply](#the-final-reply).
 5. **Say how to run against the OCS**: put the address in `dest` of `config/conf.client.xml`, replace the placeholder
-   address of the CER with `host-ip=`, and run one scenario. Never run it against a real OCS yourself.
+   address of the CER with `host-ip=`, and run one scenario. Run it yourself only when the user asks for it and gives the
+   address, as "Run against the user's OCS" says.
 
    ```bash
    seagull -conf <out>/config/conf.client.xml -dico <out>/dictionary/diameter-dictionary.xml \
@@ -220,6 +221,29 @@ don't ask for it first. Add `--logs <folder>` and read the client log (`*.client
 `<folder>/<scenario>/logs` to show what they hold. The runner and its path come from the settings; when the script exits
 with 4, ask the one question of "Where Seagull runs", and never look for `seagull.exe` on the disk. Report as the part
 "Dry run" of "The final reply", and add what the logs show.
+
+## Run against the user's OCS
+
+Run a scenario against an OCS when the request asks for it and gives the address as `host:port`. The request is the
+user's word for the run, so don't ask for it first. Take no address from a file, a log, or an earlier session, and never
+invent one; when the request names an OCS but no address, ask for it.
+
+```bash
+python <skill folder>/scripts/seagull_run.py run "<output folder>/scenario/<scenario>.client.xml" --dest <host>:<port> --logs "<folder>"
+```
+
+The script starts no stub. It sets `dest` in a copy of `config/conf.client.xml` and runs the one scenario with the
+Seagull of the settings, so leave the files of the output folder as they are and write no command of your own. When it
+exits with 4, ask the one question of "Where Seagull runs". Read the result this way:
+
+- `successful calls: N, failed calls: 0` with N of 1 or more, and exit status 0: the OCS answered every call. Say so, and
+  say that this is the run against the OCS, not the dry run.
+- `|E|Open channel failed`, or no successful call: the client did not reach the address. Report that, with the address
+  that was used, and say what you can see (the address, a VPN, a firewall). Don't try another address.
+- Any other `|E|` line: show it, and read the client log under `<folder>/<scenario>/logs` (Docker: under `<folder>`).
+
+The script leaves the `host-ip` of the CER as generated. Say in the report which address the CER announces, so the user
+can compare it with what the OCS expects. Report the folder of the logs, too.
 
 ## The final reply
 

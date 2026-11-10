@@ -19,7 +19,8 @@ These rules hold when the user asks for a Seagull Diameter task in plain languag
   describes. Never ask where Seagull runs, or for the path of `seagull.exe`, while the settings have a value.
 - **Existing files.** Don't move, replace, or delete an existing output folder or file unless the user asked for it.
   Write to a new folder.
-- **A real OCS.** Never run a scenario against a real OCS on your own.
+- **A real OCS.** Run a scenario against an OCS only when the request asks for it and gives the address. Take the address
+  from the request, not from a file, a log, or an earlier session, and don't run against one without a request.
 - **The base protocol.** When the project's dictionaries lack the Diameter base protocol, stop and tell the user. Don't
   take the dictionary of the Seagull distribution, and don't look for another one on the disk, unless the user allowed
   it after you warned that it may be wrong in places.

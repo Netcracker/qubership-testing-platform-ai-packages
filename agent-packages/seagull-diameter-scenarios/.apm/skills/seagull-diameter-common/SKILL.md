@@ -26,8 +26,8 @@ because APM deploys the files of a skill folder next to each other, so the scrip
 | `scripts/scenario_text.py`       | Reads the `<avp>` lines of a generated scenario, with their paths; the templatize and externalize scripts use it |
 | `scripts/output_folder.py`       | Picks the first free output folder (`next-free`) and describes a folder (`describe`)                             |
 | `scripts/seagull_config.py`      | Reads and writes the settings that say where Seagull runs; see "Where Seagull runs"                              |
-| `scripts/seagull_run.py`         | Runs the dry run and the check of converted dictionaries with the Seagull that the settings name                 |
-| `scripts/seagull_windows_run.py` | Runs the dry run and the check of converted dictionaries with a Seagull for Windows; seagull_run.py calls it     |
+| `scripts/seagull_run.py`         | Runs the dry run, the check of converted dictionaries, or a scenario against an OCS                              |
+| `scripts/seagull_windows_run.py` | Runs the same with a Seagull for Windows; seagull_run.py calls it                                                |
 
 ## Where Seagull runs
 
@@ -52,6 +52,11 @@ generation and runs every scenario of it, and a file as one client scenario and 
 and the dictionary of its output folder. With Seagull for Windows, add `--logs <folder>` to keep the logs:
 `<folder>/<scenario>/logs` then holds the client log (`*.client`), the stub log (`*.stub`), and the two statistics files.
 Use this script for a request to run a scenario and show the logs; don't write a script of your own that calls the runner.
+
+To run one scenario against an OCS at an address the user gives, use
+`seagull_run.py run <output folder>/scenario/<scenario>.client.xml --dest <host>:<port>`. It starts no stub, sets `dest`
+in a copy of `config/conf.client.xml`, and prints the same line as a dry run, with the first `|E|` lines after it. The
+generation skill says when a run against an OCS is allowed and how to report it.
 
 **Ask only when the script asks.** Exit status 4 and a message `SEAGULL_RUNNER is not set` or `SEAGULL_WINDOWS_PATH is not
 set` mean that a setting has no value. Then ask the user one question, and only for what the message says is missing. The
