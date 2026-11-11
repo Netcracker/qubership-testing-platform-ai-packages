@@ -1,0 +1,71 @@
+ID,PARENT,TYPE,DESCRIPTION
+1,,test case,Charging example
+2,1,step,Check the balance of the subscriber
+3,2,outgoing message,SELECT balance FROM accounts WHERE msisdn = '491700000001'
+4,2,incoming message,"[{""balance"": 1500}]"
+5,1,step,Start a data session
+6,5,outgoing message,"<CCR Description=""CCR-I"" Service=""peer-1"">
+	<Session-Id>TEST-A-1</Session-Id>
+	<Origin-Host>client.example.test</Origin-Host>
+	<Origin-Realm>example.test</Origin-Realm>
+	<Destination-Realm>example.test</Destination-Realm>
+	<Auth-Application-Id>4</Auth-Application-Id>
+	<Event-Timestamp>2026-10-27 14:00:52 +0000 UTC</Event-Timestamp>
+	<CC-Request-Type>1</CC-Request-Type>
+	<CC-Request-Number>0</CC-Request-Number>
+	<Service-Context-Id>32251@3gpp.org</Service-Context-Id>
+	<Subscription-Id>
+		<Subscription-Id-Type>0</Subscription-Id-Type>
+		<Subscription-Id-Data>491700000001</Subscription-Id-Data>
+	</Subscription-Id>
+	<!-- <User-Name>left out</User-Name> -->
+	<Service-Information>
+		<PS-Information>
+			<TGPP-Charging-Id>0x000000a1</TGPP-Charging-Id>
+			<SGSN-Address>127.0.0.1</SGSN-Address>
+			<Node-Id>first-node</Node-Id>
+		</PS-Information>
+	</Service-Information>
+	<Example-Info>
+		<Node-Id>example-node</Node-Id>
+	</Example-Info>
+</CCR>"
+7,5,incoming message,<CCA><Session-Id>TEST-A-1</Session-Id><Auth-Application-Id>4</Auth-Application-Id><Result-Code>2001</Result-Code><CC-Request-Type>INITIAL_REQUEST</CC-Request-Type><CC-Request-Number>0</CC-Request-Number><Origin-Host>ocs.example.test</Origin-Host><Origin-Realm>example.test</Origin-Realm></CCA>
+8,1,step,Update the data session
+9,8,outgoing message,"<CCR Description=""CCR-T"" Service=""peer-1"">
+	<Session-Id>TEST-A-1</Session-Id>
+	<Origin-Host>client.example.test</Origin-Host>
+	<Origin-Realm>example.test</Origin-Realm>
+	<Destination-Realm>example.test</Destination-Realm>
+	<Auth-Application-Id>4</Auth-Application-Id>
+	<Event-Timestamp>2026-10-27 14:00:52 +0000 UTC</Event-Timestamp>
+	<CC-Request-Type>3</CC-Request-Type>
+	<CC-Request-Number>1</CC-Request-Number>
+	<Service-Context-Id>32251@3gpp.org</Service-Context-Id>
+	<Subscription-Id>
+		<Subscription-Id-Type>0</Subscription-Id-Type>
+		<Subscription-Id-Data>491700000001</Subscription-Id-Data>
+	</Subscription-Id>
+</CCR>"
+10,8,incoming message,<CCA><Session-Id>TEST-A-1</Session-Id><Auth-Application-Id>4</Auth-Application-Id><Result-Code>2001</Result-Code><CC-Request-Type>TERMINATION_REQUEST</CC-Request-Type><CC-Request-Number>1</CC-Request-Number><Origin-Host>ocs.example.test</Origin-Host><Origin-Realm>example.test</Origin-Realm></CCA>
+11,1,step,Read the balance through the service
+12,11,outgoing message,GET /balance/491700000001
+13,11,incoming message,"{""balance"": 1450}"
+14,1,step,Close the other session
+15,14,outgoing message,"<CCR Description=""CCR-E"" Service=""peer-1"">
+	<Session-Id>TEST-B-1</Session-Id>
+	<Origin-Host>client.example.test</Origin-Host>
+	<Origin-Realm>example.test</Origin-Realm>
+	<Destination-Realm>example.test</Destination-Realm>
+	<Auth-Application-Id>4</Auth-Application-Id>
+	<Event-Timestamp>2026-10-27 14:00:52 +0000 UTC</Event-Timestamp>
+	<CC-Request-Type>4</CC-Request-Type>
+	<CC-Request-Number>0</CC-Request-Number>
+	<Service-Context-Id>32251@3gpp.org</Service-Context-Id>
+	<Subscription-Id>
+		<Subscription-Id-Type>0</Subscription-Id-Type>
+		<Subscription-Id-Data>491700000001</Subscription-Id-Data>
+	</Subscription-Id>
+	<User-Name>broken-tag</User-Name
+</CCR>"
+16,14,incoming message,<CCA><Session-Id>TEST-B-1</Session-Id><Auth-Application-Id>4</Auth-Application-Id><Result-Code>2001</Result-Code><CC-Request-Type>EVENT_REQUEST</CC-Request-Type><CC-Request-Number>0</CC-Request-Number><Origin-Host>ocs.example.test</Origin-Host><Origin-Realm>example.test</Origin-Realm></CCA>

@@ -5,7 +5,8 @@ Skills that turn the Diameter requests and responses of a recorded test run into
 scenarios. The scenarios send the recorded requests again, check each answer, give up when an answer is late, and can be
 tried first against a stub OCS, so no real charging system is needed to see that they work.
 
-To install the package and run the skills, follow the [user guide](docs/user-guide.md).
+To install the package and run the skills, follow the [user guide](docs/user-guide.md). To check that the package
+works, follow the [QA guide](docs/qa/README.md).
 
 ## Skills
 
