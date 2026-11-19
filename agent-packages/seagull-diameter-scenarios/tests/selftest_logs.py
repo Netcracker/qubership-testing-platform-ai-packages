@@ -14,6 +14,7 @@ from __future__ import annotations
 import importlib
 import io
 import shutil
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -22,6 +23,7 @@ from xml.etree import ElementTree
 
 SKILLS = Path(__file__).resolve().parents[1] / ".apm" / "skills"
 LOG = Path(__file__).resolve().parent / "fixtures" / "logs" / "sample.client"
+sys.path.insert(0, str(SKILLS / "seagull-diameter-convert-logs" / "scripts"))
 log_to_xml = importlib.import_module("log_to_xml")
 
 

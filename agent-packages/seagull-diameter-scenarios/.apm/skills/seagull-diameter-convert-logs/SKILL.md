@@ -19,19 +19,19 @@ arguments. For an ordinary request in plain language, follow this page.
 
 ## What to take from the request
 
-| Parameter | How the user says it                                       | Rule                                                                         |
-| --------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| log       | "convert C:\work\run.client"                               | Required: a Seagull log file                                                 |
-| out       | "write the XML to C:\work\xml"                             | Optional. It must be new or empty. Default: a new folder next to the log     |
-| numbering | "one number for a request and its answer", "in log order"  | `step` (default) or `sequence`. When the user does not say, use `step`       |
-| format    | "like the recorded steps", "as input for the generator"    | `avp` (default) or `steps`. When the user does not say, use `avp`            |
-| pretty    | "on one line", "without indentation"                       | `true` (default) or `false`. When the user does not say, use `true`          |
+| Parameter | How the user says it                                      | Rule                                                                     |
+| --------- | --------------------------------------------------------- | ------------------------------------------------------------------------ |
+| log       | "convert C:\work\run.client"                              | Required: a Seagull log file                                             |
+| out       | "write the XML to C:\work\out"                            | Optional. It must be new or empty. Default: a new folder next to the log |
+| numbering | "one number for a request and its answer", "in log order" | `step` (default) or `sequence`. When the user does not say, use `step`   |
+| format    | "like the recorded steps", "as input for the generator"   | `avp` (default) or `steps`. When the user does not say, use `avp`        |
+| pretty    | "on one line", "without indentation"                      | `true` (default) or `false`. When the user does not say, use `true`      |
 
 The two numberings:
 
 - `step`: a request and its answer share one number, for example `001_sent_CCR.xml` and `001_received_CCA.xml`. An
   answer belongs to the open request of the opposite direction with the same cmd-code, Hop-by-Hop, and End-to-End
-  identifiers, so a received DWR and the DWA that answers it also share a number. The direction stays in the file name.
+  identifiers, so a received DWR and the DWA that answers it also share a number. The direction stays in the filename.
 - `sequence`: the messages are numbered in the order of the log, so a received DWR before the sent DWA shows in the
   numbers.
 
@@ -50,7 +50,7 @@ message. Don't write into a folder that holds files, and don't delete one; ask t
 
 ## What the files hold
 
-The file name is `NNN_sent_CCR.xml` or `NNN_received_CCA.xml`. The log names an answer after its request (`CCR`), so
+The filename is `NNN_sent_CCR.xml` or `NNN_received_CCA.xml`. The log names an answer after its request (`CCR`), so
 the script names an answer by its flags: without the R bit, a name that ends in R ends in A.
 
 Each file holds one message, in one of two forms.
