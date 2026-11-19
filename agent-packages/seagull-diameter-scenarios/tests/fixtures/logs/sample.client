@@ -1,4 +1,8 @@
 2026-01-01.10:00:00.001|A|START log
+2026-01-01.10:00:00.002|A|Configuration data:
+                       | |option_log_file  [../logs/sample.client]
+                       | |option_dico_file [@DICTIONARY@]
+                       | |option_scen_file [scenario.client.xml]
 2026-01-01.10:00:00.010|M|Received [[DWR
                        |M|[protocol-version] = [ 1]
                        |M|[msg-length] = [ 20]
@@ -44,6 +48,30 @@
                        |M| [3GPP-MS-TimeZone
                        |M| (avp-code = 23)(flags = 128)(Vendor-ID = 10415)] = [
                        |M| 21 00
+                       |M| ]
+                       |M| [Event-Timestamp
+                       |M| (avp-code = 55)(flags = 64)] = [4002098452]
+                       |M| [CC-Request-Type
+                       |M| (avp-code = 416)(flags = 64)] = [1]
+                       |M| [Origin-Host
+                       |M| (avp-code = 264)(flags = 64)] = [
+                       |M| 68 6f 73 74
+                       |M| ]
+                       |M| [Host-IP-Address
+                       |M| (avp-code = 257)(flags = 64)] = [
+                       |M| 00 01 c0 00 02 0a
+                       |M| ]
+                       |M| [MSC-Address
+                       |M| (avp-code = 281)(flags = 192)(Vendor-ID = 13421)] = [
+                       |M| 39 36
+                       |M| ]
+                       |M| [MSC-Address
+                       |M| (avp-code = 3417)(flags = 192)(Vendor-ID = 10415)] = [
+                       |M| ff 00
+                       |M| ]
+                       |M| [Unlisted-Avp
+                       |M| (avp-code = 99999)(flags = 0)] = [
+                       |M| 61 62
                        |M| ]
                        |M|]]
 2026-01-01.10:00:01.010|M|Received [[CCR

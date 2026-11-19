@@ -15,7 +15,7 @@ arguments. For an ordinary request in plain language, follow this page.
 ## Required inputs
 
 - **From the user:** the log file. Seagull is not started, and no setting is read.
-- **Optional:** the output folder (it must be new or empty), the numbering, the XML format, and pretty-printing.
+- **Optional:** the output folder (it must be new or empty), the numbering, the XML format, pretty-printing, and, for the `steps` format, a dictionary file.
 
 ## What to take from the request
 
@@ -26,6 +26,7 @@ arguments. For an ordinary request in plain language, follow this page.
 | numbering | "one number for a request and its answer", "in log order"  | `step` (default) or `sequence`. When the user does not say, use `step`       |
 | format    | "like the recorded steps", "as input for the generator"    | `avp` (default) or `steps`. When the user does not say, use `avp`            |
 | pretty    | "on one line", "without indentation"                       | `true` (default) or `false`. When the user does not say, use `true`          |
+| dictionary | "the dictionary is C:\work\diameter-dictionary.xml"       | Optional, for `steps` only: used when the file that the log names is missing |
 
 The two numberings:
 
@@ -42,11 +43,11 @@ Write every path in a command in quotes: single quotes keep a Windows path whole
 
 ```bash
 python <skill folder>/scripts/log_to_xml.py '<log>' [--out '<folder>'] [--numbering step|sequence] \
-    [--format avp|steps] [--pretty | --no-pretty]
+    [--format avp|steps] [--pretty | --no-pretty] [--dictionary '<file>']
 ```
 
-The script exits with 2 when the log does not exist or the folder is not empty, and with 1 when the log holds no
-message. Don't write into a folder that holds files, and don't delete one; ask the user for another folder.
+The script exits with 2 when the log does not exist or the folder is not empty, with 1 when the log holds no message,
+and with 3 when `--format steps` finds no dictionary. Don't write into a folder that holds files, and don't delete one; ask the user for another folder.
 
 ## What the files hold
 
@@ -64,15 +65,27 @@ tell a string from a number.
 
 **`steps`** has the form of the recorded steps that the scenario generator reads (see
 [the folder of recorded steps](../seagull-diameter-common/SKILL.md#the-folder-of-recorded-steps)): the command is the
-root element, each AVP is an element named as in the log, and a grouped AVP holds its members. The log has no
-dictionary, so this form is a best reading of it:
+root element, each AVP is an element named as in the log, and a grouped AVP holds its members. The log shows each
+value as Seagull printed it, and the Seagull dictionary says how to read it back:
 
-- A value of printable characters is written as text, and any other bytes as `0x` and the hex digits.
-- A number stays a number. An enumerated value is a number, not a name: the log does not hold the names.
-- `Event-Timestamp` is converted from seconds since 1900 to a date such as `2026-10-27 14:00:52 +0000 UTC`.
+- A `Time` is written as a date such as `2026-10-27 14:00:52 +0000 UTC`, an `Address` as an IP address, and a
+  `UTF8String` or a `DiameterIdentity` as text.
+- An `Enumerated` is written as the name of its value, when the dictionary lists the names in a `values:` comment above
+  the definition, as the dictionary converter writes them. Without the comment it stays a number.
+- An `OctetString` has no rule in the dictionary: printable bytes are text, and any other bytes are `0x` and the hex
+  digits. The same holds for an AVP that the dictionary does not define; the script lists such AVPs on stderr.
+- The definition of an AVP is found by its code and vendor, so two AVPs of one name from different vendors are read
+  each by its own type.
 - `3GPP-` at the start of an AVP name becomes `TGPP-`, because an XML name cannot start with a digit.
 - The root has no `Description` and no `Service`: they belong to the system that recorded the steps, and the log does
   not have them. Add them when the generator needs them.
+
+**The dictionary** is the file that the line `option_dico_file` at the start of the log names, the one Seagull ran
+with. When that file exists, the script uses it without a word. When it does not exist on this machine (the run was on
+another machine or in a container), the script says so on stderr and takes the file of `--dictionary`, and says so.
+Without a usable `--dictionary` it writes nothing and exits with 3: tell the user which path the log names and ask for
+a dictionary file; don't search the disk for one. `--dictionary` is ignored, with a line on stderr, when the file of the
+log exists and for the `avp` format.
 
 The files keep the names `NNN_sent_CCR.xml`. To read a folder with `check_steps.py` or the generator, pass the name
 templates, or rename the files to `Step-NNN-request.txt` and `Step-NNN-response.txt`.
