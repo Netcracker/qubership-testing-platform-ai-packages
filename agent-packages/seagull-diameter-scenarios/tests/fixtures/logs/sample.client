@@ -1,0 +1,61 @@
+2026-01-01.10:00:00.001|A|START log
+2026-01-01.10:00:00.010|M|Received [[DWR
+                       |M|[protocol-version] = [ 1]
+                       |M|[msg-length] = [ 20]
+                       |M|[flags] = [ 128]
+                       |M|[cmd-code] = [ 280]
+                       |M|[application-id] = [ 0]
+                       |M|[HbH-id] = [ 7]
+                       |M|[EtE-id] = [ 8]
+                       |M| [Origin-Host
+                       |M| (avp-code = 264)(flags = 64)] = [
+                       |M| 68 6f 73 74
+                       |M| ]
+                       |M|]
+]
+2026-01-01.10:00:00.011|M|Send [[DWR
+                       |M|[protocol-version] = [ 1]
+                       |M|[msg-length] = [ 0]
+                       |M|[flags] = [ 0]
+                       |M|[cmd-code] = [ 280]
+                       |M|[application-id] = [ 0]
+                       |M|[HbH-id] = [ 7]
+                       |M|[EtE-id] = [ 8]
+                       |M| [Result-Code
+                       |M| (avp-code = 268)(flags = 64)] = [2001]
+                       |M|]]
+2026-01-01.10:00:01.000|M|Send [[CCR
+                       |M|[protocol-version] = [ 1]
+                       |M|[msg-length] = [ 0]
+                       |M|[flags] = [ 128]
+                       |M|[cmd-code] = [ 272]
+                       |M|[application-id] = [ 4]
+                       |M|[HbH-id] = [ 1]
+                       |M|[EtE-id] = [ 2]
+                       |M| [Subscription-Id
+                       |M| (avp-code = 443)(flags = 64)] = [
+                       |M| | [Subscription-Id-Type
+                       |M| | (avp-code = 450)(flags = 64)] = [0]
+                       |M| | [Subscription-Id-Data
+                       |M| | (avp-code = 444)(flags = 64)] = [
+                       |M| | 39 36 36
+                       |M| | ]
+                       |M| ]
+                       |M| [3GPP-MS-TimeZone
+                       |M| (avp-code = 23)(flags = 128)(Vendor-ID = 10415)] = [
+                       |M| 21 00
+                       |M| ]
+                       |M|]]
+2026-01-01.10:00:01.010|M|Received [[CCR
+                       |M|[protocol-version] = [ 1]
+                       |M|[msg-length] = [ 0]
+                       |M|[flags] = [ 0]
+                       |M|[cmd-code] = [ 272]
+                       |M|[application-id] = [ 4]
+                       |M|[HbH-id] = [ 1]
+                       |M|[EtE-id] = [ 2]
+                       |M| [Result-Code
+                       |M| (avp-code = 268)(flags = 64)] = [2001]
+                       |M|]
+]
+2026-01-01.10:00:02.000|A|STOP  log

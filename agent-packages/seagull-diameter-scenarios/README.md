@@ -10,7 +10,7 @@ works, follow the [QA guide](docs/qa/README.md).
 
 ## Skills
 
-The first six skills are commands: the agent runs them only when you type their name, and takes their arguments
+The first seven skills are commands: the agent runs them only when you type their name, and takes their arguments
 literally. A task can also have a skill that the agent picks from a plain request. That skill does the work, and the
 command is a frontend for it with formal arguments. Every task has one:
 
@@ -22,21 +22,23 @@ command is a frontend for it with formal arguments. Every task has one:
 | [seagull-diameter-externalize-scenarios](.apm/skills/seagull-diameter-externalize-scenarios/SKILL.md) | `/seagull-diameter-scenario-externalize` |
 | [seagull-diameter-convert-dictionaries](.apm/skills/seagull-diameter-convert-dictionaries/SKILL.md)   | `/seagull-diameter-dictionary-convert`   |
 | [seagull-diameter-manage-settings](.apm/skills/seagull-diameter-manage-settings/SKILL.md)             | `/seagull-diameter-settings`             |
+| [seagull-diameter-convert-logs](.apm/skills/seagull-diameter-convert-logs/SKILL.md)                   | `/seagull-diameter-logs-convert`         |
 
 When a plain request starts a task, the package instruction
 [seagull-diameter-scenarios](.apm/instructions/seagull-diameter-scenarios.instructions.md) applies: the agent does not
 start Docker, replace files, or choose dictionaries, placeholders, or flags on its own, and it says how it understood
 your wording before it runs.
 
-| Skill                                                                                                | Purpose                                                                                                                                           |
-| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [/seagull-diameter-steps-extract](.apm/skills/seagull-diameter-steps-extract/SKILL.md)               | Turns a recorded run (an `xlsx` export, for example) into a folder of request and response files                                                  |
-| [/seagull-diameter-scenario-generate](.apm/skills/seagull-diameter-scenario-generate/SKILL.md)       | Turns that folder and one Seagull dictionary into scenarios or templates and configuration, then runs a dry run                                   |
-| [/seagull-diameter-scenario-templatize](.apm/skills/seagull-diameter-scenario-templatize/SKILL.md)   | Replaces the values of chosen AVPs in generated scenarios with `@@NAME@@` placeholders                                                            |
-| [/seagull-diameter-scenario-externalize](.apm/skills/seagull-diameter-scenario-externalize/SKILL.md) | Makes chosen AVPs read their values from an external CSV data file, one row for each call                                                         |
-| [/seagull-diameter-dictionary-convert](.apm/skills/seagull-diameter-dictionary-convert/SKILL.md)     | Converts the project's Diameter dictionaries into Seagull dictionaries, and can check them in the image                                           |
-| [/seagull-diameter-settings](.apm/skills/seagull-diameter-settings/SKILL.md)                         | Shows the settings and the options of the converted dictionary, or saves the runner, the path of `seagull.exe`, the image, or the dictionary file |
-| [seagull-diameter-common](.apm/skills/seagull-diameter-common/SKILL.md)                              | Shared scripts and the format of the folder. Not a task; the agent never invokes it                                                               |
+| Skill                                                                                                | Purpose                                                                                                                                                                            |
+| ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [/seagull-diameter-steps-extract](.apm/skills/seagull-diameter-steps-extract/SKILL.md)               | Turns a recorded run (an `xlsx` export, for example) into a folder of request and response files                                                                                   |
+| [/seagull-diameter-scenario-generate](.apm/skills/seagull-diameter-scenario-generate/SKILL.md)       | Turns that folder and one Seagull dictionary into scenarios or templates and configuration, then runs a dry run                                                                    |
+| [/seagull-diameter-scenario-templatize](.apm/skills/seagull-diameter-scenario-templatize/SKILL.md)   | Replaces the values of chosen AVPs in generated scenarios with `@@NAME@@` placeholders                                                                                             |
+| [/seagull-diameter-scenario-externalize](.apm/skills/seagull-diameter-scenario-externalize/SKILL.md) | Makes chosen AVPs read their values from an external CSV data file, one row for each call                                                                                          |
+| [/seagull-diameter-dictionary-convert](.apm/skills/seagull-diameter-dictionary-convert/SKILL.md)     | Converts the project's Diameter dictionaries into Seagull dictionaries, and can check them in the image                                                                            |
+| [/seagull-diameter-settings](.apm/skills/seagull-diameter-settings/SKILL.md)                         | Shows the settings and the options of the converted dictionary, or saves the runner, the path of `seagull.exe`, the image, or the dictionary file                                  |
+| [/seagull-diameter-logs-convert](.apm/skills/seagull-diameter-logs-convert/SKILL.md)                 | Writes each Diameter message of a Seagull log (`*.client`, `*.stub`) to its own XML file, numbered by step or by log order, as a message tree or in the form of the recorded steps |
+| [seagull-diameter-common](.apm/skills/seagull-diameter-common/SKILL.md)                              | Shared scripts and the format of the folder. Not a task; the agent never invokes it                                                                                                |
 
 ```mermaid
 flowchart LR
