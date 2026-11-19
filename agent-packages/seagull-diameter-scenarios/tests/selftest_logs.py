@@ -16,16 +16,19 @@ from __future__ import annotations
 import importlib
 import io
 import shutil
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from xml.etree import ElementTree
 
+SKILLS = Path(__file__).resolve().parents[1] / ".apm" / "skills"
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 LOG = FIXTURES / "logs" / "sample.client"
 DICTIONARY = FIXTURES / "seagull" / "log_dictionary.xml"
 MISSING = "/no/such/dictionary.xml"
+sys.path.insert(0, str(SKILLS / "seagull-diameter-convert-logs" / "scripts"))
 log_to_xml = importlib.import_module("log_to_xml")
 
 
@@ -118,10 +121,6 @@ class LogToXmlTest(unittest.TestCase):
     def test_seconds_since_1900_become_a_date(self) -> None:
         """The date format is the one of the recorded steps."""
         self.assertEqual(log_to_xml.ntp_date(4002098452), "2026-10-27 14:00:52 +0000 UTC")
-
-
-class StepsFormatTest(unittest.TestCase):
-    """The steps format writes each value by the type that the dictionary gives."""
 
     def steps(self, *extra: str, logged: str | None = None) -> tuple[int, Path, str]:
         """Convert to the steps format; return the status, the output folder, the errors."""

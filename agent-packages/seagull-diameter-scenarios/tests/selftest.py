@@ -9,8 +9,8 @@ the answer, the dynamic tags, placeholders, templates, the conversion of a ready
 scenario into a template, and the failure on an AVP that no dictionary has. The tests
 of the dictionary conversion are in selftest_dictionaries.py, and those of the XSD
 validator (which need Java) in selftest_validator.py, those of the SKILL.md files in
-selftest_skills.py, those of the settings and the Windows runner in selftest_runner.py, and
-those of the log-to-XML script in selftest_logs.py; this file imports all five. The dry run and the check of the converted dictionaries in the
+selftest_skills.py, and those of the settings and the Windows runner in selftest_runner.py;
+those of the log-to-XML script are in selftest_logs.py. The dry run and the check of the converted dictionaries in the
 Seagull image run only when the environment variable SEAGULL_IMAGE names an image and `sh`
 and `docker` work. The runs with Seagull for Windows need SEAGULL_EXE.
 
@@ -41,7 +41,6 @@ sys.path.insert(0, str(SKILLS / "seagull-diameter-common" / "scripts"))
 sys.path.insert(0, str(GENERATE_DIR))
 sys.path.insert(0, str(TEMPLATIZE_DIR))
 sys.path.insert(0, str(SKILLS / "seagull-diameter-externalize-scenarios" / "scripts"))
-sys.path.insert(0, str(SKILLS / "seagull-diameter-convert-logs" / "scripts"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 check_steps = importlib.import_module("check_steps")
 steps_format = importlib.import_module("steps_format")
@@ -58,9 +57,7 @@ FlagOptionsTest = dictionary_tests.FlagOptionsTest
 CheckConvertedTest = dictionary_tests.CheckConvertedTest
 ValidatorTest = importlib.import_module("selftest_validator").ValidatorTest
 SkillStructureTest = importlib.import_module("selftest_skills").SkillStructureTest
-log_tests = importlib.import_module("selftest_logs")
-LogToXmlTest = log_tests.LogToXmlTest
-StepsFormatTest = log_tests.StepsFormatTest
+LogToXmlTest = importlib.import_module("selftest_logs").LogToXmlTest
 runner_tests = importlib.import_module("selftest_runner")
 ConfigTest = runner_tests.ConfigTest
 SeagullRunTest = runner_tests.SeagullRunTest
