@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!-- Invented test data for selftest_logs.py: a Seagull dictionary with a few AVPs of each type, not a real one. -->
+<protocol name="diameter-v1" type="binary" padding="4">
+
+  <dictionary>
+    <avp>
+      <define name="Host-IP-Address" type="Address">
+        <setfield name="avp-code" value="257"></setfield>
+        <setfield name="flags" value="64"></setfield>
+      </define>
+      <define name="Origin-Host" type="DiameterIdentity">
+        <setfield name="avp-code" value="264"></setfield>
+        <setfield name="flags" value="64"></setfield>
+      </define>
+      <define name="Result-Code" type="Unsigned32">
+        <setfield name="avp-code" value="268"></setfield>
+        <setfield name="flags" value="64"></setfield>
+      </define>
+      <define name="Event-Timestamp" type="Time">
+        <setfield name="avp-code" value="55"></setfield>
+        <setfield name="flags" value="64"></setfield>
+      </define>
+      <!-- values: INITIAL_REQUEST=1, UPDATE_REQUEST=2, TERMINATION_REQUEST=3, EVENT_REQUEST=4 -->
+      <define name="CC-Request-Type" type="Enumerated">
+        <setfield name="avp-code" value="416"></setfield>
+        <setfield name="flags" value="64"></setfield>
+      </define>
+      <!-- members: Subscription-Id-Type, Subscription-Id-Data -->
+      <define name="Subscription-Id" type="Grouped">
+        <setfield name="avp-code" value="443"></setfield>
+        <setfield name="flags" value="64"></setfield>
+      </define>
+      <define name="Subscription-Id-Type" type="Enumerated">
+        <setfield name="avp-code" value="450"></setfield>
+        <setfield name="flags" value="64"></setfield>
+      </define>
+      <define name="Subscription-Id-Data" type="UTF8String">
+        <setfield name="avp-code" value="444"></setfield>
+        <setfield name="flags" value="64"></setfield>
+      </define>
+      <define name="MSC-Address" type="OctetString">
+        <setfield name="avp-code" value="3417"></setfield>
+        <setfield name="flags" value="192"></setfield>
+        <setfield name="Vendor-ID" value="10415"></setfield>
+      </define>
+      <define name="MSC-Address" type="UTF8String">
+        <setfield name="avp-code" value="281"></setfield>
+        <setfield name="flags" value="192"></setfield>
+        <setfield name="Vendor-ID" value="13421"></setfield>
+      </define>
+      <define name="3GPP-MS-TimeZone" type="OctetString">
+        <setfield name="avp-code" value="23"></setfield>
+        <setfield name="flags" value="128"></setfield>
+        <setfield name="Vendor-ID" value="10415"></setfield>
+      </define>
+    </avp>
+  </dictionary>
+
+</protocol>

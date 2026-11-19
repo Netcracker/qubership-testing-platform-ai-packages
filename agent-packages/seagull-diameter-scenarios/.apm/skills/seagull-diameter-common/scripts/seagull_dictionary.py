@@ -81,6 +81,11 @@ def read_definitions(path: Path) -> dict[str, list[Definition]]:
     return by_name
 
 
+def read_by_code(path: Path) -> dict[tuple[int, int], Definition]:
+    """Return {(vendor, code): definition} for every AVP definition of a dictionary."""
+    return {(d.vendor_id, d.code): d for group in read_definitions(path).values() for d in group}
+
+
 def command_names_of(root: ElementTree.Element) -> set[str]:
     """Return the names of the commands that a Seagull dictionary defines."""
     return {d.get("name", "") for d in root.findall("./dictionary/command/define")}
