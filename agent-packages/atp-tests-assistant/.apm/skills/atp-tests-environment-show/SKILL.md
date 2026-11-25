@@ -48,7 +48,7 @@ If the user wrote `environments/<name>.yaml`, pass `<name>`.
   that full name.
 
 The repository and the branch are `GITLAB_URL`, `GITLAB_PROJECT_ID`, and `GITLAB_REF` of the config, as for
-[atp-tests-list-environments](../atp-tests-list-environments/SKILL.md).
+[atp-tests-environments-list](../atp-tests-environments-list/SKILL.md).
 
 The token is the environment variable `GITLAB_TOKEN`, or the first line of `.tdm-assistant/gitlab-token`. Without a
 token the script asks GitLab anonymously, which works for a public repository. Never ask the user for the token in the
@@ -60,7 +60,7 @@ chat, and never open the token file.
 | ---------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | A heading and a `yaml` block             | Show it as printed.                                                                             |
 | `N environments match ... Specify one`   | Show the list as printed and ask which one is meant. Don't choose for the user.                 |
-| `No environment matches ...`             | Say that nothing matched. Offer to list the environments with atp-tests-list-environments.      |
+| `No environment matches ...`             | Say that nothing matched. Offer to list the environments with atp-tests-environments-list.      |
 | `runtime_config_missing`                 | No current environment is set. Say where `PIPELINE_RUNTIME_CONFIG` goes, or ask for a name.     |
 | `environment_file_missing`               | The file that the message names does not exist on the branch. Offer to list the environments.   |
 | `gitlab_settings_missing`                | The message names the missing keys. Tell the user where they go.                                |

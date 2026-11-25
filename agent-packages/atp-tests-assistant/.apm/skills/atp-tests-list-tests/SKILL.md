@@ -1,74 +1,41 @@
 ---
 name: atp-tests-list-tests
-description: Use when the user asks to show, list, or find the tests of the project's test repository, for example "show all tests", "list the tests in the folder Billing", or "tests with login in the name". Lists the Playwright test files (*.ts) under TestGeneration/tests/TestScenario of the repository, sorted by name, as a nested list.
-user-invocable: false
+description: Use only when the user types /atp-tests-list-tests. Lists the Playwright test files (*.ts) of the project's test repository as a nested list, optionally for one folder, with a part of the filename, or as a table.
+disable-model-invocation: true
+argument-hint: "[folder=<name> | folder=/<path>] [name=<text>] [format=tree|table] [repo=<url>] [branch=<branch>] | help"
+metadata:
+  opencode/autoinvoke: "false"
 ---
 
-# List the tests of the test repository
+# /atp-tests-list-tests
 
-The project's tests are Playwright files (`*.ts`) in a GitLab repository. The repository template puts all of them
-under `TestGeneration/tests/TestScenario`, in folders that can nest to any depth. A script reads that folder from the
-GitLab API, applies the filters, sorts the files by name, and prints the answer. The agent builds no request, reads
-no token, and does not clone the repository.
+A command frontend for [atp-tests-tests-list](../atp-tests-tests-list/SKILL.md). It reads the user's arguments
+literally and runs the script that skill describes; the options, the output, and the errors stay there. For an ordinary
+request in plain language ("show all tests"), follow atp-tests-tests-list directly instead.
 
-## Run
+## Arguments
 
-```bash
-python <skill folder>/scripts/list_tests.py [--folder NAME | --under PATH] [--name TEXT] [--format tree|table]
-                                            [--repo URL] [--branch BRANCH]
+```text
+/atp-tests-list-tests [folder=<name> | folder=/<path>] [name=<text>] [format=tree|table] [repo=<url>] [branch=<branch>]
 ```
 
-Run the script from the project folder, so that it finds `.tdm-assistant/config.json`. If `python` isn't found, try
-`python3` or `py -3`. Quote each value for the shell.
+| Argument              | Meaning                                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `folder=<name>`       | The tests in every folder called `<name>`, at any depth under `TestScenario`, ignoring case.                  |
+| `folder=/<path>`      | The tests in `<path>`, counted from `TestScenario`, such as `folder=/Billing` or `folder=/A/B`.               |
+| `name=<text>`         | Only the files whose name contains `<text>`, ignoring case. With `*` or `?`, a mask for the name.             |
+| `format=table`        | A table with one row for each file. The default, `format=tree`, is a nested list.                             |
+| `repo=<url>`          | The test repository. Default: `ATP_TESTS_GIT_REPO_URL` of the variables file.                                 |
+| `branch=<branch>`     | The branch. Default: `ATP_TESTS_GIT_REPO_BRANCH` of the file; with `repo=` and no branch, the default branch. |
 
-The script prints the answer in Markdown, ready to show. Print it to the user exactly as it is: don't reorder,
-shorten, or rewrite it, and don't add the files you think are missing. You may add one sentence after it. An error
-comes as one JSON object on stderr with exit status 1; report its `message` and the remedy it names.
+Put a value with spaces in double quotes: `name="create customer"`. With no argument, the command lists all tests.
 
-## Map the request to options
+## Behavior
 
-| User says                                                    | Option                             |
-| ------------------------------------------------------------ | ---------------------------------- |
-| "all tests", "show the tests"                                | none                               |
-| "in the folder Name", "in Name" (no leading slash)           | `--folder Name`                    |
-| "in the folder /Name", "directly under TestScenario/Name"    | `--under Name`                     |
-| "in /A/B"                                                    | `--under A/B`                      |
-| "with `text` in the name", "named like `text`"               | `--name text`                      |
-| "named `*login*.ts`", a mask with `*` or `?`                 | `--name "<mask>"`                  |
-| "as a table"                                                 | `--format table`                   |
-| a repository or a branch in the request                      | `--repo <url>`, `--branch <name>`  |
-
-- `--folder Name` finds every folder called `Name` at any depth under `TestScenario`, ignoring case, and lists the
-  tests in it and in its subfolders. When several folders have that name, the answer shows each one with its path.
-- `--under PATH` counts the path from `TestScenario`. Pass it without a leading slash: a Windows shell turns `/Name`
-  into a drive path.
-- `--name TEXT` keeps the files whose name contains `TEXT`, ignoring case. A value with `*` or `?` is a mask for the
-  whole filename.
-- The filters combine: the folder narrows the search, and the name filters the files in it.
-- The default output is a nested list, folders in bold and files in code font. Use the table only when the user
-  asks for it.
-
-Don't guess a folder or a name that the user didn't give. When the request is ambiguous, for example "tests for
-customers" with no word that names a folder or a file, ask which one is meant.
-
-## Where the repository comes from
-
-Without `--repo`, the script takes `ATP_TESTS_GIT_REPO_URL` and `ATP_TESTS_GIT_REPO_BRANCH` from the variables file that
-`GENERATE_VARIABLES_FILE` names in `.tdm-assistant/config.json`, the file that tdm-generate-test-data uses. With `--repo`
-and no `--branch`, the script reads the default branch of that repository. When the script reports `repo_missing`,
-tell the user to give the repository in the request or to select the context first.
-
-The token is the environment variable `GITLAB_TOKEN`, or the first line of `.tdm-assistant/gitlab-token`. Without a
-token the script asks GitLab anonymously, which works for a public repository. Never ask the user for the token in the
-chat, and never open the token file.
-
-## Result and errors
-
-| Result                            | Say                                                                                                     |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| A list or a table                 | Show it as printed.                                                                                     |
-| `No test files (*.ts) found...`   | Say that nothing matched, and repeat the filters the line names. Offer to loosen one.                   |
-| `folder_not_found`                | Say that the folder doesn't exist under `TestScenario`. Offer to list the folders at the top.           |
-| `tests_folder_missing`            | The repository or the branch lacks `TestGeneration/tests/TestScenario`. Say which, as the message does. |
-| `repo_inaccessible`               | The repository doesn't exist, or the token is missing or can't read it. Give the message's remedy.      |
-| `server_unreachable`              | GitLab can't be reached. Say so; don't retry in a loop.                                                 |
+- When the only argument is `help`, `--help`, `-h`, or `?`, run no script. Print the usage from the "Arguments"
+  section above, the syntax line and the table of arguments, and nothing else.
+- Map `folder=<name>` to `--folder <name>`, and `folder=/<path>` to `--under <path>` without the leading slash. Map
+  `name=`, `format=`, `repo=`, and `branch=` to the options of the same name.
+- When an argument can't be parsed unambiguously, or one is unknown, run nothing. Reply with the corrected command
+  and let the user send it or change it.
+- Run the script, and show its output as atp-tests-tests-list describes. Report the errors as it describes.

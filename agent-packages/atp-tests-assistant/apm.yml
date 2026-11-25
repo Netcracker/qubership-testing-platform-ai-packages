@@ -1,4 +1,4 @@
 name: atp-tests-assistant
-version: 0.3.0
+version: 0.4.0
 description: Skills that read the project's repositories in GitLab, a sorted list of its Playwright test files, the list of the environments of its GitLab pipeline, and the description of one environment.
 author: Qubership

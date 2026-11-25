@@ -13,12 +13,12 @@ To install the package and run the skills, follow the [user guide](docs/user-gui
 A task has a plain-language skill, which the agent picks from an ordinary request, and a command, which the agent runs
 only when you type its name. The command is a frontend for the skill with formal arguments.
 
-| Plain-language skill                                                            | The command it serves         | Purpose                                                                         |
-| ------------------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------- |
-| [atp-tests-list-tests](.apm/skills/atp-tests-list-tests/SKILL.md)               | `/atp-tests-list`             | Lists the test files under `TestGeneration/tests/TestScenario`                  |
-| [atp-tests-list-environments](.apm/skills/atp-tests-list-environments/SKILL.md) | `/atp-tests-environments`     | Lists the environments of the GitLab pipeline, optionally by a part of the name |
-| [atp-tests-environment-show](.apm/skills/atp-tests-environment-show/SKILL.md)   | `/atp-tests-show-environment` | Shows the YAML file of one environment of the pipeline                          |
-| [atp-tests-common](.apm/skills/atp-tests-common/SKILL.md)                       |                               | Shared script code. Not a task; the agent never invokes it                      |
+| Plain-language skill                                                            | The command it serves          | Purpose                                                                         |
+| ------------------------------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------- |
+| [atp-tests-tests-list](.apm/skills/atp-tests-tests-list/SKILL.md)               | `/atp-tests-list-tests`        | Lists the test files under `TestGeneration/tests/TestScenario`                  |
+| [atp-tests-environments-list](.apm/skills/atp-tests-environments-list/SKILL.md) | `/atp-tests-list-environments` | Lists the environments of the GitLab pipeline, optionally by a part of the name |
+| [atp-tests-environment-show](.apm/skills/atp-tests-environment-show/SKILL.md)   | `/atp-tests-show-environment`  | Shows the YAML file of one environment of the pipeline                          |
+| [atp-tests-common](.apm/skills/atp-tests-common/SKILL.md)                       |                                | Shared script code. Not a task; the agent never invokes it                      |
 
 The package instruction
 [atp-tests-assistant](.apm/instructions/atp-tests-assistant.instructions.md) applies to a plain request: the agent

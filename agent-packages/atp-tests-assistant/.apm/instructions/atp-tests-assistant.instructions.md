@@ -8,7 +8,7 @@ applyTo: "**/*"
 These rules hold when the user asks about the tests of the project's test repository, or about the environments of the
 project's GitLab pipeline, in plain language ("show all tests", "which tests are in the folder Billing", "show the
 environments for the pipeline", "show the description of the current environment") and an `atp-tests-*` skill applies.
-A command such as `/atp-tests-list` carries the user's explicit arguments and follows its own page.
+A command such as `/atp-tests-list-tests` carries the user's explicit arguments and follows its own page.
 
 - **Use the script.** Take the list of tests, the list of environments, or the description of an environment from the
   skill's script. Don't clone the repository, don't search the disk for a copy of it, and don't answer from files you

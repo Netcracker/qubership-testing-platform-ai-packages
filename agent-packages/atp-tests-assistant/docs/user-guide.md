@@ -18,8 +18,9 @@ read it.
 1. If the project already uses the tdm-test-data-assistant package, nothing else is needed for the repository: the
    script reads `ATP_TESTS_GIT_REPO_URL` and `ATP_TESTS_GIT_REPO_BRANCH` from the variables file that
    `GENERATE_VARIABLES_FILE` names in `.tdm-assistant/config.json`.
-2. Without that package, give the repository in the request or the command: `/atp-tests-list repo=<url> branch=<branch>`.
-   With `repo=` and no `branch=`, the script reads the default branch of that repository.
+2. Without that package, give the repository in the request or the command:
+   `/atp-tests-list-tests repo=<url> branch=<branch>`. With `repo=` and no `branch=`, the script reads the default
+   branch of that repository.
 3. Set the token in the environment variable `GITLAB_TOKEN`, or put it on the first line of
    `.tdm-assistant/gitlab-token`. The token needs the right to read the repository. Never paste it into the chat: the
    script reads it, and the agent never does.
@@ -30,13 +31,13 @@ Without a token the script asks GitLab anonymously, which works for a public rep
 
 Ask in plain language, or type the command:
 
-| You write                                         | Command                                       |
-| ------------------------------------------------- | --------------------------------------------- |
-| Show all tests                                    | `/atp-tests-list`                             |
-| Show the tests in the folder Billing              | `/atp-tests-list folder=Billing`              |
-| Show the tests in the folder /Billing             | `/atp-tests-list folder=/Billing`             |
-| Show the tests with `create` in the name          | `/atp-tests-list name=create`                 |
-| Show the tests in the folder Billing, as a table  | `/atp-tests-list folder=Billing format=table` |
+| You write                                        | Command                                             |
+| ------------------------------------------------ | --------------------------------------------------- |
+| Show all tests                                   | `/atp-tests-list-tests`                             |
+| Show the tests in the folder Billing             | `/atp-tests-list-tests folder=Billing`              |
+| Show the tests in the folder /Billing            | `/atp-tests-list-tests folder=/Billing`             |
+| Show the tests with `create` in the name         | `/atp-tests-list-tests name=create`                 |
+| Show the tests in the folder Billing, as a table | `/atp-tests-list-tests folder=Billing format=table` |
 
 All tests are `*.ts` files under `TestGeneration/tests/TestScenario`, and the answer shows them sorted by name, ignoring
 case, at every level. A folder lists its own files first and its subfolders after them. A folder with no matching
@@ -71,14 +72,14 @@ The environments of the GitLab pipeline are the YAML files in the `environments`
 name of an environment is the filename without `.yaml`. They are not the environments of the TDM3 service. A project
 can have hundreds of them, so you can keep only the names that contain a text.
 
-| You write                                          | Command                                 |
-| -------------------------------------------------- | --------------------------------------- |
-| Show the list of environments for the pipeline     | `/atp-tests-environments`               |
-| Show the pipeline environments that contain `prod` | `/atp-tests-environments name=prod`     |
+| You write                                          | Command                                  |
+| -------------------------------------------------- | ---------------------------------------- |
+| Show the list of environments for the pipeline     | `/atp-tests-list-environments`           |
+| Show the pipeline environments that contain `prod` | `/atp-tests-list-environments name=prod` |
 
 The command reads `GITLAB_URL`, `GITLAB_PROJECT_ID`, and `GITLAB_REF` from `.tdm-assistant/config.json`, the settings
 that tdm-generate-test-data uses to start the pipeline. Without that package, give them in the command:
-`/atp-tests-environments url=<gitlab url> project=<id> ref=<branch>`. The token is set as described in
+`/atp-tests-list-environments url=<gitlab url> project=<id> ref=<branch>`. The token is set as described in
 [Set up the repository and the token](#set-up-the-repository-and-the-token).
 
 The answer lists the names, sorted ignoring case, without `environments/` and without `.yaml`:
