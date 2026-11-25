@@ -47,7 +47,8 @@ Don't guess a part of the name that the user didn't give.
 
 The value that selects the environment in the pipeline is `environments/<name>.yaml`, the `PIPELINE_RUNTIME_CONFIG`
 variable of tdm-generate-test-data. Say that value when the user asks for it or chooses a name. Choosing a name starts
-nothing.
+nothing. To show what an environment contains, follow
+[atp-tests-environment-show](../atp-tests-environment-show/SKILL.md).
 
 ## Where the repository comes from
 

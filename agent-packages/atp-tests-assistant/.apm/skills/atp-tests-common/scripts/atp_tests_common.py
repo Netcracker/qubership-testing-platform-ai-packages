@@ -31,6 +31,9 @@ REQUEST_TIMEOUT = 30
 MAX_PAGES = 500
 LINK_NEXT = re.compile(r'<([^>]+)>\s*;\s*rel="next"')
 SCP_URL = re.compile(r"[\w.-]+@([\w.-]+):(.+)")
+ENVIRONMENTS_FOLDER = "environments"
+ENVIRONMENT_SUFFIX = ".yaml"
+PIPELINE_SETTINGS = (("url", "GITLAB_URL"), ("project", "GITLAB_PROJECT_ID"), ("ref", "GITLAB_REF"))
 
 
 class GitLabError(Exception):
@@ -165,21 +168,46 @@ def split_repo_url(repo, gitlab_url=""):
     return base, path
 
 
-def get_page(url, token):
-    """Send one GET request and return the decoded JSON and the Link header; raise GitLabError."""
+def send(url, token):
+    """Send one GET request and return the body and the Link header; raise GitLabError."""
     headers = {"PRIVATE-TOKEN": token} if token else {}
     request = urllib.request.Request(url, headers=headers, method="GET")
     try:
         with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT) as response:
-            link = response.headers.get("Link") or ""
-            return json.loads(response.read().decode("utf-8")), link
+            return response.read(), response.headers.get("Link") or ""
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", "replace")[:300]
         raise GitLabError("http_error", f"HTTP {exc.code} from GitLab", status=exc.code, body=body) from exc
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         raise GitLabError("server_unreachable", f"Cannot reach GitLab: {exc}") from exc
     except ValueError as exc:
+        raise GitLabError("http_error", f"Cannot send the request to GitLab: {exc}") from exc
+
+
+def get_page(url, token):
+    """Send one GET request and return the decoded JSON and the Link header; raise GitLabError."""
+    body, link = send(url, token)
+    try:
+        return json.loads(body.decode("utf-8")), link
+    except ValueError as exc:
         raise GitLabError("http_error", f"The GitLab response is not JSON: {exc}") from exc
+
+
+def project_url(base, project_path, endpoint, query):
+    """Return the API URL of a project endpoint; the project is a numeric ID or a path."""
+    quoted = urllib.parse.quote(project_path, safe="")
+    return f"{base}/api/v4/projects/{quoted}{endpoint}?{urllib.parse.urlencode(query)}"
+
+
+def get_file(base, project_path, file_path, ref, token):
+    """Return the text of one file of the repository on the branch ref; raise GitLabError.
+
+    The text is read as UTF-8 without the byte order mark, and a byte that is not UTF-8
+    becomes the replacement character.
+    """
+    endpoint = f"/repository/files/{urllib.parse.quote(file_path, safe='')}/raw"
+    body, _ = send(project_url(base, project_path, endpoint, {"ref": ref}), token)
+    return body.decode("utf-8-sig", "replace")
 
 
 def get_all(base, project_path, endpoint, query, token):
@@ -188,8 +216,7 @@ def get_all(base, project_path, endpoint, query, token):
     The token goes only to the host of base: a next link to another host is refused.
     Raises GitLabError.
     """
-    quoted = urllib.parse.quote(project_path, safe="")
-    url = f"{base}/api/v4/projects/{quoted}{endpoint}?{urllib.parse.urlencode(query)}"
+    url = project_url(base, project_path, endpoint, query)
     host = urllib.parse.urlsplit(base).netloc.lower()
     items = []
     for _ in range(MAX_PAGES):
@@ -204,3 +231,57 @@ def get_all(base, project_path, endpoint, query, token):
                 "http_error", "GitLab sent a next-page link to another host; the script did not follow it."
             )
     raise GitLabError("too_many_pages", f"The answer has more than {MAX_PAGES} pages.")
+
+
+def add_pipeline_arguments(parser):
+    """Add --url, --project, and --ref, which name the pipeline repository."""
+    parser.add_argument("--url", help="base URL of GitLab; overrides GITLAB_URL")
+    parser.add_argument("--project", help="numeric ID or path of the pipeline project; overrides GITLAB_PROJECT_ID")
+    parser.add_argument("--ref", help="branch to read; overrides GITLAB_REF")
+
+
+def resolve_pipeline(args, config):
+    """Return the GitLab URL, the project, and the branch of the pipeline, or fail naming what is missing."""
+    values = {key: str(getattr(args, option) or config.get(key) or "").strip() for option, key in PIPELINE_SETTINGS}
+    missing = [key for key, value in values.items() if not value]
+    if missing:
+        fail(
+            "gitlab_settings_missing",
+            "Missing: " + ", ".join(missing) + ". Set them in .tdm-assistant/config.json, "
+            "or give --url, --project, and --ref.",
+        )
+    return values["GITLAB_URL"].rstrip("/"), values["GITLAB_PROJECT_ID"], values["GITLAB_REF"]
+
+
+def fail_request(exc, where, token) -> NoReturn:
+    """Fail for a GitLabError of a pipeline request; 401, 403, and 404 become repo_inaccessible."""
+    if exc.status in (401, 403, 404):
+        remedy = "Check the token." if token else "Set GITLAB_TOKEN or fill .tdm-assistant/gitlab-token."
+        fail("repo_inaccessible", f"GitLab answered HTTP {exc.status} for {where}. {remedy}")
+    fail(exc.code, f"{exc.message} ({where}) {exc.body}".strip())
+
+
+def read_environments(base, project, ref, token):
+    """Return {name: filename} of the YAML files in the environments folder, sorted by name ignoring case.
+
+    The name is the filename without .yaml. Fails with a message for the user when the
+    folder cannot be read.
+    """
+    query = {"path": ENVIRONMENTS_FOLDER, "ref": ref, "per_page": "100"}
+    try:
+        entries = get_all(base, project, "/repository/tree", query, token)
+    except GitLabError as exc:
+        where = f"{base}, project {project}"
+        if exc.status == 404 and "Tree Not Found" in exc.body:
+            fail(
+                "environments_folder_missing",
+                f"The folder {ENVIRONMENTS_FOLDER} does not exist in {where}, branch {ref}, "
+                "or the branch does not exist.",
+            )
+        fail_request(exc, where, token)
+    files = {
+        entry["name"][: -len(ENVIRONMENT_SUFFIX)]: entry["name"]
+        for entry in entries
+        if entry.get("type") == "blob" and entry.get("name", "").lower().endswith(ENVIRONMENT_SUFFIX)
+    }
+    return {name: files[name] for name in sorted(files, key=lambda name: (name.lower(), name))}

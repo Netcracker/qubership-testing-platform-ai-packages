@@ -2,11 +2,11 @@
 
 Run: python tests/selftest.py
 
-It starts a fake GitLab on localhost that answers the repository tree request, runs
-list_tests.py and list_environments.py against it, and checks the output: the sorting, the
-nesting, the filters, the table, the pagination, the source of the repository and the
-branch, the token, and the errors. How the agent reads a request in plain language is not
-tested.
+It starts a fake GitLab on localhost that answers the repository tree and file requests,
+runs list_tests.py, list_environments.py, and show_environment.py against it, and checks
+the output: the sorting, the nesting, the filters, the table, the pagination, the search
+for an environment, the source of the repository and the branch, the token, and the
+errors. How the agent reads a request in plain language is not tested.
 
 Requires Python 3.9 or later.
 """
@@ -22,12 +22,13 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import ClassVar
-from urllib.parse import parse_qs, urlencode, urlsplit
+from urllib.parse import parse_qs, unquote, urlencode, urlsplit
 
 sys.dont_write_bytecode = True  # keep __pycache__ out of the package
 SKILLS = Path(__file__).resolve().parents[1] / ".apm" / "skills"
 SCRIPT = SKILLS / "atp-tests-list-tests" / "scripts" / "list_tests.py"
 ENV_SCRIPT = SKILLS / "atp-tests-list-environments" / "scripts" / "list_environments.py"
+SHOW_SCRIPT = SKILLS / "atp-tests-environment-show" / "scripts" / "show_environment.py"
 ROOT = "TestGeneration/tests/TestScenario"
 PAGE_SIZE = 3
 TOKEN = "secret-token-value"
@@ -70,8 +71,13 @@ def environment_entries():
     return entries
 
 
+def file_content(path):
+    """Return the content the fake GitLab holds in a file, with a non-ASCII text and a code fence."""
+    return f"# {path}\r\nname: Окружение\r\nnote: |\r\n  ```\r\n"
+
+
 class FakeGitLab(BaseHTTPRequestHandler):
-    """Answer GET /api/v4/projects/<id>/repository/tree like GitLab, three entries a page."""
+    """Answer the repository tree requests, three entries a page, and the raw file requests, like GitLab."""
 
     requests: ClassVar[list] = []
 
@@ -79,7 +85,7 @@ class FakeGitLab(BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):  # pylint: disable=invalid-name
-        """Serve one page of the tree, or an error chosen by the project path."""
+        """Serve one page of the tree or one file, or an error chosen by the project path."""
         url = urlsplit(self.path)
         query = parse_qs(url.query)
         FakeGitLab.requests.append((url.path, query, self.headers.get("PRIVATE-TOKEN")))
@@ -88,6 +94,8 @@ class FakeGitLab(BaseHTTPRequestHandler):
             return self.reply(404, {"message": "404 Project Not Found"})
         if project == "group%2Fsecured" and self.headers.get("PRIVATE-TOKEN") != TOKEN:
             return self.reply(401, {"message": "401 Unauthorized"})
+        if "/repository/files/" in url.path:
+            return self.reply_file(unquote(url.path.split("/")[7]), query.get("ref", [""])[0])
         if query.get("ref", [""])[0] == "nobranch" or project == "group%2Fnotests":
             return self.reply(404, {"message": "404 Tree Not Found"})
         entries = environment_entries() if query.get("path") == ["environments"] else tree_entries()
@@ -101,9 +109,21 @@ class FakeGitLab(BaseHTTPRequestHandler):
             link = f'<{host}{url.path}?{urlencode({**fields, "page": page + 1})}>; rel="next"'
         return self.reply(200, entries[first:last], link)
 
+    def reply_file(self, path, ref):
+        """Send the raw content of a listed environment file, or GitLab's 404 for it."""
+        listed = {entry["path"] for entry in environment_entries() if entry["type"] == "blob"}
+        if ref == "nobranch":
+            return self.reply(404, {"message": "404 Commit Not Found"})
+        if path not in listed:
+            return self.reply(404, {"message": "404 File Not Found"})
+        return self.send_body(200, file_content(path).encode("utf-8-sig"))
+
     def reply(self, status, payload, link=None):
         """Send a JSON answer with an optional Link header."""
-        body = json.dumps(payload).encode("utf-8")
+        self.send_body(status, json.dumps(payload).encode("utf-8"), link)
+
+    def send_body(self, status, body, link=None):
+        """Send the bytes of an answer."""
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         if link:
@@ -459,6 +479,101 @@ class EnvironmentsCase(ScriptCase):
         error = self.error_of("--project", "group/secured")
         self.assertEqual(error["error"], "repo_inaccessible")
         self.assertIn("GITLAB_TOKEN", error["message"])
+
+
+class ShowEnvironmentCase(ScriptCase):
+    """show_environment.py: the current environment, the search by name, and the errors."""
+
+    script = SHOW_SCRIPT
+
+    def write_pipeline_config(self, current="environments/atp3prod_dyn-CI-Ivory.yaml", project="7", ref="main"):
+        """Write the GITLAB_* keys and a variables file that holds PIPELINE_RUNTIME_CONFIG."""
+        folder = self.project / ".tdm-assistant"
+        folder.mkdir()
+        config = {
+            "GITLAB_URL": self.url,
+            "GITLAB_PROJECT_ID": project,
+            "GITLAB_REF": ref,
+            "GENERATE_VARIABLES_FILE": "variables.json",
+        }
+        (folder / "config.json").write_text(json.dumps(config), encoding="utf-8")
+        variables = {"PIPELINE_RUNTIME_CONFIG": current}
+        (self.project / "variables.json").write_text(json.dumps({"variables": variables}), encoding="utf-8")
+
+    def assert_shows(self, lines, path):
+        """Check that the output holds the whole file in a fence longer than the fence inside it."""
+        self.assertEqual(lines[2:], ["````yaml", *file_content(path).splitlines(), "````"])
+
+    def test_current_environment_is_the_file_of_the_variables_file(self):
+        """Without --name, the script reads the file that PIPELINE_RUNTIME_CONFIG names, on GITLAB_REF."""
+        self.write_pipeline_config(ref="release")
+        lines = self.lines()
+        self.assertTrue(lines[0].startswith("Current environment (PIPELINE_RUNTIME_CONFIG) `atp3prod_dyn-CI-Ivory`"))
+        self.assert_shows(lines, "environments/atp3prod_dyn-CI-Ivory.yaml")
+        path, query, _ = FakeGitLab.requests[0]
+        self.assertEqual(path, "/api/v4/projects/7/repository/files/environments%2Fatp3prod_dyn-CI-Ivory.yaml/raw")
+        self.assertEqual(query["ref"], ["release"])
+
+    def test_exact_name_needs_one_request(self):
+        """A full name is read directly, without a listing of the folder."""
+        self.write_pipeline_config()
+        lines = self.lines("--name", "dev-CI-Ivory")
+        self.assertTrue(lines[0].startswith("Environment `dev-CI-Ivory`: "), lines[0])
+        self.assert_shows(lines, "environments/dev-CI-Ivory.yaml")
+        self.assertEqual(len(FakeGitLab.requests), 1)
+
+    def test_a_part_of_one_name_shows_that_file(self):
+        """A text that one name contains, ignoring case, shows the file of that name."""
+        self.write_pipeline_config()
+        lines = self.lines("--name", "DYN-ci")
+        self.assertTrue(lines[0].startswith('The only environment that matches "DYN-ci" is `atp3prod_dyn-CI-Ivory`'))
+        self.assert_shows(lines, "environments/atp3prod_dyn-CI-Ivory.yaml")
+
+    def test_a_name_equal_ignoring_case_beats_the_substring_matches(self):
+        """'PROD' is the environment prod, although atp3prod_dyn-CI-Ivory contains the text too."""
+        self.write_pipeline_config()
+        self.assert_shows(self.lines("--name", "PROD"), "environments/prod.yaml")
+
+    def test_several_matches_are_listed_and_no_file_is_shown(self):
+        """A text that several names contain lists them for the user to choose."""
+        self.write_pipeline_config()
+        lines = self.lines("--name", "ci-ivory")
+        self.assertTrue(lines[0].startswith('2 environments match "ci-ivory" in '), lines[0])
+        self.assertEqual(lines[2:], ["- `atp3prod_dyn-CI-Ivory`", "- `dev-CI-Ivory`"])
+
+    def test_no_match_is_an_answer(self):
+        """A text that no name contains exits with 0 and says how many environments there are."""
+        self.write_pipeline_config()
+        lines = self.lines("--name", "nothing-like-this")
+        self.assertTrue(lines[0].startswith('No environment matches "nothing-like-this" in '), lines[0])
+        self.assertTrue(lines[0].endswith(", 5 in all."), lines[0])
+
+    def test_missing_current_environment(self):
+        """An empty PIPELINE_RUNTIME_CONFIG and a value that names no file are two different errors."""
+        self.write_pipeline_config(current="")
+        self.assertEqual(self.error_of()["error"], "runtime_config_missing")
+        (self.project / "variables.json").write_text(
+            json.dumps({"variables": {"PIPELINE_RUNTIME_CONFIG": "environments/gone.yaml"}}), encoding="utf-8"
+        )
+        error = self.error_of()
+        self.assertEqual(error["error"], "environment_file_missing")
+        self.assertIn("environments/gone.yaml", error["message"])
+
+    def test_wrong_branch_project_and_token(self):
+        """A branch, a project, or a token that GitLab refuses is reported, not searched around."""
+        self.write_pipeline_config()
+        self.assertEqual(self.error_of("--ref", "nobranch")["error"], "environment_file_missing")
+        self.assertEqual(self.error_of("--name", "prod", "--ref", "nobranch")["error"], "environments_folder_missing")
+        self.assertEqual(self.error_of("--project", "group/private")["error"], "repo_inaccessible")
+        self.assertEqual(self.error_of("--project", "group/secured")["error"], "repo_inaccessible")
+
+    def test_token_goes_in_the_header_and_is_never_printed(self):
+        """The token from the environment is sent as PRIVATE-TOKEN and appears in no output."""
+        self.write_pipeline_config(project="group/secured")
+        code, out, err = self.run_script(token=TOKEN)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(FakeGitLab.requests[0][2], TOKEN)
+        self.assertNotIn(TOKEN, out + err)
 
 
 class RepoUrlCase(unittest.TestCase):
