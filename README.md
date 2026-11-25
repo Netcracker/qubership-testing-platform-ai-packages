@@ -5,9 +5,10 @@ in its own folder under `agent-packages/` and installs on its own.
 
 ## Packages
 
-| Package                                                                           | Purpose                                                               |
-| --------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| [seagull-diameter-scenarios](agent-packages/seagull-diameter-scenarios/README.md) | Turns recorded Diameter requests and responses into Seagull scenarios |
+| Package                                                                           | Purpose                                                                |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| [atp-tests-assistant](agent-packages/atp-tests-assistant/README.md)               | Reads the project's test repository, starting with a list of its tests |
+| [seagull-diameter-scenarios](agent-packages/seagull-diameter-scenarios/README.md) | Turns recorded Diameter requests and responses into Seagull scenarios  |
 
 ## Install a package
 
