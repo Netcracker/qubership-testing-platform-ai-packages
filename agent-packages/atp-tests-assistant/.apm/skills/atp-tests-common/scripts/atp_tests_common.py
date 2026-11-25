@@ -142,7 +142,7 @@ def split_repo_url(repo, gitlab_url=""):
         base = f"{'https' if parts.scheme == 'ssh' else parts.scheme}://{parts.hostname}{port}"
         path = parts.path
     path = path.strip("/")
-    path = path[: -len(".git")] if path.endswith(".git") else path
+    path = path.removesuffix(".git")
     path = path.strip("/")
     if "/" not in path:
         fail("repo_url_invalid", f"The repository URL '{repo}' has no group and project path.")
