@@ -16,7 +16,7 @@ Every file is optional, and a script works with command-line options alone.
 | Source                                                | Holds                                                                                                                                           |
 | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `.tdm-assistant/config.json`                          | Found from the working directory up. Keys used: `GENERATE_VARIABLES_FILE`, `GITLAB_URL`, `GITLAB_PROJECT_ID`, `GITLAB_REF`, `GITLAB_TOKEN_ENV`. |
-| The variables file named by `GENERATE_VARIABLES_FILE` | The `variables` object, with `ATP_TESTS_GIT_REPO_URL` and `ATP_TESTS_GIT_REPO_BRANCH`.                                                          |
+| The variables file named by `GENERATE_VARIABLES_FILE` | The `variables` object, with `ATP_TESTS_GIT_REPO_URL`, `ATP_TESTS_GIT_REPO_BRANCH`, and `PIPELINE_RUNTIME_CONFIG`.                              |
 | Environment variable `GITLAB_TOKEN`                   | The GitLab token. `GITLAB_TOKEN_ENV` names another variable.                                                                                    |
 | `.tdm-assistant/gitlab-token`                         | The token on the first line, when the variable is empty.                                                                                        |
 

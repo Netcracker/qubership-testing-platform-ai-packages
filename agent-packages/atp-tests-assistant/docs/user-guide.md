@@ -93,6 +93,38 @@ Found 2 of 250 environments in https://gitlab.example.com, project 7, branch mai
 To run the pipeline on an environment, pass `environments/<name>.yaml` as `PIPELINE_RUNTIME_CONFIG`. For the first name
 above, that is `environments/atp3prod_dyn-CI-Ivory.yaml`.
 
+## Show the description of an environment
+
+The description of an environment is its YAML file in the `environments` folder of the pipeline repository. The current
+environment is the file that `PIPELINE_RUNTIME_CONFIG` names, such as `environments/atp3prod_dyn-CI-Ivory.yaml`, in the
+variables file that `GENERATE_VARIABLES_FILE` names in `.tdm-assistant/config.json`.
+
+| You write                                          | Command                                     |
+| -------------------------------------------------- | ------------------------------------------- |
+| Show the description of the current environment    | `/atp-tests-show-environment`               |
+| Show the config of the current environment         | `/atp-tests-show-environment`               |
+| Show the description of the environment `CI-Ivory` | `/atp-tests-show-environment name=CI-Ivory` |
+
+Give the name without `environments/` and without `.yaml`. A part of the name is enough:
+
+1. The command reads `environments/<name>.yaml`.
+2. When there is no such file, it takes the name equal to `<name>` ignoring case, or else the names that contain it. A
+   value with `*` or `?` is a mask for the whole name.
+3. When one name matches, it shows that file. When several match, it lists them, and you specify one of them.
+
+The repository, the branch, and the token are the same as for the list of environments, and the command accepts
+`ref=`, `url=`, and `project=` too. The answer is a heading that names the file, and the file as it is:
+
+````text
+Current environment (PIPELINE_RUNTIME_CONFIG) `atp3prod_dyn-CI-Ivory`: file `environments/atp3prod_dyn-CI-Ivory.yaml` in https://gitlab.example.com, project 7, branch main.
+
+```yaml
+name: CI-Ivory
+```
+````
+
+The file is not masked: a password or a key that it holds appears in the chat and goes to the model.
+
 ## Errors
 
 | Error                         | Meaning and remedy                                                                                                                              |
@@ -104,5 +136,7 @@ above, that is `environments/atp3prod_dyn-CI-Ivory.yaml`.
 | `server_unreachable`          | The script can't reach GitLab. Check the URL and the network.                                                                                   |
 | `gitlab_settings_missing`     | Environments only: `GITLAB_URL`, `GITLAB_PROJECT_ID`, or `GITLAB_REF` is missing. Set it in the config, or give `url=`, `project=`, and `ref=`. |
 | `environments_folder_missing` | Environments only: the pipeline repository or the branch has no `environments` folder.                                                          |
+| `runtime_config_missing`      | No current environment. Set `PIPELINE_RUNTIME_CONFIG` in the variables file, or give `name=`.                                                   |
+| `environment_file_missing`    | The branch, or the file that `PIPELINE_RUNTIME_CONFIG` names, does not exist. Check the value and `GITLAB_REF`.                                 |
 
-A request that matches no test file is not an error: the answer says that nothing was found and names the filters.
+A request that matches no test file or no environment is not an error: the answer says that nothing was found.
