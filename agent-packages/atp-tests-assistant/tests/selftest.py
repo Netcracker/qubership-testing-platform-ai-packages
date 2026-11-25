@@ -26,8 +26,8 @@ from urllib.parse import parse_qs, unquote, urlencode, urlsplit
 
 sys.dont_write_bytecode = True  # keep __pycache__ out of the package
 SKILLS = Path(__file__).resolve().parents[1] / ".apm" / "skills"
-SCRIPT = SKILLS / "atp-tests-list-tests" / "scripts" / "list_tests.py"
-ENV_SCRIPT = SKILLS / "atp-tests-list-environments" / "scripts" / "list_environments.py"
+SCRIPT = SKILLS / "atp-tests-tests-list" / "scripts" / "list_tests.py"
+ENV_SCRIPT = SKILLS / "atp-tests-environments-list" / "scripts" / "list_environments.py"
 SHOW_SCRIPT = SKILLS / "atp-tests-environment-show" / "scripts" / "show_environment.py"
 ROOT = "TestGeneration/tests/TestScenario"
 PAGE_SIZE = 3

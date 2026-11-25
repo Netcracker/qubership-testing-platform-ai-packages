@@ -1,73 +1,39 @@
 ---
 name: atp-tests-list-environments
-description: Use when the user asks which environments the GitLab pipeline can run on, for example "show the list of environments for the pipeline", "which pipeline environments contain prod", or "list the environments of the generation pipeline". Lists the YAML files in the environments folder of the pipeline repository, by name without .yaml, optionally only the names that contain a text. It does not list the environments of the TDM3 service.
-user-invocable: false
+description: Use only when the user types /atp-tests-list-environments. Lists the environments of the project's GitLab pipeline, the YAML files in the environments folder of the pipeline repository, optionally only the names that contain a text.
+disable-model-invocation: true
+argument-hint: "[name=<text>] [ref=<branch>] [url=<gitlab url>] [project=<id>] | help"
+metadata:
+  opencode/autoinvoke: "false"
 ---
 
-# List the environments of the pipeline
+# /atp-tests-list-environments
 
-The pipeline that generates test data runs on an environment. Each environment is a YAML file in the `environments`
-folder of the pipeline's GitLab repository, on the branch the pipeline starts from, and its name is the filename
-without `.yaml`. A project can have hundreds of them. A script reads the folder from the GitLab API, applies the
-filter, sorts the names, and prints the answer. The agent builds no request, reads no token, and does not clone the
-repository.
+A command frontend for [atp-tests-environments-list](../atp-tests-environments-list/SKILL.md). It reads the user's
+arguments literally and runs the script that skill describes; the options, the output, and the errors stay there. For an
+ordinary request in plain language ("show the environments for the pipeline"), follow atp-tests-environments-list
+directly instead.
 
-These are not the environments of the TDM3 service. When the request says nothing about the pipeline, the generation, or
-GitLab and could mean either, ask which one is meant.
+## Arguments
 
-## Run
-
-```bash
-python <skill folder>/scripts/list_environments.py [--name TEXT] [--url URL] [--project ID] [--ref BRANCH]
+```text
+/atp-tests-list-environments [name=<text>] [ref=<branch>] [url=<gitlab url>] [project=<id>]
 ```
 
-Run the script from the project folder, so that it finds `.tdm-assistant/config.json`. If `python` isn't found, try
-`python3` or `py -3`. Quote each value for the shell.
+| Argument           | Meaning                                                                                    |
+| ------------------ | ------------------------------------------------------------------------------------------ |
+| `name=<text>`      | Only the names that contain `<text>`, ignoring case. With `*` or `?`, a mask for the name. |
+| `ref=<branch>`     | The branch of the pipeline repository. Default: `GITLAB_REF` of the config.                |
+| `url=<gitlab url>` | The GitLab service. Default: `GITLAB_URL` of the config.                                   |
+| `project=<id>`     | The numeric ID or the path of the pipeline project. Default: `GITLAB_PROJECT_ID`.          |
 
-The script prints the answer in Markdown, ready to show. Print it to the user exactly as it is: don't reorder, shorten,
-or rewrite it, and don't add names you think are missing. You may add one sentence after it. An error comes as one
-JSON object on stderr with exit status 1; report its `message` and the remedy it names.
+Put a value with spaces in double quotes. With no argument, the command lists all environments.
 
-## Map the request to options
+## Behavior
 
-| User says                                                     | Option                        |
-| ------------------------------------------------------------- | ----------------------------- |
-| "the environments for the pipeline", "all environments"       | none                          |
-| "with `text` in the name", "containing `text`", "like `text`" | `--name text`                 |
-| a GitLab URL, a project, or a branch in the request           | `--url`, `--project`, `--ref` |
-
-- `--name TEXT` keeps the names that contain `TEXT`, ignoring case. A value with `*` or `?` is a mask for the whole name.
-- The names are printed without `environments/` and without `.yaml`.
-- When the list is long, for example more than 50 names, show it as printed and add one sentence that offers to narrow it
-  by a part of the name.
-
-Don't guess a part of the name that the user didn't give.
-
-## After the user picks an environment
-
-The value that selects the environment in the pipeline is `environments/<name>.yaml`, the `PIPELINE_RUNTIME_CONFIG`
-variable of tdm-generate-test-data. Say that value when the user asks for it or chooses a name. Choosing a name starts
-nothing. To show what an environment contains, follow
-[atp-tests-environment-show](../atp-tests-environment-show/SKILL.md).
-
-## Where the repository comes from
-
-Without options, the script takes `GITLAB_URL`, `GITLAB_PROJECT_ID`, and `GITLAB_REF` from `.tdm-assistant/config.json`,
-the settings that tdm-generate-test-data uses to start the pipeline. This repository is the pipeline's, not the
-repository of the tests that atp-tests-list-tests reads. When the script reports `gitlab_settings_missing`, tell the
-user to add the named keys to the config file or to give them in the request.
-
-The token is the environment variable `GITLAB_TOKEN`, or the first line of `.tdm-assistant/gitlab-token`. Without a
-token the script asks GitLab anonymously, which works for a public repository. Never ask the user for the token in the
-chat, and never open the token file.
-
-## Result and errors
-
-| Result                                   | Say                                                                                                  |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| A list                                   | Show it as printed.                                                                                  |
-| `No environments (*.yaml) found ...`     | Say that nothing matched, and repeat the filter the line names. Offer to loosen it.                  |
-| `gitlab_settings_missing`                | The message names the missing keys. Tell the user where they go.                                     |
-| `environments_folder_missing`            | The repository or the branch has no `environments` folder, as the message says.                      |
-| `repo_inaccessible`                      | The project doesn't exist, or the token is missing or can't read it. Give the message's remedy.      |
-| `server_unreachable`                     | GitLab can't be reached. Say so; don't retry in a loop.                                              |
+- When the only argument is `help`, `--help`, `-h`, or `?`, run no script. Print the usage from the "Arguments"
+  section above, the syntax line and the table of arguments, and nothing else.
+- Map `name=`, `ref=`, `url=`, and `project=` to `--name`, `--ref`, `--url`, and `--project`.
+- When an argument can't be parsed unambiguously, or one is unknown, run nothing. Reply with the corrected command and
+  let the user send it or change it.
+- Run the script, and show its output as atp-tests-environments-list describes. Report the errors as it describes.
