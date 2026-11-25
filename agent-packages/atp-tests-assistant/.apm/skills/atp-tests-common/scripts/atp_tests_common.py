@@ -1,0 +1,190 @@
+"""Share the config, token, and GitLab code of the scripts of the atp-tests-assistant skills.
+
+A script imports this module after adding the folder that holds it to sys.path:
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "atp-tests-common" / "scripts"))
+    common = importlib.import_module("atp_tests_common")
+
+The module reads the files that the tdm-test-data-assistant package defines, and works
+without them: .tdm-assistant/config.json (found from the working directory up), the
+variables file that its key GENERATE_VARIABLES_FILE names, and the token. Every file is
+optional. A script prints its result on stdout and an error on stderr, as one JSON object
+{"ok": false, "error": "<code>", "message": "<text>"}, and exits with 1.
+Python 3.9+, standard library only.
+"""
+
+import json
+import os
+import re
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from pathlib import Path
+from typing import NoReturn
+
+CONFIG_PATH = Path(".tdm-assistant") / "config.json"
+TOKEN_FILE = "gitlab-token"
+DEFAULT_TOKEN_ENV = "GITLAB_TOKEN"
+REQUEST_TIMEOUT = 30
+MAX_PAGES = 500
+LINK_NEXT = re.compile(r'<([^>]+)>\s*;\s*rel="next"')
+SCP_URL = re.compile(r"[\w.-]+@([\w.-]+):(.+)")
+
+
+class GitLabError(Exception):
+    """A failed GitLab request: its error code, the HTTP status, and the start of the body."""
+
+    def __init__(self, code, message, status=None, body=""):
+        super().__init__(message)
+        self.code, self.message, self.status, self.body = code, message, status, body
+
+
+def fail(code, message, **extra) -> NoReturn:
+    """Print an error object on stderr and exit with status 1."""
+    print(json.dumps({"ok": False, "error": code, "message": message, **extra}, ensure_ascii=False), file=sys.stderr)
+    sys.exit(1)
+
+
+def use_utf8_output():
+    """Make stdout UTF-8 whatever the console code page is."""
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+
+
+def find_config():
+    """Return the path of config.json found from the working directory up, or None."""
+    here = Path.cwd().resolve()
+    for folder in [here, *here.parents]:
+        candidate = folder / CONFIG_PATH
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def load_config():
+    """Return the config, or an empty dict when there is no config file.
+
+    CONFIG_DIR holds the folder of the config file, the .tdm-assistant folder.
+    """
+    path = find_config()
+    if path is None:
+        return {}
+    try:
+        config = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        fail("config_unreadable", f"Cannot read {path}: {exc}")
+    if not isinstance(config, dict):
+        fail("config_unreadable", f"{path} must hold a JSON object.")
+    config["CONFIG_DIR"] = str(path.parent)
+    return config
+
+
+def read_variables(config):
+    """Return the variables object of the file that GENERATE_VARIABLES_FILE names.
+
+    A relative path is taken from the project folder, the parent of the .tdm-assistant
+    folder. The result is empty when the config has no such key.
+    """
+    name = config.get("GENERATE_VARIABLES_FILE")
+    if not name:
+        return {}
+    path = Path(name)
+    if not path.is_absolute():
+        path = Path(config["CONFIG_DIR"]).parent / path
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        fail("variables_file_unreadable", f"Cannot read the variables file {path}: {exc}")
+    variables = data.get("variables") if isinstance(data, dict) else None
+    if not isinstance(variables, dict):
+        fail("variables_file_unreadable", f"The variables file {path} has no 'variables' object.")
+    return variables
+
+
+def read_token(config):
+    """Return the GitLab token from the environment variable or the token file, or "".
+
+    The variable is named by GITLAB_TOKEN_ENV in the config and is GITLAB_TOKEN by default.
+    The token file is .tdm-assistant/gitlab-token, and only its first line counts.
+    """
+    token = (os.environ.get(config.get("GITLAB_TOKEN_ENV") or DEFAULT_TOKEN_ENV) or "").strip()
+    if token or "CONFIG_DIR" not in config:
+        return token
+    token_path = Path(config["CONFIG_DIR"]) / TOKEN_FILE
+    if not token_path.is_file():
+        return ""
+    lines = token_path.read_text(encoding="utf-8").strip().splitlines()
+    return lines[0].strip() if lines else ""
+
+
+def split_repo_url(repo, gitlab_url=""):
+    """Return the base URL of the GitLab service and the path of the project in it.
+
+    A repository under gitlab_url, the GITLAB_URL of the config, keeps that URL as the
+    base, which covers a GitLab served under a path prefix. Otherwise the base comes from
+    the host of the repository URL: an ssh address (ssh://... or git@host:path) is
+    reached over https, and a user name or password in the URL is dropped.
+    """
+    repo = repo.strip()
+    base = (gitlab_url or "").rstrip("/")
+    if base and repo.lower().startswith(base.lower() + "/"):
+        start = len(base) + 1
+        path = repo[start:]
+    elif SCP_URL.fullmatch(repo):
+        host, path = SCP_URL.fullmatch(repo).groups()
+        base = f"https://{host}"
+    else:
+        parts = urllib.parse.urlsplit(repo)
+        if parts.scheme not in ("http", "https", "ssh") or not parts.hostname:
+            fail("repo_url_invalid", f"Cannot read the repository URL '{repo}'. Use http(s)://host/group/project.git.")
+        port = f":{parts.port}" if parts.port and parts.scheme != "ssh" else ""
+        base = f"{'https' if parts.scheme == 'ssh' else parts.scheme}://{parts.hostname}{port}"
+        path = parts.path
+    path = path.strip("/")
+    path = path.removesuffix(".git")
+    path = path.strip("/")
+    if "/" not in path:
+        fail("repo_url_invalid", f"The repository URL '{repo}' has no group and project path.")
+    return base, path
+
+
+def get_page(url, token):
+    """Send one GET request and return the decoded JSON and the Link header; raise GitLabError."""
+    headers = {"PRIVATE-TOKEN": token} if token else {}
+    request = urllib.request.Request(url, headers=headers, method="GET")
+    try:
+        with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT) as response:
+            link = response.headers.get("Link") or ""
+            return json.loads(response.read().decode("utf-8")), link
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", "replace")[:300]
+        raise GitLabError("http_error", f"HTTP {exc.code} from GitLab", status=exc.code, body=body) from exc
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        raise GitLabError("server_unreachable", f"Cannot reach GitLab: {exc}") from exc
+    except ValueError as exc:
+        raise GitLabError("http_error", f"The GitLab response is not JSON: {exc}") from exc
+
+
+def get_all(base, project_path, endpoint, query, token):
+    """Return the items of every page of a project endpoint, following the Link header.
+
+    The token goes only to the host of base: a next link to another host is refused.
+    Raises GitLabError.
+    """
+    quoted = urllib.parse.quote(project_path, safe="")
+    url = f"{base}/api/v4/projects/{quoted}{endpoint}?{urllib.parse.urlencode(query)}"
+    host = urllib.parse.urlsplit(base).netloc.lower()
+    items = []
+    for _ in range(MAX_PAGES):
+        page, link = get_page(url, token)
+        items.extend(page)
+        match = LINK_NEXT.search(link)
+        if not match:
+            return items
+        url = match.group(1)
+        if urllib.parse.urlsplit(url).netloc.lower() != host:
+            raise GitLabError(
+                "http_error", "GitLab sent a next-page link to another host; the script did not follow it."
+            )
+    raise GitLabError("too_many_pages", f"The answer has more than {MAX_PAGES} pages.")

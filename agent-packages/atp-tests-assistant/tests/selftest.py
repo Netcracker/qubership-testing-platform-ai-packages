@@ -1,0 +1,395 @@
+"""Self-test of the scripts of the atp-tests-assistant package.
+
+Run: python tests/selftest.py
+
+It starts a fake GitLab on localhost that answers the repository tree request, runs
+list_tests.py against it, and checks the output: the sorting, the nesting, the filters, the
+table, the pagination, the source of the repository and the branch, the token, and the
+errors. How the agent reads a request in plain language is not tested.
+
+Requires Python 3.9 or later.
+"""
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import threading
+import unittest
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
+from typing import ClassVar
+from urllib.parse import parse_qs, urlencode, urlsplit
+
+sys.dont_write_bytecode = True  # keep __pycache__ out of the package
+SKILLS = Path(__file__).resolve().parents[1] / ".apm" / "skills"
+SCRIPT = SKILLS / "atp-tests-list-tests" / "scripts" / "list_tests.py"
+ROOT = "TestGeneration/tests/TestScenario"
+PAGE_SIZE = 3
+TOKEN = "secret-token-value"
+
+FILES = [
+    "root-b.spec.ts",
+    "Root-a.spec.ts",
+    "Customers/create.spec.ts",
+    "Customers/Domestic/create-domestic.spec.ts",
+    "Customers/Domestic/Delete.spec.ts",
+    "Customers/Domestic/helper.js",
+    "Customers/Domestic/types.d.ts",
+    "Customers/Corporate/Domestic/create-nested.spec.ts",
+    "Billing/invoice_one.spec.ts",
+    "Billing/Empty/readme.md",
+    "Domestic/other.spec.ts",
+]
+
+
+def tree_entries():
+    """Return the entries the fake GitLab lists for the tests folder, files and folders."""
+    entries, seen = [], set()
+    for name in FILES:
+        parts = name.split("/")
+        for depth in range(1, len(parts)):
+            folder = "/".join(parts[:depth])
+            if folder not in seen:
+                seen.add(folder)
+                entries.append({"name": parts[depth - 1], "type": "tree", "path": f"{ROOT}/{folder}"})
+        entries.append({"name": parts[-1], "type": "blob", "path": f"{ROOT}/{name}"})
+    return entries
+
+
+class FakeGitLab(BaseHTTPRequestHandler):
+    """Answer GET /api/v4/projects/<id>/repository/tree like GitLab, three entries a page."""
+
+    requests: ClassVar[list] = []
+
+    def log_message(self, *args):  # silence the server log
+        pass
+
+    def do_GET(self):  # pylint: disable=invalid-name
+        """Serve one page of the tree, or an error chosen by the project path."""
+        url = urlsplit(self.path)
+        query = parse_qs(url.query)
+        FakeGitLab.requests.append((url.path, query, self.headers.get("PRIVATE-TOKEN")))
+        project = url.path.split("/")[4]
+        if project == "group%2Fprivate":
+            return self.reply(404, {"message": "404 Project Not Found"})
+        if project == "group%2Fsecured" and self.headers.get("PRIVATE-TOKEN") != TOKEN:
+            return self.reply(401, {"message": "401 Unauthorized"})
+        if query.get("ref", [""])[0] == "nobranch" or project == "group%2Fnotests":
+            return self.reply(404, {"message": "404 Tree Not Found"})
+        entries = tree_entries()
+        page = int(query.get("page", ["1"])[0])
+        first = (page - 1) * PAGE_SIZE
+        last = first + PAGE_SIZE
+        link = None
+        if last < len(entries):
+            host = f"http://127.0.0.1:{self.server.server_port}"
+            fields = {key: values[0] for key, values in query.items() if key != "page"}
+            link = f'<{host}{url.path}?{urlencode({**fields, "page": page + 1})}>; rel="next"'
+        return self.reply(200, entries[first:last], link)
+
+    def reply(self, status, payload, link=None):
+        """Send a JSON answer with an optional Link header."""
+        body = json.dumps(payload).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        if link:
+            self.send_header("Link", link)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+class ScriptCase(unittest.TestCase):
+    """Run the script against the fake GitLab, in a folder with an optional config."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.server = HTTPServer(("127.0.0.1", 0), FakeGitLab)
+        threading.Thread(target=cls.server.serve_forever, daemon=True).start()
+        cls.url = f"http://127.0.0.1:{cls.server.server_port}"
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+
+    def setUp(self):
+        FakeGitLab.requests = []
+        self.project = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.project, ignore_errors=True)
+
+    def write_config(self, repo="group/tests.git", branch="release", token_file=None):
+        """Write a config and a variables file in the way of the tdm-test-data-assistant package."""
+        folder = self.project / ".tdm-assistant"
+        folder.mkdir()
+        (folder / "config.json").write_text(json.dumps({"GENERATE_VARIABLES_FILE": "variables.json"}), encoding="utf-8")
+        variables = {"ATP_TESTS_GIT_REPO_URL": f"{self.url}/{repo}", "ATP_TESTS_GIT_REPO_BRANCH": branch}
+        (self.project / "variables.json").write_text(json.dumps({"variables": variables}), encoding="utf-8")
+        if token_file:
+            (folder / "gitlab-token").write_text(token_file + "\n", encoding="utf-8")
+
+    def run_script(self, *args, token=None, cwd=None):
+        """Return (exit code, stdout, stderr) of the script, run from the project folder."""
+        env = {key: value for key, value in os.environ.items() if key != "GITLAB_TOKEN"}
+        env["PYTHONIOENCODING"] = "utf-8"
+        if token:
+            env["GITLAB_TOKEN"] = token
+        done = subprocess.run(
+            [sys.executable, "-I", str(SCRIPT), *args],
+            cwd=cwd or self.project,
+            env=env,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
+        )
+        return done.returncode, done.stdout, done.stderr
+
+    def lines(self, *args, **kwargs):
+        """Return the output lines, and fail the test on a nonzero exit."""
+        code, out, err = self.run_script(*args, **kwargs)
+        self.assertEqual(code, 0, err)
+        return out.splitlines()
+
+    def error_of(self, *args, **kwargs):
+        """Run the script, expect exit status 1, and return the error object from stderr."""
+        code, _, err = self.run_script(*args, **kwargs)
+        self.assertEqual(code, 1, err)
+        return json.loads(err)
+
+
+class OutputCase(ScriptCase):
+    """The listing: sorting, nesting, filters, table, and the empty result."""
+
+    def test_full_tree_is_sorted_and_nested(self):
+        """Files come before subfolders at every level, and both are sorted ignoring case."""
+        self.write_config()
+        lines = self.lines()
+        self.assertTrue(lines[0].startswith("Found 9 test files in 6 folders of "), lines[0])
+        self.assertEqual(
+            lines[2:],
+            [
+                "- **TestScenario/**",
+                "  - `Root-a.spec.ts`",
+                "  - `root-b.spec.ts`",
+                "  - **Billing/**",
+                "    - `invoice_one.spec.ts`",
+                "  - **Customers/**",
+                "    - `create.spec.ts`",
+                "    - **Corporate/**",
+                "      - **Domestic/**",
+                "        - `create-nested.spec.ts`",
+                "    - **Domestic/**",
+                "      - `create-domestic.spec.ts`",
+                "      - `Delete.spec.ts`",
+                "      - `types.d.ts`",
+                "  - **Domestic/**",
+                "    - `other.spec.ts`",
+            ],
+        )
+
+    def test_only_ts_files_and_pagination(self):
+        """Other files are not listed, and the script follows the Link header to the last page."""
+        self.write_config()
+        out = "\n".join(self.lines())
+        self.assertNotIn("helper.js", out)
+        self.assertNotIn("readme.md", out)
+        self.assertGreater(len(FakeGitLab.requests), 3)
+
+    def test_folder_name_matches_at_any_depth(self):
+        """A folder name without a slash finds every folder of that name, ignoring case."""
+        self.write_config()
+        lines = self.lines("--folder", "domestic")
+        self.assertIn('Filters: folder "domestic" at any depth.', lines)
+        self.assertEqual(
+            [line for line in lines if line.startswith("- ")],
+            ["- **Customers/Corporate/Domestic/**", "- **Customers/Domestic/**", "- **Domestic/**"],
+        )
+
+    def test_folder_match_inside_another_match_is_listed_once(self):
+        """A folder inside another matching folder is shown under it and not again."""
+        self.write_config()
+        out = "\n".join(self.lines("--folder", "Customers"))
+        self.assertEqual(out.count("create-nested.spec.ts"), 1)
+        self.assertEqual(out.count("- **Customers/**"), 1)
+
+    def test_under_counts_from_the_tests_root(self):
+        """--under takes a path from TestScenario and matches no folder of that name deeper down."""
+        self.write_config()
+        lines = self.lines("--under", "Domestic")
+        self.assertEqual([line for line in lines if line.startswith("- ")], ["- **Domestic/**"])
+        lines = self.lines("--under", "/Customers/Domestic")
+        self.assertEqual(
+            lines[3:],
+            [
+                "- **Customers/Domestic/**",
+                "  - `create-domestic.spec.ts`",
+                "  - `Delete.spec.ts`",
+                "  - `types.d.ts`",
+            ],
+        )
+
+    def test_name_filter_is_a_case_insensitive_substring(self):
+        """--name keeps the files whose name contains the text, whatever the case."""
+        self.write_config()
+        out = "\n".join(self.lines("--name", "CREATE"))
+        self.assertIn("create-domestic.spec.ts", out)
+        self.assertIn("create-nested.spec.ts", out)
+        self.assertNotIn("Delete.spec.ts", out)
+
+    def test_name_filter_with_a_mask_matches_the_whole_name(self):
+        """A value with * or ? is a mask for the whole filename."""
+        self.write_config()
+        out = "\n".join(self.lines("--name", "*.d.ts"))
+        self.assertIn("types.d.ts", out)
+        self.assertNotIn("create.spec.ts", out)
+        self.assertIn("Found 1 test file in 1 folder of", out)
+
+    def test_folder_and_name_together(self):
+        """The folder narrows the search and the name filters the files in it."""
+        self.write_config()
+        lines = self.lines("--folder", "Domestic", "--name", "del")
+        self.assertEqual([line for line in lines if line.startswith("  - ")], ["  - `Delete.spec.ts`"])
+
+    def test_table_format(self):
+        """--format table prints one row for each file, in the order of the list."""
+        self.write_config()
+        lines = self.lines("--format", "table", "--under", "Customers")
+        start = lines.index("| Folder | File |")
+        table = lines[start:]
+        self.assertEqual(table[2], "| Customers | `create.spec.ts` |")
+        self.assertEqual(table[3], "| Customers/Corporate/Domestic | `create-nested.spec.ts` |")
+        self.assertEqual(table[4], "| Customers/Domestic | `create-domestic.spec.ts` |")
+
+    def test_empty_result_exits_with_zero(self):
+        """A filter that matches no file is an answer, not an error."""
+        self.write_config()
+        code, out, _ = self.run_script("--name", "nothing-like-this")
+        self.assertEqual(code, 0)
+        self.assertTrue(out.startswith("No test files (*.ts) found"), out)
+
+
+class SourceCase(ScriptCase):
+    """Where the repository, the branch, and the token come from."""
+
+    def test_branch_comes_from_the_variables_file(self):
+        """The script reads the repository and the branch of the variables file."""
+        self.write_config(branch="release")
+        self.lines()
+        self.assertEqual(FakeGitLab.requests[0][1]["ref"], ["release"])
+        self.assertEqual(FakeGitLab.requests[0][1]["path"], [ROOT])
+        self.assertEqual(FakeGitLab.requests[0][0], "/api/v4/projects/group%2Ftests/repository/tree")
+
+    def test_repo_option_ignores_the_file_branch(self):
+        """With --repo and no --branch, the request has no ref, so GitLab uses the default branch."""
+        self.write_config(branch="release")
+        self.lines("--repo", f"{self.url}/other/project.git")
+        self.assertNotIn("ref", FakeGitLab.requests[0][1])
+        self.assertEqual(FakeGitLab.requests[0][0], "/api/v4/projects/other%2Fproject/repository/tree")
+        self.lines("--repo", f"{self.url}/other/project.git", "--branch", "dev")
+        self.assertEqual(FakeGitLab.requests[-1][1]["ref"], ["dev"])
+
+    def test_works_without_any_config(self):
+        """--repo and --branch are enough when the project has no .tdm-assistant folder."""
+        lines = self.lines("--repo", f"{self.url}/group/tests", "--branch", "main")
+        self.assertTrue(lines[0].startswith("Found 9 test files"), lines[0])
+
+    def test_config_is_found_from_a_subfolder(self):
+        """The config is looked for from the working directory up."""
+        self.write_config()
+        sub = self.project / "a" / "b"
+        sub.mkdir(parents=True)
+        self.assertEqual(self.run_script(cwd=sub)[0], 0)
+
+    def test_token_goes_in_the_header_and_is_never_printed(self):
+        """The token from the environment is sent as PRIVATE-TOKEN and appears in no output."""
+        self.write_config(repo="group/secured.git")
+        code, out, err = self.run_script(token=TOKEN)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(FakeGitLab.requests[0][2], TOKEN)
+        self.assertNotIn(TOKEN, out + err)
+
+    def test_token_file_is_used_when_the_variable_is_empty(self):
+        """The first line of .tdm-assistant/gitlab-token is the token when GITLAB_TOKEN is not set."""
+        self.write_config(repo="group/secured.git", token_file=TOKEN)
+        self.assertEqual(self.run_script()[0], 0)
+
+
+class ErrorCase(ScriptCase):
+    """The errors: each has a code, a message with the remedy, and exit status 1 or 2."""
+
+    def test_no_repository_is_an_error(self):
+        """Without --repo and a variables file, the script says where to set the repository."""
+        self.assertEqual(self.error_of()["error"], "repo_missing")
+
+    def test_unknown_folder_is_an_error(self):
+        """A folder that does not exist under TestScenario is folder_not_found."""
+        self.write_config()
+        self.assertEqual(self.error_of("--folder", "Nope")["error"], "folder_not_found")
+
+    def test_missing_token_is_reported_with_the_remedy(self):
+        """A 401 without a token names GITLAB_TOKEN as the remedy."""
+        self.write_config(repo="group/secured.git")
+        error = self.error_of()
+        self.assertEqual(error["error"], "repo_inaccessible")
+        self.assertIn("GITLAB_TOKEN", error["message"])
+
+    def test_unknown_project_is_reported_as_inaccessible(self):
+        """A 404 for the project means that it does not exist or the token cannot read it."""
+        self.write_config(repo="group/private.git")
+        self.assertEqual(self.error_of(token=TOKEN)["error"], "repo_inaccessible")
+
+    def test_missing_tests_folder_and_missing_branch(self):
+        """A 404 for the tree is tests_folder_missing, whether the folder or the branch is absent."""
+        self.write_config(repo="group/notests.git")
+        self.assertEqual(self.error_of()["error"], "tests_folder_missing")
+        error = self.error_of("--repo", f"{self.url}/group/tests.git", "--branch", "nobranch")
+        self.assertEqual(error["error"], "tests_folder_missing")
+
+    def test_folder_with_a_slash_is_a_usage_error(self):
+        """--folder takes one name; a path is for --under, and the message says so."""
+        self.write_config()
+        code, _, err = self.run_script("--folder", "A/B")
+        self.assertEqual(code, 2)
+        self.assertIn("--under", err)
+
+    def test_folder_and_under_together_are_a_usage_error(self):
+        """--folder and --under exclude each other."""
+        self.write_config()
+        self.assertEqual(self.run_script("--folder", "A", "--under", "B")[0], 2)
+
+
+class RepoUrlCase(unittest.TestCase):
+    """Check how a repository URL turns into a GitLab base URL and a project path."""
+
+    def setUp(self):
+        sys.path.insert(0, str(SKILLS / "atp-tests-common" / "scripts"))
+        self.addCleanup(sys.path.pop, 0)
+        import atp_tests_common  # pylint: disable=import-outside-toplevel,import-error
+
+        self.common = atp_tests_common
+
+    def test_forms_of_the_url(self):
+        """An http(s) URL, an ssh URL, and a git@host:path address give the same kind of answer."""
+        split = self.common.split_repo_url
+        self.assertEqual(split("https://gitlab.example.com/g/s/p.git"), ("https://gitlab.example.com", "g/s/p"))
+        self.assertEqual(
+            split("https://user:pw@gitlab.example.com:8443/g/p"), ("https://gitlab.example.com:8443", "g/p")
+        )
+        self.assertEqual(split("git@gitlab.example.com:g/p.git"), ("https://gitlab.example.com", "g/p"))
+        self.assertEqual(split("ssh://git@gitlab.example.com:2222/g/p.git"), ("https://gitlab.example.com", "g/p"))
+
+    def test_configured_gitlab_url_keeps_its_prefix(self):
+        """A repository under GITLAB_URL keeps that URL, with its path prefix, as the base."""
+        split = self.common.split_repo_url
+        self.assertEqual(
+            split("https://host.example.com/gitlab/g/p.git", "https://host.example.com/gitlab/"),
+            ("https://host.example.com/gitlab", "g/p"),
+        )
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
