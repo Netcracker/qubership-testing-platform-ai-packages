@@ -26,9 +26,7 @@ object on stderr; 2 for a wrong command line. Python 3.9+, standard library only
 """
 
 import argparse
-import fnmatch
 import importlib
-import re
 import sys
 from pathlib import Path
 
@@ -100,17 +98,6 @@ def choose_roots(folders, folder, under):
         return [()]
     found.sort(key=lambda path: tuple(part.lower() for part in path))
     return [path for path in found if not any(path[:i] in found for i in range(1, len(path)))]
-
-
-def make_name_filter(text):
-    """Return a function that tells whether a filename passes the --name filter."""
-    if not text:
-        return lambda name: True
-    low = text.lower()
-    if "*" in low or "?" in low:
-        mask = re.compile(fnmatch.translate(low.replace("[", "[[]")))
-        return lambda name: bool(mask.match(name.lower()))
-    return lambda name: low in name.lower()
 
 
 def select_files(files, roots, name_filter):
@@ -246,7 +233,7 @@ def main():
     if not roots:
         wanted = args.folder or args.under
         common.fail("folder_not_found", f'No folder "{wanted.strip("/")}" under {TESTS_ROOT} in {where}.')
-    chosen = select_files(files, roots, make_name_filter(args.name))
+    chosen = select_files(files, roots, common.make_name_filter(args.name))
     if not chosen:
         message = f"No test files (*{TEST_SUFFIX}) found in {where}, branch {branch or '(default)'}"
         print(f"{message}, under {TESTS_ROOT}. {describe_filters(args)}".strip())

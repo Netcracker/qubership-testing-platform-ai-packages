@@ -13,6 +13,7 @@ optional. A script prints its result on stdout and an error on stderr, as one JS
 Python 3.9+, standard library only.
 """
 
+import fnmatch
 import json
 import os
 import re
@@ -116,6 +117,21 @@ def read_token(config):
         return ""
     lines = token_path.read_text(encoding="utf-8").strip().splitlines()
     return lines[0].strip() if lines else ""
+
+
+def make_name_filter(text):
+    """Return a function that tells whether a name passes the --name filter.
+
+    TEXT is a substring of the name, ignoring case. TEXT with * or ? is a mask for the whole
+    name, ignoring case.
+    """
+    if not text:
+        return lambda name: True
+    low = text.lower()
+    if "*" in low or "?" in low:
+        mask = re.compile(fnmatch.translate(low.replace("[", "[[]")))
+        return lambda name: bool(mask.match(name.lower()))
+    return lambda name: low in name.lower()
 
 
 def split_repo_url(repo, gitlab_url=""):

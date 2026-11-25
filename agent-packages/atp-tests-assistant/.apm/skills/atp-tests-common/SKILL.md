@@ -13,12 +13,12 @@ the agent doesn't run it.
 
 Every file is optional, and a script works with command-line options alone.
 
-| Source                                                | Holds                                                                                                        |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `.tdm-assistant/config.json`                          | Found from the working directory up. Keys used: `GENERATE_VARIABLES_FILE`, `GITLAB_URL`, `GITLAB_TOKEN_ENV`. |
-| The variables file named by `GENERATE_VARIABLES_FILE` | The `variables` object, with `ATP_TESTS_GIT_REPO_URL` and `ATP_TESTS_GIT_REPO_BRANCH`.                       |
-| Environment variable `GITLAB_TOKEN`                   | The GitLab token. `GITLAB_TOKEN_ENV` names another variable.                                                 |
-| `.tdm-assistant/gitlab-token`                         | The token on the first line, when the variable is empty.                                                     |
+| Source                                                | Holds                                                                                                                                           |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.tdm-assistant/config.json`                          | Found from the working directory up. Keys used: `GENERATE_VARIABLES_FILE`, `GITLAB_URL`, `GITLAB_PROJECT_ID`, `GITLAB_REF`, `GITLAB_TOKEN_ENV`. |
+| The variables file named by `GENERATE_VARIABLES_FILE` | The `variables` object, with `ATP_TESTS_GIT_REPO_URL` and `ATP_TESTS_GIT_REPO_BRANCH`.                                                          |
+| Environment variable `GITLAB_TOKEN`                   | The GitLab token. `GITLAB_TOKEN_ENV` names another variable.                                                                                    |
+| `.tdm-assistant/gitlab-token`                         | The token on the first line, when the variable is empty.                                                                                        |
 
 These files belong to the tdm-test-data-assistant package, which writes them. This package only reads them, so a
 change of a key there needs the same change here.
