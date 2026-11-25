@@ -3,9 +3,10 @@
 Run: python tests/selftest.py
 
 It starts a fake GitLab on localhost that answers the repository tree request, runs
-list_tests.py against it, and checks the output: the sorting, the nesting, the filters, the
-table, the pagination, the source of the repository and the branch, the token, and the
-errors. How the agent reads a request in plain language is not tested.
+list_tests.py and list_environments.py against it, and checks the output: the sorting, the
+nesting, the filters, the table, the pagination, the source of the repository and the
+branch, the token, and the errors. How the agent reads a request in plain language is not
+tested.
 
 Requires Python 3.9 or later.
 """
@@ -26,6 +27,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 sys.dont_write_bytecode = True  # keep __pycache__ out of the package
 SKILLS = Path(__file__).resolve().parents[1] / ".apm" / "skills"
 SCRIPT = SKILLS / "atp-tests-list-tests" / "scripts" / "list_tests.py"
+ENV_SCRIPT = SKILLS / "atp-tests-list-environments" / "scripts" / "list_environments.py"
 ROOT = "TestGeneration/tests/TestScenario"
 PAGE_SIZE = 3
 TOKEN = "secret-token-value"
@@ -59,6 +61,15 @@ def tree_entries():
     return entries
 
 
+def environment_entries():
+    """Return the entries the fake GitLab lists for the environments folder."""
+    names = ["prod.yaml", "dev-CI-Ivory.yaml", "atp3prod_dyn-CI-Ivory.yaml", "Zeta.yaml", "alpha.yaml", "old.yml"]
+    entries = [{"name": name, "type": "blob", "path": f"environments/{name}"} for name in names]
+    entries.append({"name": "README.md", "type": "blob", "path": "environments/README.md"})
+    entries.append({"name": "archive.yaml", "type": "tree", "path": "environments/archive.yaml"})
+    return entries
+
+
 class FakeGitLab(BaseHTTPRequestHandler):
     """Answer GET /api/v4/projects/<id>/repository/tree like GitLab, three entries a page."""
 
@@ -79,7 +90,7 @@ class FakeGitLab(BaseHTTPRequestHandler):
             return self.reply(401, {"message": "401 Unauthorized"})
         if query.get("ref", [""])[0] == "nobranch" or project == "group%2Fnotests":
             return self.reply(404, {"message": "404 Tree Not Found"})
-        entries = tree_entries()
+        entries = environment_entries() if query.get("path") == ["environments"] else tree_entries()
         page = int(query.get("page", ["1"])[0])
         first = (page - 1) * PAGE_SIZE
         last = first + PAGE_SIZE
@@ -104,6 +115,8 @@ class FakeGitLab(BaseHTTPRequestHandler):
 
 class ScriptCase(unittest.TestCase):
     """Run the script against the fake GitLab, in a folder with an optional config."""
+
+    script = SCRIPT
 
     @classmethod
     def setUpClass(cls):
@@ -138,7 +151,7 @@ class ScriptCase(unittest.TestCase):
         if token:
             env["GITLAB_TOKEN"] = token
         done = subprocess.run(
-            [sys.executable, "-I", str(SCRIPT), *args],
+            [sys.executable, "-I", str(self.script), *args],
             cwd=cwd or self.project,
             env=env,
             capture_output=True,
@@ -360,6 +373,92 @@ class ErrorCase(ScriptCase):
         """--folder and --under exclude each other."""
         self.write_config()
         self.assertEqual(self.run_script("--folder", "A", "--under", "B")[0], 2)
+
+
+class EnvironmentsCase(ScriptCase):
+    """list_environments.py: the names, the filter, the settings, the token, and the errors."""
+
+    script = ENV_SCRIPT
+
+    def write_gitlab_config(self, project="7", ref="main", url=None):
+        """Write the GITLAB_* keys of the config, in the way of the tdm-test-data-assistant package."""
+        folder = self.project / ".tdm-assistant"
+        folder.mkdir()
+        config = {"GITLAB_URL": url or self.url, "GITLAB_PROJECT_ID": project, "GITLAB_REF": ref}
+        (folder / "config.json").write_text(json.dumps(config), encoding="utf-8")
+
+    def names(self, *args, **kwargs):
+        """Return the environment names of the list in the output."""
+        return [line[3:-1] for line in self.lines(*args, **kwargs) if line.startswith("- `")]
+
+    def test_names_are_sorted_without_the_extension(self):
+        """Only .yaml files count; the names lose the extension and are sorted ignoring case."""
+        self.write_gitlab_config()
+        lines = self.lines()
+        self.assertTrue(lines[0].startswith("Found 5 environments in "), lines[0])
+        self.assertEqual(self.names(), ["alpha", "atp3prod_dyn-CI-Ivory", "dev-CI-Ivory", "prod", "Zeta"])
+
+    def test_request_reads_the_folder_of_the_configured_project_and_branch(self):
+        """The request goes to the project ID and the branch of the config, for the folder environments."""
+        self.write_gitlab_config(project="7", ref="release")
+        self.lines()
+        path, query, _ = FakeGitLab.requests[0]
+        self.assertEqual(path, "/api/v4/projects/7/repository/tree")
+        self.assertEqual((query["path"], query["ref"]), (["environments"], ["release"]))
+
+    def test_name_filters_ignoring_case(self):
+        """--name keeps the names that contain the text, and the heading says how many of all."""
+        self.write_gitlab_config()
+        self.assertEqual(self.names("--name", "IVORY"), ["atp3prod_dyn-CI-Ivory", "dev-CI-Ivory"])
+        self.assertTrue(self.lines("--name", "ivory")[0].startswith("Found 2 of 5 environments in "))
+
+    def test_name_with_a_mask_matches_the_whole_name(self):
+        """A value with * or ? is a mask for the whole name, as in list_tests.py."""
+        self.write_gitlab_config()
+        self.assertEqual(self.names("--name", "*-ci-*"), ["atp3prod_dyn-CI-Ivory", "dev-CI-Ivory"])
+        self.assertEqual(self.names("--name", "prod"), ["atp3prod_dyn-CI-Ivory", "prod"])
+        self.assertEqual(self.names("--name", "prod?"), [])
+        self.assertIn('Filter: name matches "*-ci-*".', self.lines("--name", "*-ci-*")[0])
+
+    def test_nothing_matched_is_an_answer(self):
+        """A filter that matches no name exits with 0 and says how many environments there are."""
+        self.write_gitlab_config()
+        code, out, _ = self.run_script("--name", "nothing-like-this")
+        self.assertEqual(code, 0)
+        self.assertTrue(out.startswith("No environments (*.yaml) found in "), out)
+        self.assertIn('5 in all. Filter: name contains "nothing-like-this".', out)
+
+    def test_options_replace_the_config(self):
+        """--url, --project, and --ref are enough when the project has no config."""
+        self.assertEqual(
+            self.names("--url", self.url, "--project", "group/pipeline", "--ref", "main")[:2],
+            ["alpha", "atp3prod_dyn-CI-Ivory"],
+        )
+        self.assertEqual(FakeGitLab.requests[0][0], "/api/v4/projects/group%2Fpipeline/repository/tree")
+
+    def test_token_goes_in_the_header_and_is_never_printed(self):
+        """The token from the environment is sent as PRIVATE-TOKEN and appears in no output."""
+        self.write_gitlab_config(project="group/secured")
+        code, out, err = self.run_script(token=TOKEN)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(FakeGitLab.requests[0][2], TOKEN)
+        self.assertNotIn(TOKEN, out + err)
+
+    def test_missing_settings_are_named(self):
+        """Without GITLAB_PROJECT_ID the error names the key and says where it goes."""
+        self.write_gitlab_config(project="")
+        error = self.error_of()
+        self.assertEqual(error["error"], "gitlab_settings_missing")
+        self.assertIn("GITLAB_PROJECT_ID", error["message"])
+
+    def test_missing_folder_inaccessible_project_and_missing_token(self):
+        """A 404 for the tree is environments_folder_missing; a 404 or 401 for the project is repo_inaccessible."""
+        self.write_gitlab_config(project="group/notests")
+        self.assertEqual(self.error_of()["error"], "environments_folder_missing")
+        self.assertEqual(self.error_of("--project", "group/private")["error"], "repo_inaccessible")
+        error = self.error_of("--project", "group/secured")
+        self.assertEqual(error["error"], "repo_inaccessible")
+        self.assertIn("GITLAB_TOKEN", error["message"])
 
 
 class RepoUrlCase(unittest.TestCase):
