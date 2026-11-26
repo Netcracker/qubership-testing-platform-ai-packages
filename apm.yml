@@ -1,0 +1,13 @@
+# The manifest of this repository as an APM project, for the agents that develop the packages. The packages that users
+# install have manifests of their own under agent-packages/.
+name: qubership-testing-platform-ai-packages
+version: 1.0.0
+description: Development rules for the agents that work on the packages of this repository.
+author: Qubership
+targets:
+  - claude
+  - codex
+compilation:
+  exclude:
+    # The instructions of a package are for its users, not for the development of this repository.
+    - "agent-packages/*/.apm/**"
