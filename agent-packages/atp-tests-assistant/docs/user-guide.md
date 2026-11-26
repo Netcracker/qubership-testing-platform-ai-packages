@@ -5,8 +5,14 @@
 Run `apm install` in the folder in which you start your agent:
 
 ```bash
-apm install --target claude Netcracker/qubership-testing-platform-ai-packages/agent-packages/atp-tests-assistant#main
+apm install --target claude Netcracker/qubership-testing-platform-ai-packages/agent-packages/atp-tests-assistant
 ```
+
+The command installs from the default branch. To install a release, add `#<tag>` to the end of the command.
+
+For OpenCode, install
+[atp-tests-assistant-opencode](../../atp-tests-assistant-opencode/docs/user-guide.md) instead: it brings this package
+and the commands for the `/` menu of OpenCode.
 
 You need Python 3.9 or later on the machine. The scripts use only its standard library.
 
