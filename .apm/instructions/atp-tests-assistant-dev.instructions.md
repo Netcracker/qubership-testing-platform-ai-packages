@@ -19,6 +19,11 @@ packages.
 A task has a Python script in the `scripts/` folder of its plain-language skill. The script does the work, and both
 skills run it. Shared code goes into the `atp-common` skill.
 
+### OpenCode commands
+
+The package `atp-tests-assistant-opencode` has one command file for each command skill. When a command skill is added,
+renamed, removed, or gets another `argument-hint`, change the file in its `.apm/prompts/` too, and run its self-test.
+
 ### User documentation
 
 The table of errors in `docs/user-guide.md` lists the errors of the scripts.

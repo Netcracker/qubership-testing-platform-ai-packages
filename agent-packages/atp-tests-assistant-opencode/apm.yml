@@ -1,0 +1,9 @@
+name: atp-tests-assistant-opencode
+version: 1.0.0
+description: Slash commands of atp-tests-assistant for OpenCode, which lists commands but not skills in its slash menu.
+author: Qubership
+dependencies:
+  apm:
+    # The main package from the same repository and the same ref (branch, tag, or commit) as this one.
+    - git: parent
+      path: agent-packages/atp-tests-assistant
