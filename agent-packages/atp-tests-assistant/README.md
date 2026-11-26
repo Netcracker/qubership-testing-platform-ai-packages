@@ -113,6 +113,9 @@ The script finds the downstream pipeline through the bridge job of the pipeline,
 `<ORCHESTRATOR_URL>/atp3/api/v1/runs/<run ID>/logs` on every round, because the identifiers appear one by one. Each
 found value is printed as `FOUND <name>=<value>` in the progress output, and the result lists all of them in `found`.
 
+Without the search, the result of a run says that none was made (`discovery.enabled` is false), and the agent tells
+you that, not that nothing was found.
+
 The search never stops the wait for the pipeline. It ends by itself after `DISCOVERY_TIMEOUT` seconds, or after five
 failed requests in a row, and the result then says why in `discovery.stopped` and `discovery.message`. It needs the
 agent to read the output of the script while it runs. A tool that shows the output only at the end gets the

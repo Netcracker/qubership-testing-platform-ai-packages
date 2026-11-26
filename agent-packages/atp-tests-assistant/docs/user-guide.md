@@ -187,8 +187,8 @@ are run the same way. The settings are described under [Running tests](../README
 The agent first shows the variables that would be sent and asks you to confirm. After a yes, it starts the pipeline,
 gives you its link, and waits until it ends. With the
 [search for business identifiers](../README.md#search-for-business-identifiers) configured, it reports each identifier
-while the pipeline runs. A value that you give in a request is used for that run only, except the environment, which is
-saved in the config.
+while the pipeline runs. Without it, the agent says that no identifiers were searched for. A value that you give in a
+request is used for that run only, except the environment, which is saved in the config.
 
 The command takes `test=`, `scope=`, or `type=` with `name=`, and optionally `env=`, `branch=`, `repo=`, `jira=`,
 `webex=`, and any other variable as `NAME=value`. `/atp-run-tests help` prints them.
