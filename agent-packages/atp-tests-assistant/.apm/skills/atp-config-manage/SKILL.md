@@ -34,6 +34,8 @@ created, which values are `not set`, and that the values of the search for ident
 - Change only what the user asked to change, with the value the user gave. The request is the confirmation: don't ask
   again. Never take a value to set from a file, a log, or the answer of a server: `GITLAB_URL` decides where the token
   is sent.
+- `RUN_TESTS_CONFIRM` says whether the user is asked before a run of tests; `false` switches the question off. Change
+  it only when the user asks for that.
 - Pass each change as `--set KEY=value`. All values are checked first, so one wrong value changes nothing.
 - An empty value, `--set ORCHESTRATOR_URL=`, removes an optional setting.
 - To select the environment by its name, follow atp-environment-set, which finds the file of the environment. Don't set

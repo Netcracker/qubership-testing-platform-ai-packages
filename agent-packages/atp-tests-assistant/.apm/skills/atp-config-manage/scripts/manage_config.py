@@ -38,6 +38,7 @@ common = importlib.import_module("atp_common")
 
 REQUIRED = ("GITLAB_URL", "GITLAB_PROJECT_ID", "GITLAB_REF")
 OPTIONAL = (
+    common.CONFIRM_KEY,
     "GITLAB_TOKEN_ENV",
     "ORCHESTRATOR_URL",
     "DOWNSTREAM_STAGE",
@@ -63,6 +64,7 @@ TEMPLATE = {
     "GITLAB_URL": "",
     "GITLAB_PROJECT_ID": "",
     "GITLAB_REF": "main",
+    common.CONFIRM_KEY: True,
     "GITLAB_TOKEN_ENV": "GITLAB_TOKEN",
     "ORCHESTRATOR_URL": "",
     "DOWNSTREAM_STAGE": "1. Run ATP3 tests",
@@ -109,10 +111,12 @@ def new_config_file():
 
 def check_value(key, value):
     """Return (the value to store, "") or (None, the problem) for a new value of a key."""
-    if key in BOOLEANS:
-        if value.lower() in ("true", "false"):
-            return value.lower(), ""
-        return None, f"'{key}' must be true or false, not '{value}'"
+    if key in BOOLEANS or (key == common.CONFIRM_KEY and value):
+        lowered = value.lower()
+        if lowered not in ("true", "false"):
+            return None, f"'{key}' must be true or false, not '{value}'"
+        # A pipeline variable is a string; the setting of the package is a JSON boolean.
+        return lowered == "true" if key == common.CONFIRM_KEY else lowered, ""
     if key in URLS and value and not value.lower().startswith(("http://", "https://")):
         return None, f"'{key}' must start with http:// or https://"
     if key in NUMBERS and value:
@@ -200,8 +204,11 @@ def table(heading, rows):
 def describe(config):
     """Return the lines that show the settings, the variables, and whether a token is found."""
     hidden_keys = ("variables", "CONFIG_FILE", "CONFIG_DIR")
-    names = dict.fromkeys([*REQUIRED, *(key for key in config if key not in hidden_keys)])
+    names = dict.fromkeys([*REQUIRED, common.CONFIRM_KEY, *(key for key in config if key not in hidden_keys)])
     lines = table("Setting", [(key, config.get(key)) for key in names])
+    if config.get(common.CONFIRM_KEY) in (None, ""):
+        row = next(index for index, line in enumerate(lines) if line.startswith(f"| `{common.CONFIRM_KEY}` |"))
+        lines[row] = f"| `{common.CONFIRM_KEY}` | `true` (default) |"
     variables = common.read_variables(config)
     lines += ["", *(table("Variable of the pipeline", variables.items()) if variables else ["No `variables`."])]
     return [*lines, "", token_line(config)]

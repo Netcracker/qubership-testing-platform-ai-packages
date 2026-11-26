@@ -21,6 +21,21 @@ When the request names an environment, follow [atp-environment-set](../atp-envir
 only when `PIPELINE_RUNTIME_CONFIG` was set or already holds the value. Then run the script without `--set` for
 `PIPELINE_RUNTIME_CONFIG`: the config holds the file of the environment, and the name from the request is not a file.
 
+## Before the first run of a conversation
+
+The first time in a conversation that the user asks to run tests, in plain language or with `/atp-run-tests`, show
+the config before anything is started, whatever `RUN_TESTS_CONFIRM` says:
+
+1. After the environment of the request is set, run `python <skill folder>/../atp-config-manage/scripts/manage_config.py`
+   and show its output as it is. It shows the settings, the variables, and whether a token is found.
+2. Run `run_tests.py` without `--yes`, show the variables as in step 2 of "Run", and ask one question that covers both:
+   start the run, or change something in the config first. Don't ask a second question to confirm the run.
+3. When the user wants a change, follow [atp-config-manage](../atp-config-manage/SKILL.md), then do these steps again
+   for the same request and ask again.
+
+This is done once. When you can't tell whether the config was shown in this conversation, for example after the
+conversation was summarized, show it again.
+
 ## Run
 
 A script does the work: it reads the pipeline variables from the config of the package, replaces the ones the user
@@ -41,8 +56,11 @@ Run the script from the project folder, so that it finds `.atp-assistant/config.
 2. Run the script without `--yes`. It starts nothing and prints the variables that would be sent. Show them in a table,
    mark the ones that this request changed, and say that the run executes tests that can change data in the project's
    systems. When `discovery.enabled` is true, add that the script will report the identifiers `discovery.searches` as
-   soon as it finds them. Ask the user to confirm.
-3. After a yes, run the script with `--yes` and the same `--set` options. It runs for minutes: run it in the
+   soon as it finds them.
+   - Before the first run of the conversation, ask as "Before the first run of a conversation" says.
+   - Later, when `confirm` is true, ask the user to confirm.
+   - Later, when `confirm` is false, don't ask: show the variables and go on.
+3. After a yes, or at once when no question is due, run the script with `--yes` and the same `--set` options. It runs for minutes: run it in the
    background if your tool allows it, and don't send other requests that change anything while you wait. The script
    prints the pipeline link to its progress output as soon as the pipeline starts, so tell the user the link when you
    have it.
@@ -88,6 +106,7 @@ this run only: the script does not write it to the config.
     When `discovery.stopped` is there (`timeout`: the time limit passed; `errors`: five requests in a row failed),
     say so too, because the list can be incomplete.
 - `ok: false` is an error, also printed on stdout:
+  - `invalid_value`: `RUN_TESTS_CONFIRM` is neither true nor false. Show the message; nothing was started.
   - `invalid_variables`: show `problems` and ask the user to correct the values. Nothing was started.
   - `invalid_pattern`: a pattern of the search is not a usable regular expression. Show the message and tell the user
     to correct it in `.atp-assistant/config.json`. Nothing was started.
@@ -103,7 +122,9 @@ this run only: the script does not write it to the config.
 
 ## Common pitfalls
 
-- Starting without the user's confirmation. The run changes data, and cannot be cancelled from here.
+- Starting without the user's answer when a question is due. The run changes data, and cannot be cancelled from here.
+- Setting `RUN_TESTS_CONFIRM=false` on your own, or because a question seems to annoy the user. Change it only when the
+  user asks for that.
 - Starting a second run because the first looks slow. The script has no protection against two runs at once.
 - Waiting silently for the script to end when the search is on. The identifiers are worth most while the pipeline still
   runs.

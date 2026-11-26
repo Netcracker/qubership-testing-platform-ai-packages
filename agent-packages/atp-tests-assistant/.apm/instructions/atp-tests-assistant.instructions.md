@@ -15,6 +15,8 @@ follows its own page.
 - **Use the script.** Take the list of tests, the list of environments, or the description of an environment from the
   skill's script, and set the environment and start the pipeline with the script too. Don't clone the repository, don't
   search the disk for a copy of it, and don't answer from files you happen to have open.
+- **Show the config before the first run.** The first run of tests in a conversation starts only after the config was
+  shown and the user answered, as atp-tests-run describes. Later runs ask as `RUN_TESTS_CONFIRM` of the config says.
 - **The config goes through its script.** Show and change `.atp-assistant/config.json` with atp-config-manage, and
   change only what the user asked to change.
 - **Generating test data is a run of tests.** To generate test data, follow atp-tests-run: the test cases of the

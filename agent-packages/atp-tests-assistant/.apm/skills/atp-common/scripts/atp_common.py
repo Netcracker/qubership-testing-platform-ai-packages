@@ -37,6 +37,7 @@ SCP_URL = re.compile(r"[\w.-]+@([\w.-]+):(.+)")
 ENVIRONMENTS_FOLDER = "environments"
 ENVIRONMENT_SUFFIX = ".yaml"
 CURRENT_KEY = "PIPELINE_RUNTIME_CONFIG"
+CONFIRM_KEY = "RUN_TESTS_CONFIRM"
 PIPELINE_SETTINGS = (("url", "GITLAB_URL"), ("project", "GITLAB_PROJECT_ID"), ("ref", "GITLAB_REF"))
 
 
