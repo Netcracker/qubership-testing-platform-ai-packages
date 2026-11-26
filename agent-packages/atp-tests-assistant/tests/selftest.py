@@ -4,7 +4,7 @@ Run: python tests/selftest.py
 
 It starts a fake GitLab on localhost that answers the repository tree and file requests,
 runs list_tests.py, list_environments.py, show_environment.py, and set_environment.py
-against it, and checks the output and the change of the variables file: the sorting, the
+against it, and checks the output and the change of the config file: the sorting, the
 nesting, the filters, the table, the pagination, the search for an environment, the
 source of the repository and the branch, the token, and the errors. How the agent reads a
 request in plain language is not tested.
@@ -156,15 +156,21 @@ class ScriptCase(unittest.TestCase):
         self.project = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.project, ignore_errors=True)
 
+    def config_file(self):
+        """Return the path of the config file of the project."""
+        return self.project / ".atp-assistant" / "config.json"
+
+    def save_config(self, config=None, text=None):
+        """Write the config file from an object, or from the given text."""
+        self.config_file().parent.mkdir(exist_ok=True)
+        self.config_file().write_bytes((json.dumps(config) if text is None else text).encode("utf-8"))
+
     def write_config(self, repo="group/tests.git", branch="release", token_file=None):
-        """Write a config and a variables file in the way of the tdm-test-data-assistant package."""
-        folder = self.project / ".tdm-assistant"
-        folder.mkdir()
-        (folder / "config.json").write_text(json.dumps({"GENERATE_VARIABLES_FILE": "variables.json"}), encoding="utf-8")
+        """Write a config whose variables name the test repository, and a token file if given."""
         variables = {"ATP_TESTS_GIT_REPO_URL": f"{self.url}/{repo}", "ATP_TESTS_GIT_REPO_BRANCH": branch}
-        (self.project / "variables.json").write_text(json.dumps({"variables": variables}), encoding="utf-8")
+        self.save_config({"variables": variables})
         if token_file:
-            (folder / "gitlab-token").write_text(token_file + "\n", encoding="utf-8")
+            (self.config_file().parent / "gitlab-token").write_text(token_file + "\n", encoding="utf-8")
 
     def run_script(self, *args, token=None, cwd=None):
         """Return (exit code, stdout, stderr) of the script, run from the project folder."""
@@ -310,8 +316,8 @@ class OutputCase(ScriptCase):
 class SourceCase(ScriptCase):
     """Where the repository, the branch, and the token come from."""
 
-    def test_branch_comes_from_the_variables_file(self):
-        """The script reads the repository and the branch of the variables file."""
+    def test_branch_comes_from_the_config(self):
+        """The script reads the repository and the branch of the config."""
         self.write_config(branch="release")
         self.lines()
         self.assertEqual(FakeGitLab.requests[0][1]["ref"], ["release"])
@@ -328,7 +334,7 @@ class SourceCase(ScriptCase):
         self.assertEqual(FakeGitLab.requests[-1][1]["ref"], ["dev"])
 
     def test_works_without_any_config(self):
-        """--repo and --branch are enough when the project has no .tdm-assistant folder."""
+        """--repo and --branch are enough when the project has no .atp-assistant folder."""
         lines = self.lines("--repo", f"{self.url}/group/tests", "--branch", "main")
         self.assertTrue(lines[0].startswith("Found 9 test files"), lines[0])
 
@@ -348,7 +354,7 @@ class SourceCase(ScriptCase):
         self.assertNotIn(TOKEN, out + err)
 
     def test_token_file_is_used_when_the_variable_is_empty(self):
-        """The first line of .tdm-assistant/gitlab-token is the token when GITLAB_TOKEN is not set."""
+        """The first line of .atp-assistant/gitlab-token is the token when GITLAB_TOKEN is not set."""
         self.write_config(repo="group/secured.git", token_file=TOKEN)
         self.assertEqual(self.run_script()[0], 0)
 
@@ -357,7 +363,7 @@ class ErrorCase(ScriptCase):
     """The errors: each has a code, a message with the remedy, and exit status 1 or 2."""
 
     def test_no_repository_is_an_error(self):
-        """Without --repo and a variables file, the script says where to set the repository."""
+        """Without --repo and a config, the script says where to set the repository."""
         self.assertEqual(self.error_of()["error"], "repo_missing")
 
     def test_unknown_folder_is_an_error(self):
@@ -403,11 +409,8 @@ class EnvironmentsCase(ScriptCase):
     script = ENV_SCRIPT
 
     def write_gitlab_config(self, project="7", ref="main", url=None):
-        """Write the GITLAB_* keys of the config, in the way of the tdm-test-data-assistant package."""
-        folder = self.project / ".tdm-assistant"
-        folder.mkdir()
-        config = {"GITLAB_URL": url or self.url, "GITLAB_PROJECT_ID": project, "GITLAB_REF": ref}
-        (folder / "config.json").write_text(json.dumps(config), encoding="utf-8")
+        """Write a config that holds only the GITLAB_* keys."""
+        self.save_config({"GITLAB_URL": url or self.url, "GITLAB_PROJECT_ID": project, "GITLAB_REF": ref})
 
     def names(self, *args, **kwargs):
         """Return the environment names of the list in the output."""
@@ -489,24 +492,15 @@ class ShowEnvironmentCase(ScriptCase):
     script = SHOW_SCRIPT
 
     def write_pipeline_config(self, current="environments/atp3prod_dyn-CI-Ivory.yaml", project="7", ref="main"):
-        """Write the GITLAB_* keys and a variables file that holds PIPELINE_RUNTIME_CONFIG."""
-        folder = self.project / ".tdm-assistant"
-        folder.mkdir()
-        config = {
-            "GITLAB_URL": self.url,
-            "GITLAB_PROJECT_ID": project,
-            "GITLAB_REF": ref,
-            "GENERATE_VARIABLES_FILE": "variables.json",
-        }
-        (folder / "config.json").write_text(json.dumps(config), encoding="utf-8")
-        variables = {"PIPELINE_RUNTIME_CONFIG": current}
-        (self.project / "variables.json").write_text(json.dumps({"variables": variables}), encoding="utf-8")
+        """Write the GITLAB_* keys and the variable PIPELINE_RUNTIME_CONFIG."""
+        config = {"GITLAB_URL": self.url, "GITLAB_PROJECT_ID": project, "GITLAB_REF": ref}
+        self.save_config({**config, "variables": {"PIPELINE_RUNTIME_CONFIG": current}})
 
     def assert_shows(self, lines, path):
         """Check that the output holds the whole file in a fence longer than the fence inside it."""
         self.assertEqual(lines[2:], ["````yaml", *file_content(path).splitlines(), "````"])
 
-    def test_current_environment_is_the_file_of_the_variables_file(self):
+    def test_current_environment_is_the_file_of_the_variable(self):
         """Without --name, the script reads the file that PIPELINE_RUNTIME_CONFIG names, on GITLAB_REF."""
         self.write_pipeline_config(ref="release")
         lines = self.lines()
@@ -554,9 +548,7 @@ class ShowEnvironmentCase(ScriptCase):
         """An empty PIPELINE_RUNTIME_CONFIG and a value that names no file are two different errors."""
         self.write_pipeline_config(current="")
         self.assertEqual(self.error_of()["error"], "runtime_config_missing")
-        (self.project / "variables.json").write_text(
-            json.dumps({"variables": {"PIPELINE_RUNTIME_CONFIG": "environments/gone.yaml"}}), encoding="utf-8"
-        )
+        self.write_pipeline_config(current="environments/gone.yaml")
         error = self.error_of()
         self.assertEqual(error["error"], "environment_file_missing")
         self.assertIn("environments/gone.yaml", error["message"])
@@ -583,31 +575,23 @@ class SetEnvironmentCase(ScriptCase):
 
     script = SET_SCRIPT
 
-    def write_pipeline_config(self, variables=None, text=None, variables_key="GENERATE_VARIABLES_FILE"):
-        """Write the GITLAB_* keys and a variables file with the given variables or the given text."""
-        folder = self.project / ".tdm-assistant"
-        folder.mkdir()
-        config = {"GITLAB_URL": self.url, "GITLAB_PROJECT_ID": "7", "GITLAB_REF": "main"}
-        config[variables_key] = "variables.json"
-        (folder / "config.json").write_text(json.dumps(config), encoding="utf-8")
-        if text is None:
-            text = json.dumps({"variables": variables or {}}, indent=2) + "\n"
-        (self.project / "variables.json").write_bytes(text.encode("utf-8"))
+    def settings(self):
+        """Return the GITLAB_* keys of the fake pipeline."""
+        return {"GITLAB_URL": self.url, "GITLAB_PROJECT_ID": "7", "GITLAB_REF": "main"}
 
-    def variables_bytes(self):
-        """Return the content of the variables file."""
-        return (self.project / "variables.json").read_bytes()
+    def write_pipeline_config(self, variables=None):
+        """Write the GITLAB_* keys and the given variables, indented by two spaces."""
+        self.save_config(text=json.dumps({**self.settings(), "variables": variables or {}}, indent=2) + "\n")
 
     def current(self):
-        """Return PIPELINE_RUNTIME_CONFIG of the variables file."""
-        return json.loads(self.variables_bytes().decode("utf-8-sig"))["variables"].get("PIPELINE_RUNTIME_CONFIG")
+        """Return PIPELINE_RUNTIME_CONFIG of the config file."""
+        config = json.loads(self.config_file().read_bytes().decode("utf-8-sig"))
+        return config["variables"].get("PIPELINE_RUNTIME_CONFIG")
 
     def test_one_match_is_set_when_the_variable_is_absent_empty_or_different(self):
         """A text that one name contains sets environments/<filename>, whatever the file held."""
-        self.write_pipeline_config()
         for before in (None, "", "environments/prod.yaml"):
-            variables = {} if before is None else {"PIPELINE_RUNTIME_CONFIG": before}
-            (self.project / "variables.json").write_text(json.dumps({"variables": variables}), encoding="utf-8")
+            self.write_pipeline_config({} if before is None else {"PIPELINE_RUNTIME_CONFIG": before})
             lines = self.lines("--name", "DYN-ci")
             self.assertEqual(self.current(), "environments/atp3prod_dyn-CI-Ivory.yaml", before)
             self.assertEqual(lines[0], 'The only environment that matches "DYN-ci" is `atp3prod_dyn-CI-Ivory`.')
@@ -623,39 +607,48 @@ class SetEnvironmentCase(ScriptCase):
 
     def test_the_rest_of_the_file_and_its_format_stay(self):
         """The other keys, the non-ASCII text, the indentation, the CRLF ends, and the BOM are kept."""
-        text = '\ufeff{\r\n    "comment": "Окружение",\r\n    "variables": {\r\n        "A": "1",\r\n'
-        text += '        "PIPELINE_RUNTIME_CONFIG": ""\r\n    }\r\n}\r\n'
-        self.write_pipeline_config(text=text)
+        lines = ["{"]
+        lines += [f'    "{key}": "{value}",' for key, value in self.settings().items()]
+        lines += ['    "comment": "Окружение",', '    "variables": {', '        "A": "1",']
+        lines += ['        "PIPELINE_RUNTIME_CONFIG": ""', "    }", "}"]
+        text = "\ufeff" + "\r\n".join(lines) + "\r\n"
+        self.save_config(text=text)
         self.lines("--name", "prod")
         expected = text.replace('CONFIG": ""', 'CONFIG": "environments/prod.yaml"')
-        self.assertEqual(self.variables_bytes(), expected.encode("utf-8"))
-        self.assertEqual(list(self.project.glob("*.tmp")), [])
+        self.assertEqual(self.config_file().read_bytes(), expected.encode("utf-8"))
+        self.assertEqual(list(self.config_file().parent.glob("*.tmp")), [])
+
+    def test_a_config_without_variables_gets_them(self):
+        """A config with only the GITLAB_* keys gets the object variables with the one value."""
+        self.save_config(self.settings())
+        self.assertTrue(self.lines("--name", "prod")[0].endswith("It was not set."))
+        self.assertEqual(self.current(), "environments/prod.yaml")
 
     def test_the_same_value_leaves_the_file_alone(self):
         """When the variable already names the file, the file is not written."""
-        text = '{"variables": {"PIPELINE_RUNTIME_CONFIG": "environments/prod.yaml"}}'
-        self.write_pipeline_config(text=text)
+        variables = {"PIPELINE_RUNTIME_CONFIG": "environments/prod.yaml"}
+        text = json.dumps({**self.settings(), "variables": variables})
+        self.save_config(text=text)
         self.assertIn("Nothing changed.", self.lines("--name", "prod")[0])
-        self.assertEqual(self.variables_bytes(), text.encode("utf-8"))
+        self.assertEqual(self.config_file().read_bytes(), text.encode("utf-8"))
 
     def test_none_or_several_matches_change_nothing(self):
         """Without one match, the file stays, and several names are listed for the user to choose."""
         self.write_pipeline_config({"PIPELINE_RUNTIME_CONFIG": "environments/prod.yaml"})
-        before = self.variables_bytes()
+        before = self.config_file().read_bytes()
         lines = self.lines("--name", "ci-ivory")
         self.assertEqual(lines[2:4], ["- `atp3prod_dyn-CI-Ivory`", "- `dev-CI-Ivory`"])
         self.assertEqual(lines[-1], "PIPELINE_RUNTIME_CONFIG was not changed.")
         lines = self.lines("--name", "nothing-like-this")
         self.assertTrue(lines[0].startswith('No environment matches "nothing-like-this" in '), lines[0])
-        self.assertEqual(self.variables_bytes(), before)
+        self.assertEqual(self.config_file().read_bytes(), before)
 
-    def test_missing_or_broken_variables_file(self):
-        """Without a usable variables file the script fails before it asks GitLab."""
-        self.write_pipeline_config(variables_key="OTHER")
-        self.assertEqual(self.error_of("--name", "prod")["error"], "variables_file_missing")
-        shutil.rmtree(self.project / ".tdm-assistant")
-        self.write_pipeline_config(text="[]")
-        self.assertEqual(self.error_of("--name", "prod")["error"], "variables_file_unreadable")
+    def test_missing_or_broken_config(self):
+        """Without a usable config the script fails before it asks GitLab."""
+        self.assertEqual(self.error_of("--name", "prod")["error"], "config_missing")
+        for text in ("[]", "{", '{"variables": []}'):
+            self.save_config(text=text)
+            self.assertEqual(self.error_of("--name", "prod")["error"], "config_unreadable", text)
         self.assertEqual(FakeGitLab.requests, [])
 
     def test_name_is_required(self):

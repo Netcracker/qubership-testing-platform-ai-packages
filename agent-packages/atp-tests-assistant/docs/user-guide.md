@@ -12,20 +12,33 @@ You need Python 3.9 or later on the machine. The scripts use only its standard l
 
 ## Set up the repository and the token
 
-The skills need the URL and the branch of the test repository, and, for a private repository, a GitLab token that can
-read it.
+The skills need the settings of the pipeline repository, the URL and the branch of the test repository, and, for a
+private repository, a GitLab token that can read them.
 
-1. If the project already uses the tdm-test-data-assistant package, nothing else is needed for the repository: the
-   script reads `ATP_TESTS_GIT_REPO_URL` and `ATP_TESTS_GIT_REPO_BRANCH` from the variables file that
-   `GENERATE_VARIABLES_FILE` names in `.tdm-assistant/config.json`.
-2. Without that package, give the repository in the request or the command:
+1. Create `.atp-assistant/config.json` in the folder in which you start your agent. The example and the keys are under
+   [Settings](../README.md#settings) in the `README`.
+2. Without the file, give the values in the request or the command, for example
    `/atp-list-tests repo=<url> branch=<branch>`. With `repo=` and no `branch=`, the script reads the default
    branch of that repository.
 3. Set the token in the environment variable `GITLAB_TOKEN`, or put it on the first line of
-   `.tdm-assistant/gitlab-token`. The token needs the right to read the repository. Never paste it into the chat: the
-   script reads it, and the agent never does.
+   `.atp-assistant/gitlab-token`. The token needs the right to read the repositories. Never paste it into the chat: the
+   script reads it, and the agent never does. If the folder is in a Git repository, add
+   `.atp-assistant/gitlab-token` to `.gitignore`.
 
 Without a token the script asks GitLab anonymously, which works for a public repository only.
+
+### Move the settings from `.tdm-assistant`
+
+Versions before 0.7.0 read the files of the tdm-test-data-assistant package. The scripts do not read them anymore, so
+move the settings by hand:
+
+1. Copy `GITLAB_URL`, `GITLAB_PROJECT_ID`, `GITLAB_REF`, and `GITLAB_TOKEN_ENV` from `.tdm-assistant/config.json` to
+   `.atp-assistant/config.json`.
+2. Copy the object `variables` from the file that `GENERATE_VARIABLES_FILE` names into the same file.
+3. Move `.tdm-assistant/gitlab-token`, if you have it, to `.atp-assistant/gitlab-token`.
+
+If you also generate test data with tdm-test-data-assistant, copy instead of moving: that package still reads its own
+files.
 
 ## List the tests
 
@@ -77,8 +90,8 @@ can have hundreds of them, so you can keep only the names that contain a text.
 | Show the list of environments for the pipeline     | `/atp-list-environments`           |
 | Show the pipeline environments that contain `prod` | `/atp-list-environments name=prod` |
 
-The command reads `GITLAB_URL`, `GITLAB_PROJECT_ID`, and `GITLAB_REF` from `.tdm-assistant/config.json`, the settings
-that tdm-generate-test-data uses to start the pipeline. Without that package, give them in the command:
+The command reads `GITLAB_URL`, `GITLAB_PROJECT_ID`, and `GITLAB_REF` from `.atp-assistant/config.json`. Without the
+file, give them in the command:
 `/atp-list-environments url=<gitlab url> project=<id> ref=<branch>`. The token is set as described in
 [Set up the repository and the token](#set-up-the-repository-and-the-token).
 
@@ -98,8 +111,8 @@ above, that is `environments/atp3prod_dyn-CI-Ivory.yaml`.
 ## Show the description of an environment
 
 The description of an environment is its YAML file in the `environments` folder of the pipeline repository. The current
-environment is the file that `PIPELINE_RUNTIME_CONFIG` names, such as `environments/atp3prod_dyn-CI-Ivory.yaml`, in the
-variables file that `GENERATE_VARIABLES_FILE` names in `.tdm-assistant/config.json`.
+environment is the file that `PIPELINE_RUNTIME_CONFIG` names, such as `environments/atp3prod_dyn-CI-Ivory.yaml`, in
+`variables` of `.atp-assistant/config.json`.
 
 | You write                                          | Command                               |
 | -------------------------------------------------- | ------------------------------------- |
@@ -129,8 +142,8 @@ The file is not masked: a password or a key that it holds appears in the chat an
 
 ## Set the environment of the pipeline
 
-The environment of the pipeline is the value of `PIPELINE_RUNTIME_CONFIG` in the variables file that
-`GENERATE_VARIABLES_FILE` names in `.tdm-assistant/config.json`: `environments/<filename>`.
+The environment of the pipeline is the value of `PIPELINE_RUNTIME_CONFIG` in `variables` of
+`.atp-assistant/config.json`: `environments/<filename>`.
 
 | You write                                  | Command                                |
 | ------------------------------------------ | -------------------------------------- |
@@ -140,16 +153,17 @@ The environment of the pipeline is the value of `PIPELINE_RUNTIME_CONFIG` in the
 
 The name is searched as for the description of an environment:
 
-- When one environment is found, `PIPELINE_RUNTIME_CONFIG` is set to its file. The variable is added when the file has
+- When one environment is found, `PIPELINE_RUNTIME_CONFIG` is set to its file. The variable is added when the config has
   none. The agent does not ask for a confirmation.
 - When several match, the agent lists them and changes nothing until you choose one.
 - When none matches, nothing changes.
 
-The script writes only this one value. The file is rewritten as JSON with its indentation and line ends. The other values stay, but a layout of your own,
-such as a list written on one line, is not kept.
+The script writes only this one value. The file is rewritten as JSON with its indentation and line ends. The other
+values stay, but a layout of your own, such as a list written on one line, is not kept.
 
 When you ask to run a test case on an environment, the agent sets the environment first and then starts the run with
-the tdm-test-data-assistant package, which asks for its own confirmation. The value stays in the file after the run.
+the tdm-test-data-assistant package, which asks for its own confirmation. That package does not read the config of this
+one, so the agent passes it the file of the environment. The value stays in the config after the run.
 
 The repository, the branch, and the token are the same as for the list of environments, and the command accepts
 `ref=`, `url=`, and `project=` too.
@@ -158,17 +172,17 @@ The repository, the branch, and the token are the same as for the list of enviro
 
 | Error                         | Meaning and remedy                                                                                                                              |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `repo_missing`                | No repository. Give `repo=<url>`, or set `ATP_TESTS_GIT_REPO_URL` in the variables file.                                                        |
+| `repo_missing`                | No repository. Give `repo=<url>`, or set `ATP_TESTS_GIT_REPO_URL` in `variables` of the config.                                                 |
 | `repo_inaccessible`           | GitLab answered 401, 403, or 404: the repository doesn't exist, or the token is missing or can't read it.                                       |
 | `tests_folder_missing`        | The repository or the branch has no `TestGeneration/tests/TestScenario`, or the branch doesn't exist.                                           |
 | `folder_not_found`            | No folder with the given name or path under `TestScenario`.                                                                                     |
 | `server_unreachable`          | The script can't reach GitLab. Check the URL and the network.                                                                                   |
 | `gitlab_settings_missing`     | Environments only: `GITLAB_URL`, `GITLAB_PROJECT_ID`, or `GITLAB_REF` is missing. Set it in the config, or give `url=`, `project=`, and `ref=`. |
 | `environments_folder_missing` | Environments only: the pipeline repository or the branch has no `environments` folder.                                                          |
-| `runtime_config_missing`      | No current environment. Set `PIPELINE_RUNTIME_CONFIG` in the variables file, or give `name=`.                                                   |
-| `variables_file_missing`      | Setting the environment only: the config has no `GENERATE_VARIABLES_FILE`. Add it.                                                              |
-| `variables_file_unreadable`   | The variables file can't be read, or it is not JSON with a `variables` object. Fix the file.                                                    |
-| `variables_file_unwritable`   | The variables file can't be written. Check that it is not read-only or locked.                                                                  |
+| `runtime_config_missing`      | No current environment. Set `PIPELINE_RUNTIME_CONFIG` in `variables`, or give `name=`.                                                          |
+| `config_missing`              | Setting the environment only: there is no `.atp-assistant/config.json`. Create it.                                                              |
+| `config_unreadable`           | The config can't be read, or it or its `variables` is not a JSON object. Fix the file.                                                          |
+| `config_unwritable`           | The config can't be written. Check that it is not read-only or locked.                                                                          |
 | `environment_file_missing`    | The branch, or the file that `PIPELINE_RUNTIME_CONFIG` names, does not exist. Check the value and `GITLAB_REF`.                                 |
 
 A request that matches no test file or no environment is not an error: the answer says that nothing was found.

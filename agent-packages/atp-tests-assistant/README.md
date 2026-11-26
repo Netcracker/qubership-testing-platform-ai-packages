@@ -27,21 +27,36 @@ The package instruction
 [atp-tests-assistant](.apm/instructions/atp-tests-assistant.instructions.md) applies to a plain request: the agent
 takes the answer from the script, shows it as printed, and never reads or asks for the token.
 
-## What the package reads
+## Settings
 
-The scripts work from the command line alone. Where the project already uses the
-[tdm-test-data-assistant](https://github.com/Netcracker/qubership-testing-platform-tdm3/tree/main/agent-packages/tdm-test-data-assistant)
-package, they read the same files, so the project's values are set once:
+The package keeps its settings in one file, `.atp-assistant/config.json`. A script looks for it from the working
+directory up. The scripts that list tests and environments also work without it, from the options of the command.
 
-| Source                                                  | Used for                                                                                           |
-| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `.tdm-assistant/config.json`                            | `GENERATE_VARIABLES_FILE`, `GITLAB_URL`, `GITLAB_PROJECT_ID`, `GITLAB_REF`, and `GITLAB_TOKEN_ENV` |
-| The variables file that `GENERATE_VARIABLES_FILE` names | `ATP_TESTS_GIT_REPO_URL`, `ATP_TESTS_GIT_REPO_BRANCH`, and `PIPELINE_RUNTIME_CONFIG`               |
-| Environment variable `GITLAB_TOKEN`                     | The GitLab token; `GITLAB_TOKEN_ENV` names another variable                                        |
-| `.tdm-assistant/gitlab-token`                           | The token on the first line, when the variable is empty                                            |
+```json
+{
+  "GITLAB_URL": "https://gitlab.example.com",
+  "GITLAB_PROJECT_ID": "7",
+  "GITLAB_REF": "main",
+  "variables": {
+    "ATP_TESTS_GIT_REPO_URL": "https://gitlab.example.com/group/tests.git",
+    "ATP_TESTS_GIT_REPO_BRANCH": "main",
+    "PIPELINE_RUNTIME_CONFIG": "environments/dev.yaml"
+  }
+}
+```
 
-This package writes one value in them: `PIPELINE_RUNTIME_CONFIG` in the variables file, when you set the environment. A
-change of one of the keys in the tdm-test-data-assistant package needs the same change here.
+| Key                 | Holds                                                                                   |
+| ------------------- | --------------------------------------------------------------------------------------- |
+| `GITLAB_URL`        | Base URL of the GitLab service.                                                         |
+| `GITLAB_PROJECT_ID` | The numeric ID or the path of the GitLab project that holds the pipeline.               |
+| `GITLAB_REF`        | The branch of the pipeline repository, such as `main`.                                  |
+| `GITLAB_TOKEN_ENV`  | Optional. The environment variable that holds the token. The default is `GITLAB_TOKEN`. |
+| `variables`         | The variables of the pipeline. Keep there only what the pipeline receives.              |
+
+Keep the token out of the config file. A script takes it from the environment variable, or else from the first line of
+`.atp-assistant/gitlab-token`. Do not commit that file.
+
+The package writes one value: `PIPELINE_RUNTIME_CONFIG` in `variables`, when you set the environment.
 
 ## Check the package
 
@@ -50,5 +65,5 @@ python agent-packages/atp-tests-assistant/tests/selftest.py
 ```
 
 The self-test starts a fake GitLab on localhost and checks the output of the scripts, the filters, the pagination, the
-search for an environment, the change of the variables file, the choice of the repository and the branch, the token, and
+search for an environment, the change of the config file, the choice of the repository and the branch, the token, and
 the errors. It does not test how the agent reads a request.

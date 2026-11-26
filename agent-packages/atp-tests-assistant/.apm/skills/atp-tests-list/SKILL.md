@@ -18,7 +18,7 @@ python <skill folder>/scripts/list_tests.py [--folder NAME | --under PATH] [--na
                                             [--repo URL] [--branch BRANCH]
 ```
 
-Run the script from the project folder, so that it finds `.tdm-assistant/config.json`. If `python` isn't found, try
+Run the script from the project folder, so that it finds `.atp-assistant/config.json`. If `python` isn't found, try
 `python3` or `py -3`. Quote each value for the shell.
 
 The script prints the answer in Markdown, ready to show. Print it to the user exactly as it is: don't reorder,
@@ -53,12 +53,12 @@ customers" with no word that names a folder or a file, ask which one is meant.
 
 ## Where the repository comes from
 
-Without `--repo`, the script takes `ATP_TESTS_GIT_REPO_URL` and `ATP_TESTS_GIT_REPO_BRANCH` from the variables file that
-`GENERATE_VARIABLES_FILE` names in `.tdm-assistant/config.json`, the file that tdm-generate-test-data uses. With `--repo`
-and no `--branch`, the script reads the default branch of that repository. When the script reports `repo_missing`,
-tell the user to give the repository in the request or to select the context first.
+Without `--repo`, the script takes `ATP_TESTS_GIT_REPO_URL` and `ATP_TESTS_GIT_REPO_BRANCH` from `variables` of
+`.atp-assistant/config.json`. With `--repo` and no `--branch`, the script reads the default branch of that repository.
+When the script reports `repo_missing`, tell the user to give the repository in the request or to add it to the
+config.
 
-The token is the environment variable `GITLAB_TOKEN`, or the first line of `.tdm-assistant/gitlab-token`. Without a
+The token is the environment variable `GITLAB_TOKEN`, or the first line of `.atp-assistant/gitlab-token`. Without a
 token the script asks GitLab anonymously, which works for a public repository. Never ask the user for the token in the
 chat, and never open the token file.
 

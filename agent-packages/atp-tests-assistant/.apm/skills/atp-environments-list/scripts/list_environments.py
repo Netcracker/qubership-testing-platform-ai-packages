@@ -7,11 +7,10 @@ that selects an environment in the pipeline, PIPELINE_RUNTIME_CONFIG, is
 environments/<name>.yaml.
 
 The repository and the branch come from GITLAB_URL, GITLAB_PROJECT_ID, and GITLAB_REF in
-.tdm-assistant/config.json, the settings that tdm-generate-test-data uses to start the
-pipeline. --url, --project, and --ref override them. The pipeline repository is not the
-repository of the tests. The token comes from the environment variable GITLAB_TOKEN (the
-config key GITLAB_TOKEN_ENV names another variable) or the first line of
-.tdm-assistant/gitlab-token. Without a token the request is anonymous. The token is never
+.atp-assistant/config.json. --url, --project, and --ref override them. The pipeline
+repository is not the repository of the tests. The token comes from the environment
+variable GITLAB_TOKEN (the config key GITLAB_TOKEN_ENV names another variable) or the
+first line of .atp-assistant/gitlab-token. Without a token the request is anonymous. The token is never
 printed.
 
 Filter:

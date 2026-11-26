@@ -5,10 +5,10 @@ A script imports this module after adding the folder that holds it to sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "atp-common" / "scripts"))
     common = importlib.import_module("atp_common")
 
-The module reads the files that the tdm-test-data-assistant package defines, and works
-without them: .tdm-assistant/config.json (found from the working directory up), the
-variables file that its key GENERATE_VARIABLES_FILE names, and the token. Every file is
-optional, except that set_environment.py needs a variables file.
+The settings are in .atp-assistant/config.json, found from the working directory up: the
+GITLAB_* keys of the pipeline repository, and the object "variables" with the variables of
+the pipeline. The token comes from the environment or from .atp-assistant/gitlab-token.
+Every file is optional, except that set_environment.py needs the config.
 A script prints its result on stdout and an error on stderr, as one JSON object
 {"ok": false, "error": "<code>", "message": "<text>"}, and exits with 1.
 Python 3.9+, standard library only.
@@ -26,7 +26,7 @@ import urllib.request
 from pathlib import Path
 from typing import NamedTuple, NoReturn
 
-CONFIG_PATH = Path(".tdm-assistant") / "config.json"
+CONFIG_PATH = Path(".atp-assistant") / "config.json"
 TOKEN_FILE = "gitlab-token"
 DEFAULT_TOKEN_ENV = "GITLAB_TOKEN"
 REQUEST_TIMEOUT = 30
@@ -73,73 +73,50 @@ def find_config():
 def load_config():
     """Return the config, or an empty dict when there is no config file.
 
-    CONFIG_DIR holds the folder of the config file, the .tdm-assistant folder.
+    CONFIG_FILE holds the path of the file, and CONFIG_DIR the .atp-assistant folder.
     """
     path = find_config()
     if path is None:
         return {}
-    try:
-        config = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
-        fail("config_unreadable", f"Cannot read {path}: {exc}")
-    if not isinstance(config, dict):
-        fail("config_unreadable", f"{path} must hold a JSON object.")
+    config = load_config_file(path)[0]
+    config["CONFIG_FILE"] = str(path)
     config["CONFIG_DIR"] = str(path.parent)
     return config
 
 
-def variables_path(config):
-    """Return the path of the file that GENERATE_VARIABLES_FILE names, or None.
+def load_config_file(path):
+    """Return the JSON object of the config file and its text, or fail.
 
-    A relative path is taken from the project folder, the parent of the .tdm-assistant
-    folder.
-    """
-    name = config.get("GENERATE_VARIABLES_FILE")
-    if not name:
-        return None
-    path = Path(name)
-    if path.is_absolute():
-        return path
-    return Path(config["CONFIG_DIR"]).parent / path
-
-
-def load_variables_file(path):
-    """Return the whole JSON object of the variables file and its text, or fail.
-
-    The object has a 'variables' object. The text keeps the byte order mark and the line
-    ends of the file.
+    The key "variables", when present, holds an object. The text keeps the byte order mark
+    and the line ends of the file.
     """
     try:
         text = path.read_bytes().decode("utf-8")
         data = json.loads(text.removeprefix("\ufeff"))
     except (OSError, ValueError) as exc:
-        fail("variables_file_unreadable", f"Cannot read the variables file {path}: {exc}")
-    if not isinstance(data, dict) or not isinstance(data.get("variables"), dict):
-        fail("variables_file_unreadable", f"The variables file {path} has no 'variables' object.")
+        fail("config_unreadable", f"Cannot read {path}: {exc}")
+    if not isinstance(data, dict):
+        fail("config_unreadable", f"{path} must hold a JSON object.")
+    if not isinstance(data.get("variables", {}), dict):
+        fail("config_unreadable", f"'variables' in {path} must be a JSON object.")
     return data, text
 
 
 def read_variables(config):
-    """Return the variables object of the file that GENERATE_VARIABLES_FILE names.
-
-    The result is empty when the config has no such key.
-    """
-    path = variables_path(config)
-    if path is None:
-        return {}
-    return load_variables_file(path)[0]["variables"]
+    """Return the pipeline variables of the config, or an empty dict when it has none."""
+    return config.get("variables", {})
 
 
 def write_variable(path, name, value):
-    """Set one variable in the variables file and return its previous value, or None.
+    """Set one pipeline variable in the config file and return its previous value, or None.
 
     The file is not touched when it already holds the value. Otherwise it is written again
     as JSON with the indentation, the line ends, the byte order mark, and the final line
     end that it had. The new file replaces the old one in one step, so a failure leaves
     the old file.
     """
-    data, text = load_variables_file(path)
-    previous = data["variables"].get(name)
+    data, text = load_config_file(path)
+    previous = data.setdefault("variables", {}).get(name)
     if previous == value:
         return previous
     data["variables"][name] = value
@@ -163,7 +140,7 @@ def write_variable(path, name, value):
         if temporary:
             temporary.chmod(0o600)  # Windows does not delete a read-only file
             temporary.unlink(missing_ok=True)
-        fail("variables_file_unwritable", f"Cannot write the variables file {path}: {exc}")
+        fail("config_unwritable", f"Cannot write {path}: {exc}")
     return previous
 
 
@@ -171,7 +148,7 @@ def read_token(config):
     """Return the GitLab token from the environment variable or the token file, or "".
 
     The variable is named by GITLAB_TOKEN_ENV in the config and is GITLAB_TOKEN by default.
-    The token file is .tdm-assistant/gitlab-token, and only its first line counts.
+    The token file is .atp-assistant/gitlab-token, and only its first line counts.
     """
     token = (os.environ.get(config.get("GITLAB_TOKEN_ENV") or DEFAULT_TOKEN_ENV) or "").strip()
     if token or "CONFIG_DIR" not in config:
@@ -308,7 +285,7 @@ def resolve_pipeline(args, config):
     if missing:
         fail(
             "gitlab_settings_missing",
-            "Missing: " + ", ".join(missing) + ". Set them in .tdm-assistant/config.json, "
+            "Missing: " + ", ".join(missing) + ". Set them in .atp-assistant/config.json, "
             "or give --url, --project, and --ref.",
         )
     return values["GITLAB_URL"].rstrip("/"), values["GITLAB_PROJECT_ID"], values["GITLAB_REF"]
@@ -317,7 +294,7 @@ def resolve_pipeline(args, config):
 def fail_request(exc, where, token) -> NoReturn:
     """Fail for a GitLabError of a pipeline request; 401, 403, and 404 become repo_inaccessible."""
     if exc.status in (401, 403, 404):
-        remedy = "Check the token." if token else "Set GITLAB_TOKEN or fill .tdm-assistant/gitlab-token."
+        remedy = "Check the token." if token else "Set GITLAB_TOKEN or fill .atp-assistant/gitlab-token."
         fail("repo_inaccessible", f"GitLab answered HTTP {exc.status} for {where}. {remedy}")
     fail(exc.code, f"{exc.message} ({where}) {exc.body}".strip())
 
