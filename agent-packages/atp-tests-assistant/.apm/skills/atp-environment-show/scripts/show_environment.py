@@ -6,8 +6,8 @@ prints one heading line and the file in a fenced block. The agent shows that out
 written. The file is printed as it is, with any secret it holds.
 
 Without --name the script shows the current environment: the file that
-PIPELINE_RUNTIME_CONFIG names, such as environments/dev.yaml, in the variables file that
-GENERATE_VARIABLES_FILE names in .tdm-assistant/config.json.
+PIPELINE_RUNTIME_CONFIG names, such as environments/dev.yaml, in "variables" of
+.atp-assistant/config.json.
 
 With --name TEXT the script first reads environments/TEXT.yaml. When GitLab has no such
 file, the script looks for TEXT in the names of the folder: a name equal to TEXT, ignoring
@@ -15,9 +15,9 @@ case, and else the names that contain TEXT (TEXT with * or ? is a mask for the w
 name). It shows the file when one name matches, and lists the names when several do.
 
 The repository and the branch come from GITLAB_URL, GITLAB_PROJECT_ID, and GITLAB_REF in
-.tdm-assistant/config.json. --url, --project, and --ref override them. The token comes
-from the environment variable GITLAB_TOKEN (the config key GITLAB_TOKEN_ENV names another
-variable) or the first line of .tdm-assistant/gitlab-token. Without a token the request is
+the same file. --url, --project, and --ref override them. The token comes from the
+environment variable GITLAB_TOKEN (the config key GITLAB_TOKEN_ENV names another
+variable) or the first line of .atp-assistant/gitlab-token. Without a token the request is
 anonymous. The token is never printed.
 
 Exit codes: 0 for a file, a list of names, or no match; 1 for an error, described by one
@@ -49,8 +49,8 @@ def current_path(config):
     if not value:
         common.fail(
             "runtime_config_missing",
-            f"No current environment. Set {common.CURRENT_KEY} in the variables file that GENERATE_VARIABLES_FILE "
-            "names in .tdm-assistant/config.json, or give --name.",
+            f"No current environment. Set {common.CURRENT_KEY} in 'variables' of .atp-assistant/config.json, "
+            "or give --name.",
         )
     return value
 

@@ -25,8 +25,8 @@ request in plain language ("show all tests"), follow atp-tests-list directly ins
 | `folder=/<path>`      | The tests in `<path>`, counted from `TestScenario`, such as `folder=/Billing` or `folder=/A/B`.               |
 | `name=<text>`         | Only the files whose name contains `<text>`, ignoring case. With `*` or `?`, a mask for the name.             |
 | `format=table`        | A table with one row for each file. The default, `format=tree`, is a nested list.                             |
-| `repo=<url>`          | The test repository. Default: `ATP_TESTS_GIT_REPO_URL` of the variables file.                                 |
-| `branch=<branch>`     | The branch. Default: `ATP_TESTS_GIT_REPO_BRANCH` of the file; with `repo=` and no branch, the default branch. |
+| `repo=<url>`          | The test repository. Default: `ATP_TESTS_GIT_REPO_URL` of the config.                                         |
+| `branch=<branch>`     | The branch. Default: `ATP_TESTS_GIT_REPO_BRANCH`; with `repo=` and no branch, the default branch.             |
 
 Put a value with spaces in double quotes: `name="create customer"`. With no argument, the command lists all tests.
 

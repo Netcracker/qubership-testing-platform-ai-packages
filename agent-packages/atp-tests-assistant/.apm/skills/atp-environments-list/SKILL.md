@@ -21,7 +21,7 @@ GitLab and could mean either, ask which one is meant.
 python <skill folder>/scripts/list_environments.py [--name TEXT] [--url URL] [--project ID] [--ref BRANCH]
 ```
 
-Run the script from the project folder, so that it finds `.tdm-assistant/config.json`. If `python` isn't found, try
+Run the script from the project folder, so that it finds `.atp-assistant/config.json`. If `python` isn't found, try
 `python3` or `py -3`. Quote each value for the shell.
 
 The script prints the answer in Markdown, ready to show. Print it to the user exactly as it is: don't reorder, shorten,
@@ -45,20 +45,20 @@ Don't guess a part of the name that the user didn't give.
 
 ## After the user picks an environment
 
-The value that selects the environment in the pipeline is `environments/<name>.yaml`, the `PIPELINE_RUNTIME_CONFIG`
-variable of tdm-generate-test-data. Say that value when the user asks for it or chooses a name. Choosing a name starts
+The value that selects the environment in the pipeline is `environments/<name>.yaml`, the variable
+`PIPELINE_RUNTIME_CONFIG` of the pipeline. Say that value when the user asks for it or chooses a name. Choosing a name starts
 nothing. To set it, follow [atp-environment-set](../atp-environment-set/SKILL.md). To show what an
 environment contains, follow
 [atp-environment-show](../atp-environment-show/SKILL.md).
 
 ## Where the repository comes from
 
-Without options, the script takes `GITLAB_URL`, `GITLAB_PROJECT_ID`, and `GITLAB_REF` from `.tdm-assistant/config.json`,
-the settings that tdm-generate-test-data uses to start the pipeline. This repository is the pipeline's, not the
-repository of the tests that atp-tests-list reads. When the script reports `gitlab_settings_missing`, tell the
+Without options, the script takes `GITLAB_URL`, `GITLAB_PROJECT_ID`, and `GITLAB_REF` from
+`.atp-assistant/config.json`. This repository is the pipeline's, not the repository of the tests that atp-tests-list
+reads. When the script reports `gitlab_settings_missing`, tell the
 user to add the named keys to the config file or to give them in the request.
 
-The token is the environment variable `GITLAB_TOKEN`, or the first line of `.tdm-assistant/gitlab-token`. Without a
+The token is the environment variable `GITLAB_TOKEN`, or the first line of `.atp-assistant/gitlab-token`. Without a
 token the script asks GitLab anonymously, which works for a public repository. Never ask the user for the token in the
 chat, and never open the token file.
 

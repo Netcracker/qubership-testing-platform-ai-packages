@@ -1,14 +1,14 @@
 ---
 name: atp-environment-set
-description: Use when the user asks to set or change the environment of the GitLab pipeline, for example "set the pipeline environment to CI-Ivory", "change the pipeline config to dev", or the same in another language, and also before any request that runs a test case or a scope on a named environment, for example "run the test case Create customer on CI-Ivory". Finds the environment file in the pipeline repository by name or by a part of it and sets PIPELINE_RUNTIME_CONFIG in the pipeline variables file. It does not select an environment of the TDM3 service.
+description: Use when the user asks to set or change the environment of the GitLab pipeline, for example "set the pipeline environment to CI-Ivory", "change the pipeline config to dev", or the same in another language, and also before any request that runs a test case or a scope on a named environment, for example "run the test case Create customer on CI-Ivory". Finds the environment file in the pipeline repository by name or by a part of it and sets PIPELINE_RUNTIME_CONFIG in the config file of the package. It does not select an environment of the TDM3 service.
 user-invocable: false
 ---
 
 # Set the environment of the pipeline
 
-The pipeline runs on the environment that `PIPELINE_RUNTIME_CONFIG` names in the variables file, as
-`environments/<filename>`. A script finds the environment file in the pipeline's GitLab repository and writes that
-value. The agent builds no request, reads no token, does not clone the repository, and does not edit the file itself.
+The pipeline runs on the environment that `PIPELINE_RUNTIME_CONFIG` names in `variables` of
+`.atp-assistant/config.json`, as `environments/<filename>`. A script finds the environment file in the pipeline's
+GitLab repository and writes that value. The agent builds no request, reads no token, does not clone the repository, and does not edit the file itself.
 
 The "environment" and the "config" of the pipeline mean the same thing here. When the request mentions TDM3 or the
 TDM context, this skill does not apply.
@@ -19,7 +19,7 @@ TDM context, this skill does not apply.
 python <skill folder>/scripts/set_environment.py --name TEXT [--url URL] [--project ID] [--ref BRANCH]
 ```
 
-Run the script from the project folder, so that it finds `.tdm-assistant/config.json`. If `python` isn't found, try
+Run the script from the project folder, so that it finds `.atp-assistant/config.json`. If `python` isn't found, try
 `python3` or `py -3`. Quote each value for the shell.
 
 The request to set the environment is the confirmation: run the script without asking. Print its output as it is. An
@@ -42,7 +42,7 @@ It searches as [atp-environment-show](../atp-environment-show/SKILL.md) does:
 - It reads `environments/TEXT.yaml`. When there is no such file, it takes the name equal to `TEXT` ignoring case, or
   else the names that contain `TEXT`. A value with `*` or `?` is a mask for the whole name.
 - When one environment is found, it sets `PIPELINE_RUNTIME_CONFIG` to `environments/<filename>`. It adds the variable
-  when the file has none.
+  when the config has none.
 - When none or several are found, it changes nothing.
 
 ## Run a test case on an environment
@@ -54,9 +54,9 @@ CI-Ivory", set the environment first and run second:
 2. Continue only when the output says that `PIPELINE_RUNTIME_CONFIG` was set or already holds the value. When it lists
    several names, ask which one is meant, and run the script again with that name. When nothing matches, say so and run
    no test.
-3. Follow the skill that runs the test, such as tdm-generate-test-data, with its own confirmation. Don't pass the
-   environment to it: the variables file already holds the value, and the short name of the request would replace it
-   with a value that names no file.
+3. Follow the skill that runs the test, with its own confirmation. Never pass it the name from the request: that
+   name is not a file. tdm-generate-test-data does not read the config of this package, so when it runs the test, pass
+   it `PIPELINE_RUNTIME_CONFIG=environments/<filename>`, the value that the script printed.
 
 ## Result and errors
 
@@ -66,13 +66,13 @@ CI-Ivory", set the environment first and run second:
 | `... is already ... Nothing changed.`  | Show it as printed.                                                                             |
 | `N environments match ... Specify one` | Show the list as printed and ask which one is meant. Don't choose for the user.                 |
 | `No environment matches ...`           | Say that nothing matched and nothing changed. Offer atp-environments-list.                      |
-| `variables_file_missing`               | The config names no variables file. Say where `GENERATE_VARIABLES_FILE` goes.                   |
-| `variables_file_unreadable`            | The message names the file and the problem. Don't repair the file unless the user asks.         |
-| `variables_file_unwritable`            | The file could not be written. Report the message.                                              |
+| `config_missing`                       | There is no `.atp-assistant/config.json`. Say what it needs and where it goes.                  |
+| `config_unreadable`                    | The message names the file and the problem. Don't repair the file unless the user asks.         |
+| `config_unwritable`                    | The file could not be written. Report the message.                                              |
 | `gitlab_settings_missing`              | The message names the missing keys. Tell the user where they go.                                |
 | `environments_folder_missing`          | The repository or the branch has no `environments` folder, as the message says.                 |
 | `repo_inaccessible`                    | The project doesn't exist, or the token is missing or can't read it. Give the message's remedy. |
 | `server_unreachable`                   | GitLab can't be reached. Say so; don't retry in a loop.                                         |
 
-The token is the environment variable `GITLAB_TOKEN`, or the first line of `.tdm-assistant/gitlab-token`. Never ask
+The token is the environment variable `GITLAB_TOKEN`, or the first line of `.atp-assistant/gitlab-token`. Never ask
 the user for the token in the chat, and never open the token file.

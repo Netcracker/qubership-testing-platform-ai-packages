@@ -6,13 +6,12 @@ the filters, and prints a nested Markdown list, or a table with --format table. 
 shows that output as written.
 
 The repository and the branch come from --repo and --branch, or else from
-ATP_TESTS_GIT_REPO_URL and ATP_TESTS_GIT_REPO_BRANCH in the variables file that
-GENERATE_VARIABLES_FILE names in .tdm-assistant/config.json. The file branch counts only
-when the repository comes from the file too; with --repo and no --branch the script reads
-the default branch. The token comes from the environment variable GITLAB_TOKEN (the config
-key GITLAB_TOKEN_ENV names another variable) or the first line of
-.tdm-assistant/gitlab-token. Without a token the request is anonymous. The token is never
-printed.
+ATP_TESTS_GIT_REPO_URL and ATP_TESTS_GIT_REPO_BRANCH in "variables" of
+.atp-assistant/config.json. The branch of the config counts only when the repository comes
+from the config too; with --repo and no --branch the script reads the default branch. The
+token comes from the environment variable GITLAB_TOKEN (the config key GITLAB_TOKEN_ENV
+names another variable) or the first line of .atp-assistant/gitlab-token. Without a token
+the request is anonymous. The token is never printed.
 
 Filters:
   --folder NAME   Only the tests in the folders called NAME, at any depth under
@@ -44,8 +43,8 @@ BRANCH_KEY = "ATP_TESTS_GIT_REPO_BRANCH"
 def parse_arguments(argv=None):
     """Return the parsed command line; exit with 2 on a wrong one."""
     parser = argparse.ArgumentParser(description="List the test files of the test repository.")
-    parser.add_argument("--repo", help="URL of the test repository; overrides the variables file")
-    parser.add_argument("--branch", help="branch to read; overrides the variables file")
+    parser.add_argument("--repo", help="URL of the test repository; overrides the config")
+    parser.add_argument("--branch", help="branch to read; overrides the config")
     parser.add_argument("--folder", help="name of a folder, at any depth under TestScenario")
     parser.add_argument("--under", help="path of a folder, counted from TestScenario")
     parser.add_argument("--name", help="part of a filename, or a mask with * and ?")
@@ -163,14 +162,14 @@ def describe_filters(args):
 
 
 def resolve_source(args, config):
-    """Return the repository URL and the branch from the command line and the variables file."""
+    """Return the repository URL and the branch from the command line and the config."""
     variables = {} if args.repo and args.branch is not None else common.read_variables(config)
     repo = args.repo or str(variables.get(REPO_KEY) or "").strip()
     if not repo:
         common.fail(
             "repo_missing",
-            "No test repository. Give --repo, or set ATP_TESTS_GIT_REPO_URL in the variables file "
-            "that GENERATE_VARIABLES_FILE names in .tdm-assistant/config.json.",
+            "No test repository. Give --repo, or set ATP_TESTS_GIT_REPO_URL in 'variables' "
+            "of .atp-assistant/config.json.",
         )
     if args.branch is not None:
         branch = args.branch.strip()
@@ -198,7 +197,7 @@ def read_tree(base, project, branch, token):
             hint = (
                 "The token is not accepted or cannot read this repository."
                 if token
-                else ("GitLab wants a token for this repository: set GITLAB_TOKEN or fill .tdm-assistant/gitlab-token.")
+                else ("GitLab wants a token for this repository: set GITLAB_TOKEN or fill .atp-assistant/gitlab-token.")
             )
             common.fail("repo_inaccessible", f"GitLab answered HTTP {exc.status} for {where}. {hint}")
         return common.fail(exc.code, f"{exc.message} ({where}) {exc.body}".strip())

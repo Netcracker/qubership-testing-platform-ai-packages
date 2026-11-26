@@ -1,6 +1,6 @@
 ---
 name: atp-set-environment
-description: Use only when the user types /atp-set-environment. Sets PIPELINE_RUNTIME_CONFIG in the pipeline variables file to the environment of the project's GitLab pipeline given by name.
+description: Use only when the user types /atp-set-environment. Sets PIPELINE_RUNTIME_CONFIG in the config file of the package to the environment of the project's GitLab pipeline given by name.
 disable-model-invocation: true
 argument-hint: "name=<text> [ref=<branch>] [url=<gitlab url>] [project=<id>] | help"
 metadata:
