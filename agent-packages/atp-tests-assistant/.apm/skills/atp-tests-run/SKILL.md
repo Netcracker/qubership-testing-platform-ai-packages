@@ -98,8 +98,8 @@ this run only: the script does not write it to the config.
   - `http_error` or `server_unreachable`: GitLab refused or didn't answer. Show the message and the status. An
     HTTP 401 or 403 usually means the token is wrong or lacks the right to run pipelines.
   - `config_missing`, `config_unreadable`, `config_incomplete`, or `gitlab_settings_missing`: nothing was started.
-    Show the message and tell the user to correct `.atp-assistant/config.json`. The keys of the search for identifiers
-    are optional as a group: either set all four of them or none.
+    Show the message and tell the user to correct `.atp-assistant/config.json`. The search for identifiers is on only with
+    `ORCHESTRATOR_URL`, and then needs `DOWNSTREAM_STAGE`, `RUN_ID_PATTERN`, and `BUSINESS_ID_PATTERNS`.
 
 ## Common pitfalls
 

@@ -126,16 +126,25 @@ def read_variables(config):
 def write_variable(path, name, value):
     """Set one pipeline variable in the config file and return its previous value, or None.
 
-    The file is not touched when it already holds the value. Otherwise it is written again
-    as JSON with the indentation, the line ends, the byte order mark, and the final line
-    end that it had. The new file replaces the old one in one step, so a failure leaves
-    the old file.
+    The file is not touched when it already holds the value. Otherwise it is written with
+    save_config_file().
     """
     data, text = load_config_file(path)
     previous = data.setdefault("variables", {}).get(name)
     if previous == value:
         return previous
     data["variables"][name] = value
+    save_config_file(path, data, text)
+    return previous
+
+
+def save_config_file(path, data, text):
+    """Write data as the config file in the format of text, its previous content.
+
+    The file is written as JSON with the indentation, the line ends, the byte order mark,
+    and the final line end that text has. The new file replaces the old one in one step, so
+    a failure leaves the old file.
+    """
     indent = re.search(r'\n([ \t]+)"', text)
     written = json.dumps(data, ensure_ascii=False, indent=indent.group(1) if indent else 2)
     if text.endswith("\n"):
@@ -157,7 +166,6 @@ def write_variable(path, name, value):
             temporary.chmod(0o600)  # Windows does not delete a read-only file
             temporary.unlink(missing_ok=True)
         fail("config_unwritable", f"Cannot write {path}: {exc}")
-    return previous
 
 
 def read_token(config):

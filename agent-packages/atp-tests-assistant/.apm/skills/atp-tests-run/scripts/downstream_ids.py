@@ -15,8 +15,8 @@ the caller waits, and reports each identifier the moment it is found:
 Each step waits for the data of the step before it, so a Scout does one round of
 requests per call to advance() and goes as far down the chain as the data allows.
 
-Config keys, all in .atp-assistant/config.json. The first four switch the search on,
-and without all of them the search is off:
+Config keys, all in .atp-assistant/config.json. ORCHESTRATOR_URL switches the search on,
+and the search then needs the three keys after it:
 
   ORCHESTRATOR_URL       base URL of the orchestrator, http or https
   DOWNSTREAM_STAGE       stage of the job whose log holds the run ID
@@ -136,10 +136,11 @@ def read_number(config, key, default):
 def read_settings(config):
     """Return the Settings of the config, None when the search is off, or raise.
 
-    The search is off when none of the required keys is set. A partial set raises
-    SettingsError, so a typo does not silently switch the search off.
+    The search is off without ORCHESTRATOR_URL, whatever the other keys hold, so a config
+    can keep its patterns while the search is not used. With the URL, a missing key of
+    REQUIRED_KEYS raises SettingsError.
     """
-    if not any(config.get(key) for key in REQUIRED_KEYS):
+    if not config.get("ORCHESTRATOR_URL"):
         return None
     missing = [key for key in REQUIRED_KEYS if not config.get(key)]
     if missing:

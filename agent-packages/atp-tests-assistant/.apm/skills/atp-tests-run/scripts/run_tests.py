@@ -22,7 +22,7 @@ EXECUTION_TYPE and EXECUTION_NAME are not checked.
 
 While it waits, the script can also search the logs for business identifiers and report
 each one as soon as it appears, with a progress line "FOUND <name>=<value>". The search is
-described in downstream_ids.py, and the config keys that switch it on are ORCHESTRATOR_URL,
+described in downstream_ids.py: ORCHESTRATOR_URL switches it on, and it then needs
 DOWNSTREAM_STAGE, RUN_ID_PATTERN, and BUSINESS_ID_PATTERNS. A search that cannot go on
 never stops the wait for the pipeline.
 
@@ -74,8 +74,7 @@ BOOLEANS = ("ENABLE_JIRA_INTEGRATION", "SEND_WEBEX_NOTIFICATION")
 FINISHED = ("success", "failed", "canceled", "skipped", "manual")
 SEARCH_OFF = {
     "enabled": False,
-    "message": "No search for business identifiers: "
-    f"{', '.join(ids.REQUIRED_KEYS)} are not set in .atp-assistant/config.json.",
+    "message": "No search for business identifiers: ORCHESTRATOR_URL is not set in .atp-assistant/config.json.",
 }
 POLL_FAILURES_ALLOWED = 3
 
