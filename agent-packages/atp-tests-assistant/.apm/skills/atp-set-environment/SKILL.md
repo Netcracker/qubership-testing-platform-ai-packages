@@ -1,23 +1,23 @@
 ---
-name: atp-tests-set-environment
-description: Use only when the user types /atp-tests-set-environment. Sets PIPELINE_RUNTIME_CONFIG in the pipeline variables file to the environment of the project's GitLab pipeline given by name.
+name: atp-set-environment
+description: Use only when the user types /atp-set-environment. Sets PIPELINE_RUNTIME_CONFIG in the pipeline variables file to the environment of the project's GitLab pipeline given by name.
 disable-model-invocation: true
 argument-hint: "name=<text> [ref=<branch>] [url=<gitlab url>] [project=<id>] | help"
 metadata:
   opencode/autoinvoke: "false"
 ---
 
-# /atp-tests-set-environment
+# /atp-set-environment
 
-A command frontend for [atp-tests-environment-set](../atp-tests-environment-set/SKILL.md). It reads the user's
+A command frontend for [atp-environment-set](../atp-environment-set/SKILL.md). It reads the user's
 arguments literally and runs the script that skill describes; the search, the output, and the errors stay there. For an
-ordinary request in plain language ("set the pipeline environment to CI-Ivory"), follow atp-tests-environment-set
+ordinary request in plain language ("set the pipeline environment to CI-Ivory"), follow atp-environment-set
 directly instead.
 
 ## Arguments
 
 ```text
-/atp-tests-set-environment name=<text> [ref=<branch>] [url=<gitlab url>] [project=<id>]
+/atp-set-environment name=<text> [ref=<branch>] [url=<gitlab url>] [project=<id>]
 ```
 
 | Argument           | Meaning                                                                           |
@@ -37,4 +37,4 @@ Put a value with spaces in double quotes.
 - Without `name=`, run nothing and ask for it.
 - When an argument can't be parsed unambiguously, or one is unknown, run nothing. Reply with the corrected command and
   let the user send it or change it.
-- Run the script, and show its output as atp-tests-environment-set describes. Report the errors as it describes.
+- Run the script, and show its output as atp-environment-set describes. Report the errors as it describes.

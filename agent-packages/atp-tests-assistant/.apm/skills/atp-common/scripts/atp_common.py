@@ -2,8 +2,8 @@
 
 A script imports this module after adding the folder that holds it to sys.path:
 
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "atp-tests-common" / "scripts"))
-    common = importlib.import_module("atp_tests_common")
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "atp-common" / "scripts"))
+    common = importlib.import_module("atp_common")
 
 The module reads the files that the tdm-test-data-assistant package defines, and works
 without them: .tdm-assistant/config.json (found from the working directory up), the

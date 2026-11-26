@@ -26,8 +26,8 @@ import sys
 from pathlib import Path
 
 sys.dont_write_bytecode = True  # keep __pycache__ out of the skill folder
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "atp-tests-common" / "scripts"))
-common = importlib.import_module("atp_tests_common")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "atp-common" / "scripts"))
+common = importlib.import_module("atp_common")
 
 
 def parse_arguments(argv=None):
