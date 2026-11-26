@@ -7,6 +7,8 @@ author: Qubership
 targets:
   - claude
   - codex
+# apm compile moves an instruction to the root AGENTS.md when its applyTo matches many folders. A pattern that names the
+# apm.yml and README.md of one package keeps the rules of that package in its folder.
 compilation:
   exclude:
     # The instructions of a package are for its users, not for the development of this repository.
