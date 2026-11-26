@@ -186,7 +186,7 @@ The script writes only this one value. The file is rewritten as JSON with its in
 values stay, but a layout of your own, such as a list written on one line, is not kept.
 
 When you ask to run a test case on an environment, the agent sets the environment first and then
-[runs the test](#run-tests), which asks for its own confirmation. The value stays in the config after the run, also
+[runs the test](#run-tests), which asks before the run as described there. The value stays in the config, also
 when you decline it.
 
 The repository, the branch, and the token are the same as for the list of environments, and the command accepts
@@ -203,8 +203,10 @@ are run the same way. The settings are described under [Running tests](../README
 | Run the scope `regression` on `CI-Ivory` | `/atp-run-tests scope=regression env=CI-Ivory`      |
 | Generate domestic customers              | `/atp-run-tests test="Generate domestic customers"` |
 
-The agent first shows the variables that would be sent and asks you to confirm. After a yes, it starts the pipeline,
-gives you its link, and waits until it ends. With the
+Before the first run of a conversation, the agent shows the config and the variables of the run, and asks whether to
+start or to change something first. Before a later run, it shows the variables and asks you to confirm. To start later
+runs without a question, say "don't ask before running tests", or type `/atp-config RUN_TESTS_CONFIRM=false`. Then the
+agent starts the pipeline, gives you its link, and waits until it ends. With the
 [search for business identifiers](../README.md#search-for-business-identifiers) configured, it reports each identifier
 while the pipeline runs. Without it, the agent says that no identifiers were searched for. A value that you give in a
 request is used for that run only, except the environment, which is saved in the config.
@@ -239,6 +241,6 @@ installed with its generation skill, use `/atp-run-tests` to run tests with this
 | `http_error`                  | GitLab refused the request. A 401 or 403 usually means that the token is wrong or may not run pipelines.                                                |
 | `timeout`, `poll_failed`      | The pipeline was started and may still be running. Open its link; the skill cannot stop it.                                                             |
 | `unknown_key`                 | Changing the config: the key is unknown, or it is changed in the file by hand, as the message says.                                                     |
-| `invalid_value`               | Changing the config: a value is not allowed for its key. Nothing was changed.                                                                           |
+| `invalid_value`               | A value is not allowed for its key, such as `RUN_TESTS_CONFIRM` other than `true` or `false`. Nothing was changed or started.                           |
 
 A request that matches no test file or no environment is not an error: the answer says that nothing was found.

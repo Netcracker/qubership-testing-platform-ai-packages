@@ -42,6 +42,7 @@ Running tests needs the file.
   "GITLAB_URL": "https://gitlab.example.com",
   "GITLAB_PROJECT_ID": "7",
   "GITLAB_REF": "main",
+  "RUN_TESTS_CONFIRM": true,
   "variables": {
     "ATP_TESTS_GIT_REPO_URL": "https://gitlab.example.com/group/tests.git",
     "ATP_TESTS_GIT_REPO_BRANCH": "main",
@@ -60,6 +61,7 @@ Running tests needs the file.
 | `GITLAB_PROJECT_ID` | The numeric ID or the path of the GitLab project that holds the pipeline.               |
 | `GITLAB_REF`        | The branch of the pipeline repository, such as `main`.                                  |
 | `GITLAB_TOKEN_ENV`  | Optional. The environment variable that holds the token. The default is `GITLAB_TOKEN`. |
+| `RUN_TESTS_CONFIRM` | Optional. `false` starts later runs without a question. The default is `true`.          |
 | `variables`         | The variables of the pipeline. Keep there only what the pipeline receives.              |
 
 Keep the token out of the config file. A script takes it from the environment variable, or else from the first line of
@@ -71,6 +73,12 @@ default in the others. The
 patterns of the search for identifiers, and values whose name looks like a secret, are changed by hand.
 
 ## Running tests
+
+Before the first run of a conversation, the agent shows the config and asks whether to start or to change something
+first. Later runs ask for a confirmation, unless `RUN_TESTS_CONFIRM` is `false`; the variables of the run are shown
+either way. "First" is what the agent remembers of the conversation: in a new one, or after a long one was summarized,
+it can show the config again. The setting does not change the permission prompts of your agent, such as the one before
+it runs a command.
 
 atp-tests-run sends the `variables` to the pipeline, with the ones that your request names replaced. Before it starts
 the pipeline, it checks that `ATP_TESTS_GIT_REPO_URL`, `EXECUTION_TYPE`, and `EXECUTION_NAME` are not empty, and that

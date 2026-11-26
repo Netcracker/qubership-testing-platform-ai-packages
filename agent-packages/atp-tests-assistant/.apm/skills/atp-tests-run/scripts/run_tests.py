@@ -11,7 +11,10 @@ error.
   run_tests.py [--set VARIABLE=value ...] --yes  start and wait
 
 Config keys: GITLAB_URL, GITLAB_PROJECT_ID, and GITLAB_REF (the branch to run the pipeline
-from). The token comes from the environment variable named by GITLAB_TOKEN_ENV (default
+from), and RUN_TESTS_CONFIRM: true, the default, or false. The result without --yes
+reports it as "confirm", which tells the agent whether to ask the user before it runs the
+script with --yes; the script itself asks nothing.
+The token comes from the environment variable named by GITLAB_TOKEN_ENV (default
 GITLAB_TOKEN) or, when that variable is empty, from the first line of
 .atp-assistant/gitlab-token. The token is never printed.
 
@@ -27,7 +30,7 @@ DOWNSTREAM_STAGE, RUN_ID_PATTERN, and BUSINESS_ID_PATTERNS. A search that cannot
 never stops the wait for the pipeline.
 
 Without --yes:
-  {"ok": true, "started": false, "ref": "main", "variables": {...},
+  {"ok": true, "started": false, "confirm": true, "ref": "main", "variables": {...},
    "changed": ["EXECUTION_NAME"],
    "discovery": {"enabled": true, "searches": ["customerId"], "timeout_seconds": 420}}
 With --yes, when the pipeline ends:
@@ -46,7 +49,7 @@ the runner log only. A search that stopped adds "stopped" (timeout or errors) an
 does not read as "nothing was found".
 
 Error codes: config_missing, config_unreadable, config_incomplete, invalid_pattern,
-gitlab_settings_missing, bad_argument, invalid_variables (with "problems"), token_missing,
+gitlab_settings_missing, bad_argument, invalid_value, invalid_variables (with "problems"), token_missing,
 http_error (with "status"), server_unreachable, timeout and poll_failed (both with
 "pipeline", and with "found" and "discovery" when the search is on; the pipeline keeps
 running). A wrong command line exits with 2. Python 3.9+, standard library only.
@@ -114,6 +117,15 @@ def read_config():
     if missing:
         common.fail("gitlab_settings_missing", f"Missing in .atp-assistant/config.json: {', '.join(missing)}.")
     return config
+
+
+def read_confirm(config):
+    """Return whether the user is asked before a run, RUN_TESTS_CONFIRM of the config, or fail."""
+    value = config.get(common.CONFIRM_KEY)
+    text = str("true" if value in (None, "") else value).strip().lower()
+    if text not in ("true", "false"):
+        common.fail("invalid_value", f"{common.CONFIRM_KEY} in the config must be true or false, not '{value}'.")
+    return text == "true"
 
 
 def as_text(value):
@@ -327,10 +339,12 @@ def main():
     config = read_config()
     variables, changed = load_variables(config, overrides)
     settings = read_discovery(config)
+    confirm = read_confirm(config)
 
     if not args.yes:
         common.succeed(
             started=False,
+            confirm=confirm,
             ref=config["GITLAB_REF"],
             variables=variables,
             changed=changed,

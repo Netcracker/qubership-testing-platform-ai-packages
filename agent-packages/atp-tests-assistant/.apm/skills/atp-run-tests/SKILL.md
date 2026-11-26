@@ -44,8 +44,9 @@ the value from the config.
   it or change it.
 - With `env=`, set the environment first, as atp-tests-run describes. Pass `env=environments/<name>.yaml` to
   atp-environment-set as `<name>`. Run nothing when the environment is not found or several match.
-- Map the other arguments to `--set` options as the table says, run the script without `--yes`, show the variables, and
-  ask for the confirmation, as atp-tests-run describes. Start the pipeline only after a yes.
+- Map the other arguments to `--set` options as the table says, run the script without `--yes`, and show the
+  variables. Show the config before the first run of the conversation, and ask or don't ask for a confirmation, as
+  atp-tests-run describes. When a question is due, start the pipeline only after a yes.
 - While the script runs, read its output and report each business identifier (`FOUND <name>=<value>`) as soon as it
   appears, as atp-tests-run describes.
 - Report the result, the failures, and the errors as atp-tests-run describes.

@@ -101,6 +101,16 @@ class ConfigCase(unittest.TestCase):
         expected = {"OWN": "a=b", "ENABLE_JIRA_INTEGRATION": True, "EXECUTION_NAME": "Gen domestic"}
         self.assertEqual(self.config()["variables"], expected)
 
+    def test_the_confirmation_setting_is_shown_and_changed(self):
+        """A config without the key shows the default; false is stored as a JSON boolean."""
+        self.save({"GITLAB_REF": "main"})
+        self.assertIn("| `RUN_TESTS_CONFIRM` | `true` (default) |", self.output())
+        self.assertIn("| `RUN_TESTS_CONFIRM` | `false` |", self.output("--set", "RUN_TESTS_CONFIRM=FALSE"))
+        self.assertIs(self.config()["RUN_TESTS_CONFIRM"], False)
+        self.assertEqual(self.error_of("--set", "RUN_TESTS_CONFIRM=no")["error"], "invalid_value")
+        self.output("--set", "RUN_TESTS_CONFIRM=")
+        self.assertNotIn("RUN_TESTS_CONFIRM", self.config())
+
     def test_an_empty_value_removes_an_optional_setting(self):
         """An optional key is removed, so it does not read as a wrong value."""
         self.save({"GITLAB_REF": "main", "DISCOVERY_TIMEOUT": 60})

@@ -191,6 +191,15 @@ class RunCase(RunScriptCase):
         self.assertFalse(out["discovery"]["enabled"])
         self.assertEqual(self.gitlab.requests, [])
 
+    def test_the_plan_says_whether_to_ask_before_the_run(self):
+        """RUN_TESTS_CONFIRM is true unless the config says false; another value starts nothing."""
+        for value, confirm in ((None, True), ("", True), (True, True), (False, False), ("False", False)):
+            self.configure(**({} if value is None else {"RUN_TESTS_CONFIRM": value}))
+            self.assertEqual(self.result()[0]["confirm"], confirm, value)
+        self.configure(RUN_TESTS_CONFIRM="no")
+        self.assertEqual(self.error_of("--yes")["error"], "invalid_value")
+        self.assertEqual(self.gitlab.requests, [])
+
     def test_booleans_are_sent_in_lowercase(self):
         """A JSON boolean and a TRUE of --set become the strings that the pipeline reads."""
         out, _ = self.result("--set", "SEND_WEBEX_NOTIFICATION=TRUE")
