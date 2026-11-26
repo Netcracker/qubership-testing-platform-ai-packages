@@ -1,5 +1,5 @@
 ---
-name: atp-tests-environments-list
+name: atp-environments-list
 description: Use when the user asks which environments the GitLab pipeline can run on, for example "show the list of environments for the pipeline", "which pipeline environments contain prod", or "list the environments of the generation pipeline". Lists the YAML files in the environments folder of the pipeline repository, by name without .yaml, optionally only the names that contain a text. It does not list the environments of the TDM3 service.
 user-invocable: false
 ---
@@ -47,15 +47,15 @@ Don't guess a part of the name that the user didn't give.
 
 The value that selects the environment in the pipeline is `environments/<name>.yaml`, the `PIPELINE_RUNTIME_CONFIG`
 variable of tdm-generate-test-data. Say that value when the user asks for it or chooses a name. Choosing a name starts
-nothing. To set it, follow [atp-tests-environment-set](../atp-tests-environment-set/SKILL.md). To show what an
+nothing. To set it, follow [atp-environment-set](../atp-environment-set/SKILL.md). To show what an
 environment contains, follow
-[atp-tests-environment-show](../atp-tests-environment-show/SKILL.md).
+[atp-environment-show](../atp-environment-show/SKILL.md).
 
 ## Where the repository comes from
 
 Without options, the script takes `GITLAB_URL`, `GITLAB_PROJECT_ID`, and `GITLAB_REF` from `.tdm-assistant/config.json`,
 the settings that tdm-generate-test-data uses to start the pipeline. This repository is the pipeline's, not the
-repository of the tests that atp-tests-tests-list reads. When the script reports `gitlab_settings_missing`, tell the
+repository of the tests that atp-tests-list reads. When the script reports `gitlab_settings_missing`, tell the
 user to add the named keys to the config file or to give them in the request.
 
 The token is the environment variable `GITLAB_TOKEN`, or the first line of `.tdm-assistant/gitlab-token`. Without a

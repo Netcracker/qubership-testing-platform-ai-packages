@@ -1,5 +1,5 @@
 ---
-name: atp-tests-environment-set
+name: atp-environment-set
 description: Use when the user asks to set or change the environment of the GitLab pipeline, for example "set the pipeline environment to CI-Ivory", "change the pipeline config to dev", or the same in another language, and also before any request that runs a test case or a scope on a named environment, for example "run the test case Create customer on CI-Ivory". Finds the environment file in the pipeline repository by name or by a part of it and sets PIPELINE_RUNTIME_CONFIG in the pipeline variables file. It does not select an environment of the TDM3 service.
 user-invocable: false
 ---
@@ -37,7 +37,7 @@ If the user wrote `environments/<name>.yaml`, pass `<name>`. If the user named n
 
 ## How the script finds the file
 
-It searches as [atp-tests-environment-show](../atp-tests-environment-show/SKILL.md) does:
+It searches as [atp-environment-show](../atp-environment-show/SKILL.md) does:
 
 - It reads `environments/TEXT.yaml`. When there is no such file, it takes the name equal to `TEXT` ignoring case, or
   else the names that contain `TEXT`. A value with `*` or `?` is a mask for the whole name.
@@ -65,7 +65,7 @@ CI-Ivory", set the environment first and run second:
 | `Set PIPELINE_RUNTIME_CONFIG to ...`   | Show it as printed.                                                                             |
 | `... is already ... Nothing changed.`  | Show it as printed.                                                                             |
 | `N environments match ... Specify one` | Show the list as printed and ask which one is meant. Don't choose for the user.                 |
-| `No environment matches ...`           | Say that nothing matched and nothing changed. Offer atp-tests-environments-list.                |
+| `No environment matches ...`           | Say that nothing matched and nothing changed. Offer atp-environments-list.                      |
 | `variables_file_missing`               | The config names no variables file. Say where `GENERATE_VARIABLES_FILE` goes.                   |
 | `variables_file_unreadable`            | The message names the file and the problem. Don't repair the file unless the user asks.         |
 | `variables_file_unwritable`            | The file could not be written. Report the message.                                              |

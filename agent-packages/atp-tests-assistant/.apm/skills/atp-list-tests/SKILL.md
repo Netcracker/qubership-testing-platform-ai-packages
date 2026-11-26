@@ -1,22 +1,22 @@
 ---
-name: atp-tests-list-tests
-description: Use only when the user types /atp-tests-list-tests. Lists the Playwright test files (*.ts) of the project's test repository as a nested list, optionally for one folder, with a part of the filename, or as a table.
+name: atp-list-tests
+description: Use only when the user types /atp-list-tests. Lists the Playwright test files (*.ts) of the project's test repository as a nested list, optionally for one folder, with a part of the filename, or as a table.
 disable-model-invocation: true
 argument-hint: "[folder=<name> | folder=/<path>] [name=<text>] [format=tree|table] [repo=<url>] [branch=<branch>] | help"
 metadata:
   opencode/autoinvoke: "false"
 ---
 
-# /atp-tests-list-tests
+# /atp-list-tests
 
-A command frontend for [atp-tests-tests-list](../atp-tests-tests-list/SKILL.md). It reads the user's arguments
+A command frontend for [atp-tests-list](../atp-tests-list/SKILL.md). It reads the user's arguments
 literally and runs the script that skill describes; the options, the output, and the errors stay there. For an ordinary
-request in plain language ("show all tests"), follow atp-tests-tests-list directly instead.
+request in plain language ("show all tests"), follow atp-tests-list directly instead.
 
 ## Arguments
 
 ```text
-/atp-tests-list-tests [folder=<name> | folder=/<path>] [name=<text>] [format=tree|table] [repo=<url>] [branch=<branch>]
+/atp-list-tests [folder=<name> | folder=/<path>] [name=<text>] [format=tree|table] [repo=<url>] [branch=<branch>]
 ```
 
 | Argument              | Meaning                                                                                                       |
@@ -38,4 +38,4 @@ Put a value with spaces in double quotes: `name="create customer"`. With no argu
   `name=`, `format=`, `repo=`, and `branch=` to the options of the same name.
 - When an argument can't be parsed unambiguously, or one is unknown, run nothing. Reply with the corrected command
   and let the user send it or change it.
-- Run the script, and show its output as atp-tests-tests-list describes. Report the errors as it describes.
+- Run the script, and show its output as atp-tests-list describes. Report the errors as it describes.

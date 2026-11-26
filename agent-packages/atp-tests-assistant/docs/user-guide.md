@@ -19,7 +19,7 @@ read it.
    script reads `ATP_TESTS_GIT_REPO_URL` and `ATP_TESTS_GIT_REPO_BRANCH` from the variables file that
    `GENERATE_VARIABLES_FILE` names in `.tdm-assistant/config.json`.
 2. Without that package, give the repository in the request or the command:
-   `/atp-tests-list-tests repo=<url> branch=<branch>`. With `repo=` and no `branch=`, the script reads the default
+   `/atp-list-tests repo=<url> branch=<branch>`. With `repo=` and no `branch=`, the script reads the default
    branch of that repository.
 3. Set the token in the environment variable `GITLAB_TOKEN`, or put it on the first line of
    `.tdm-assistant/gitlab-token`. The token needs the right to read the repository. Never paste it into the chat: the
@@ -31,13 +31,13 @@ Without a token the script asks GitLab anonymously, which works for a public rep
 
 Ask in plain language, or type the command:
 
-| You write                                        | Command                                             |
-| ------------------------------------------------ | --------------------------------------------------- |
-| Show all tests                                   | `/atp-tests-list-tests`                             |
-| Show the tests in the folder Billing             | `/atp-tests-list-tests folder=Billing`              |
-| Show the tests in the folder /Billing            | `/atp-tests-list-tests folder=/Billing`             |
-| Show the tests with `create` in the name         | `/atp-tests-list-tests name=create`                 |
-| Show the tests in the folder Billing, as a table | `/atp-tests-list-tests folder=Billing format=table` |
+| You write                                        | Command                                       |
+| ------------------------------------------------ | --------------------------------------------- |
+| Show all tests                                   | `/atp-list-tests`                             |
+| Show the tests in the folder Billing             | `/atp-list-tests folder=Billing`              |
+| Show the tests in the folder /Billing            | `/atp-list-tests folder=/Billing`             |
+| Show the tests with `create` in the name         | `/atp-list-tests name=create`                 |
+| Show the tests in the folder Billing, as a table | `/atp-list-tests folder=Billing format=table` |
 
 All tests are `*.ts` files under `TestGeneration/tests/TestScenario`, and the answer shows them sorted by name, ignoring
 case, at every level. A folder lists its own files first and its subfolders after them. A folder with no matching
@@ -72,14 +72,14 @@ The environments of the GitLab pipeline are the YAML files in the `environments`
 name of an environment is the filename without `.yaml`. They are not the environments of the TDM3 service. A project
 can have hundreds of them, so you can keep only the names that contain a text.
 
-| You write                                          | Command                                  |
-| -------------------------------------------------- | ---------------------------------------- |
-| Show the list of environments for the pipeline     | `/atp-tests-list-environments`           |
-| Show the pipeline environments that contain `prod` | `/atp-tests-list-environments name=prod` |
+| You write                                          | Command                            |
+| -------------------------------------------------- | ---------------------------------- |
+| Show the list of environments for the pipeline     | `/atp-list-environments`           |
+| Show the pipeline environments that contain `prod` | `/atp-list-environments name=prod` |
 
 The command reads `GITLAB_URL`, `GITLAB_PROJECT_ID`, and `GITLAB_REF` from `.tdm-assistant/config.json`, the settings
 that tdm-generate-test-data uses to start the pipeline. Without that package, give them in the command:
-`/atp-tests-list-environments url=<gitlab url> project=<id> ref=<branch>`. The token is set as described in
+`/atp-list-environments url=<gitlab url> project=<id> ref=<branch>`. The token is set as described in
 [Set up the repository and the token](#set-up-the-repository-and-the-token).
 
 The answer lists the names, sorted ignoring case, without `environments/` and without `.yaml`:
@@ -101,11 +101,11 @@ The description of an environment is its YAML file in the `environments` folder 
 environment is the file that `PIPELINE_RUNTIME_CONFIG` names, such as `environments/atp3prod_dyn-CI-Ivory.yaml`, in the
 variables file that `GENERATE_VARIABLES_FILE` names in `.tdm-assistant/config.json`.
 
-| You write                                          | Command                                     |
-| -------------------------------------------------- | ------------------------------------------- |
-| Show the description of the current environment    | `/atp-tests-show-environment`               |
-| Show the config of the current environment         | `/atp-tests-show-environment`               |
-| Show the description of the environment `CI-Ivory` | `/atp-tests-show-environment name=CI-Ivory` |
+| You write                                          | Command                               |
+| -------------------------------------------------- | ------------------------------------- |
+| Show the description of the current environment    | `/atp-show-environment`               |
+| Show the config of the current environment         | `/atp-show-environment`               |
+| Show the description of the environment `CI-Ivory` | `/atp-show-environment name=CI-Ivory` |
 
 Give the name without `environments/` and without `.yaml`. A part of the name is enough:
 
@@ -132,11 +132,11 @@ The file is not masked: a password or a key that it holds appears in the chat an
 The environment of the pipeline is the value of `PIPELINE_RUNTIME_CONFIG` in the variables file that
 `GENERATE_VARIABLES_FILE` names in `.tdm-assistant/config.json`: `environments/<filename>`.
 
-| You write                                    | Command                                    |
-| -------------------------------------------- | ------------------------------------------ |
-| Set the pipeline environment to `CI-Ivory`   | `/atp-tests-set-environment name=CI-Ivory` |
-| Change the pipeline config to `CI-Ivory`     | `/atp-tests-set-environment name=CI-Ivory` |
-| Run the test case `X` on `CI-Ivory`          | no command; write it in plain language     |
+| You write                                  | Command                                |
+| ------------------------------------------ | -------------------------------------- |
+| Set the pipeline environment to `CI-Ivory` | `/atp-set-environment name=CI-Ivory`   |
+| Change the pipeline config to `CI-Ivory`   | `/atp-set-environment name=CI-Ivory`   |
+| Run the test case `X` on `CI-Ivory`        | no command; write it in plain language |
 
 The name is searched as for the description of an environment:
 

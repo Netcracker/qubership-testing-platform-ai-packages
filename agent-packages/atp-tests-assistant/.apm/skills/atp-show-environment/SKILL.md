@@ -1,23 +1,23 @@
 ---
-name: atp-tests-show-environment
-description: Use only when the user types /atp-tests-show-environment. Shows the YAML file of one environment of the project's GitLab pipeline, the current one that PIPELINE_RUNTIME_CONFIG names or one given by name.
+name: atp-show-environment
+description: Use only when the user types /atp-show-environment. Shows the YAML file of one environment of the project's GitLab pipeline, the current one that PIPELINE_RUNTIME_CONFIG names or one given by name.
 disable-model-invocation: true
 argument-hint: "[name=<text>] [ref=<branch>] [url=<gitlab url>] [project=<id>] | help"
 metadata:
   opencode/autoinvoke: "false"
 ---
 
-# /atp-tests-show-environment
+# /atp-show-environment
 
-A command frontend for [atp-tests-environment-show](../atp-tests-environment-show/SKILL.md). It reads the user's
+A command frontend for [atp-environment-show](../atp-environment-show/SKILL.md). It reads the user's
 arguments literally and runs the script that skill describes; the options, the output, and the errors stay there. For an
 ordinary request in plain language ("show the description of the current environment"), follow
-atp-tests-environment-show directly instead.
+atp-environment-show directly instead.
 
 ## Arguments
 
 ```text
-/atp-tests-show-environment [name=<text>] [ref=<branch>] [url=<gitlab url>] [project=<id>]
+/atp-show-environment [name=<text>] [ref=<branch>] [url=<gitlab url>] [project=<id>]
 ```
 
 | Argument           | Meaning                                                                                      |
@@ -36,4 +36,4 @@ Put a value with spaces in double quotes. With no argument, the command shows th
 - Map `name=`, `ref=`, `url=`, and `project=` to `--name`, `--ref`, `--url`, and `--project`.
 - When an argument can't be parsed unambiguously, or one is unknown, run nothing. Reply with the corrected command and
   let the user send it or change it.
-- Run the script, and show its output as atp-tests-environment-show describes. Report the errors as it describes.
+- Run the script, and show its output as atp-environment-show describes. Report the errors as it describes.

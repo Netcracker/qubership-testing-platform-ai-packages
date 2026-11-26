@@ -27,10 +27,10 @@ from urllib.parse import parse_qs, unquote, urlencode, urlsplit
 
 sys.dont_write_bytecode = True  # keep __pycache__ out of the package
 SKILLS = Path(__file__).resolve().parents[1] / ".apm" / "skills"
-SCRIPT = SKILLS / "atp-tests-tests-list" / "scripts" / "list_tests.py"
-ENV_SCRIPT = SKILLS / "atp-tests-environments-list" / "scripts" / "list_environments.py"
-SHOW_SCRIPT = SKILLS / "atp-tests-environment-show" / "scripts" / "show_environment.py"
-SET_SCRIPT = SKILLS / "atp-tests-environment-set" / "scripts" / "set_environment.py"
+SCRIPT = SKILLS / "atp-tests-list" / "scripts" / "list_tests.py"
+ENV_SCRIPT = SKILLS / "atp-environments-list" / "scripts" / "list_environments.py"
+SHOW_SCRIPT = SKILLS / "atp-environment-show" / "scripts" / "show_environment.py"
+SET_SCRIPT = SKILLS / "atp-environment-set" / "scripts" / "set_environment.py"
 ROOT = "TestGeneration/tests/TestScenario"
 PAGE_SIZE = 3
 TOKEN = "secret-token-value"
@@ -668,11 +668,11 @@ class RepoUrlCase(unittest.TestCase):
     """Check how a repository URL turns into a GitLab base URL and a project path."""
 
     def setUp(self):
-        sys.path.insert(0, str(SKILLS / "atp-tests-common" / "scripts"))
+        sys.path.insert(0, str(SKILLS / "atp-common" / "scripts"))
         self.addCleanup(sys.path.pop, 0)
-        import atp_tests_common  # pylint: disable=import-outside-toplevel,import-error
+        import atp_common  # pylint: disable=import-outside-toplevel,import-error
 
-        self.common = atp_tests_common
+        self.common = atp_common
 
     def test_forms_of_the_url(self):
         """An http(s) URL, an ssh URL, and a git@host:path address give the same kind of answer."""

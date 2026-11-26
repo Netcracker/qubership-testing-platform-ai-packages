@@ -1,5 +1,5 @@
 ---
-name: atp-tests-tests-list
+name: atp-tests-list
 description: Use when the user asks to show, list, or find the tests of the project's test repository, for example "show all tests", "list the tests in the folder Billing", or "tests with login in the name". Lists the Playwright test files (*.ts) under TestGeneration/tests/TestScenario of the repository, sorted by name, as a nested list.
 user-invocable: false
 ---
