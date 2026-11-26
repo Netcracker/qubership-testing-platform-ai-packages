@@ -37,8 +37,8 @@ move the settings by hand:
 2. Copy the object `variables` from the file that `GENERATE_VARIABLES_FILE` names into the same file.
 3. Move `.tdm-assistant/gitlab-token`, if you have it, to `.atp-assistant/gitlab-token`.
 
-If you also generate test data with tdm-test-data-assistant, copy instead of moving: that package still reads its own
-files.
+If you generated test data with tdm-test-data-assistant, move the keys of the search for business identifiers too:
+`ORCHESTRATOR_URL`, `DOWNSTREAM_STAGE`, `RUN_ID_PATTERN`, `BUSINESS_ID_PATTERNS`, and `DISCOVERY_*`.
 
 ## List the tests
 
@@ -104,9 +104,8 @@ Found 2 of 250 environments in https://gitlab.example.com, project 7, branch mai
 - `dev-CI-Ivory`
 ```
 
-To run the pipeline on an environment, [set it](#set-the-environment-of-the-pipeline), or pass
-`environments/<name>.yaml` as `PIPELINE_RUNTIME_CONFIG`. For the first name
-above, that is `environments/atp3prod_dyn-CI-Ivory.yaml`.
+To run the pipeline on an environment, [set it](#set-the-environment-of-the-pipeline), or name it when you
+[run the tests](#run-tests).
 
 ## Show the description of an environment
 
@@ -145,11 +144,11 @@ The file is not masked: a password or a key that it holds appears in the chat an
 The environment of the pipeline is the value of `PIPELINE_RUNTIME_CONFIG` in `variables` of
 `.atp-assistant/config.json`: `environments/<filename>`.
 
-| You write                                  | Command                                |
-| ------------------------------------------ | -------------------------------------- |
-| Set the pipeline environment to `CI-Ivory` | `/atp-set-environment name=CI-Ivory`   |
-| Change the pipeline config to `CI-Ivory`   | `/atp-set-environment name=CI-Ivory`   |
-| Run the test case `X` on `CI-Ivory`        | no command; write it in plain language |
+| You write                                  | Command                              |
+| ------------------------------------------ | ------------------------------------ |
+| Set the pipeline environment to `CI-Ivory` | `/atp-set-environment name=CI-Ivory` |
+| Change the pipeline config to `CI-Ivory`   | `/atp-set-environment name=CI-Ivory` |
+| Run the test case `X` on `CI-Ivory`        | `/atp-run-tests test=X env=CI-Ivory` |
 
 The name is searched as for the description of an environment:
 
@@ -161,28 +160,58 @@ The name is searched as for the description of an environment:
 The script writes only this one value. The file is rewritten as JSON with its indentation and line ends. The other
 values stay, but a layout of your own, such as a list written on one line, is not kept.
 
-When you ask to run a test case on an environment, the agent sets the environment first and then starts the run with
-the tdm-test-data-assistant package, which asks for its own confirmation. That package does not read the config of this
-one, so the agent passes it the file of the environment. The value stays in the config after the run.
+When you ask to run a test case on an environment, the agent sets the environment first and then
+[runs the test](#run-tests), which asks for its own confirmation. The value stays in the config after the run, also
+when you decline it.
 
 The repository, the branch, and the token are the same as for the list of environments, and the command accepts
 `ref=`, `url=`, and `project=` too.
 
+## Run tests
+
+A run starts the GitLab pipeline of your project with the variables of the config. Test cases that generate test data
+are run the same way. The settings are described under [Running tests](../README.md#running-tests) in the `README`.
+
+| You write                                | Command                                             |
+| ---------------------------------------- | --------------------------------------------------- |
+| Run the test case `Create customer`      | `/atp-run-tests test="Create customer"`             |
+| Run the scope `regression` on `CI-Ivory` | `/atp-run-tests scope=regression env=CI-Ivory`      |
+| Generate domestic customers              | `/atp-run-tests test="Generate domestic customers"` |
+
+The agent first shows the variables that would be sent and asks you to confirm. After a yes, it starts the pipeline,
+gives you its link, and waits until it ends. With the
+[search for business identifiers](../README.md#search-for-business-identifiers) configured, it reports each identifier
+while the pipeline runs. A value that you give in a request is used for that run only, except the environment, which is
+saved in the config.
+
+The command takes `test=`, `scope=`, or `type=` with `name=`, and optionally `env=`, `branch=`, `repo=`, `jira=`,
+`webex=`, and any other variable as `NAME=value`. `/atp-run-tests help` prints them.
+
+Versions before 0.8.0 did not run tests: tdm-test-data-assistant did, with `/tdm-generate`. If that package is still
+installed with its generation skill, use `/atp-run-tests` to run tests with this one.
+
 ## Errors
 
-| Error                         | Meaning and remedy                                                                                                                              |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `repo_missing`                | No repository. Give `repo=<url>`, or set `ATP_TESTS_GIT_REPO_URL` in `variables` of the config.                                                 |
-| `repo_inaccessible`           | GitLab answered 401, 403, or 404: the repository doesn't exist, or the token is missing or can't read it.                                       |
-| `tests_folder_missing`        | The repository or the branch has no `TestGeneration/tests/TestScenario`, or the branch doesn't exist.                                           |
-| `folder_not_found`            | No folder with the given name or path under `TestScenario`.                                                                                     |
-| `server_unreachable`          | The script can't reach GitLab. Check the URL and the network.                                                                                   |
-| `gitlab_settings_missing`     | Environments only: `GITLAB_URL`, `GITLAB_PROJECT_ID`, or `GITLAB_REF` is missing. Set it in the config, or give `url=`, `project=`, and `ref=`. |
-| `environments_folder_missing` | Environments only: the pipeline repository or the branch has no `environments` folder.                                                          |
-| `runtime_config_missing`      | No current environment. Set `PIPELINE_RUNTIME_CONFIG` in `variables`, or give `name=`.                                                          |
-| `config_missing`              | Setting the environment only: there is no `.atp-assistant/config.json`. Create it.                                                              |
-| `config_unreadable`           | The config can't be read, or it or its `variables` is not a JSON object. Fix the file.                                                          |
-| `config_unwritable`           | The config can't be written. Check that it is not read-only or locked.                                                                          |
-| `environment_file_missing`    | The branch, or the file that `PIPELINE_RUNTIME_CONFIG` names, does not exist. Check the value and `GITLAB_REF`.                                 |
+| Error                         | Meaning and remedy                                                                                                                                      |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `repo_missing`                | No repository. Give `repo=<url>`, or set `ATP_TESTS_GIT_REPO_URL` in `variables` of the config.                                                         |
+| `repo_inaccessible`           | GitLab answered 401, 403, or 404: the repository doesn't exist, or the token is missing or can't read it.                                               |
+| `tests_folder_missing`        | The repository or the branch has no `TestGeneration/tests/TestScenario`, or the branch doesn't exist.                                                   |
+| `folder_not_found`            | No folder with the given name or path under `TestScenario`.                                                                                             |
+| `server_unreachable`          | The script can't reach GitLab. Check the URL and the network.                                                                                           |
+| `gitlab_settings_missing`     | `GITLAB_URL`, `GITLAB_PROJECT_ID`, or `GITLAB_REF` is missing. Set it in the config; the environment commands also take `url=`, `project=`, and `ref=`. |
+| `environments_folder_missing` | Environments only: the pipeline repository or the branch has no `environments` folder.                                                                  |
+| `runtime_config_missing`      | No current environment. Set `PIPELINE_RUNTIME_CONFIG` in `variables`, or give `name=`.                                                                  |
+| `config_missing`              | Setting the environment and running tests: there is no `.atp-assistant/config.json`. Create it.                                                         |
+| `config_unreadable`           | The config can't be read, or it or its `variables` is not a JSON object. Fix the file.                                                                  |
+| `config_unwritable`           | The config can't be written. Check that it is not read-only or locked.                                                                                  |
+| `environment_file_missing`    | The branch, or the file that `PIPELINE_RUNTIME_CONFIG` names, does not exist. Check the value and `GITLAB_REF`.                                         |
+| `config_incomplete`           | Running tests: the keys of the search for identifiers are incomplete or wrong, as the message says.                                                     |
+| `invalid_pattern`             | Running tests: a pattern of the search is not a usable regular expression.                                                                              |
+| `bad_argument`                | Running tests: a variable was not given as `NAME=value`.                                                                                                |
+| `invalid_variables`           | Running tests: a variable is unknown, empty, or not `true` or `false`. Nothing was started.                                                             |
+| `token_missing`               | Running tests: no token. Set `GITLAB_TOKEN` or fill `.atp-assistant/gitlab-token`.                                                                      |
+| `http_error`                  | GitLab refused the request. A 401 or 403 usually means that the token is wrong or may not run pipelines.                                                |
+| `timeout`, `poll_failed`      | The pipeline was started and may still be running. Open its link; the skill cannot stop it.                                                             |
 
 A request that matches no test file or no environment is not an error: the answer says that nothing was found.

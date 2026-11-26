@@ -12,7 +12,7 @@ the agent doesn't run it.
 ## What it reads
 
 Every file is optional, and a script works with command-line options alone. The exception is
-atp-environment-set, which needs the config file to write.
+atp-environment-set, which needs the config file to write, and atp-tests-run, which needs it to start a pipeline.
 
 | Source                              | Holds                                                                                                                                                                    |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -21,9 +21,11 @@ atp-environment-set, which needs the config file to write.
 | `.atp-assistant/gitlab-token`       | The token on the first line, when the variable is empty.                                                                                                                 |
 
 The package writes one value in the config, `PIPELINE_RUNTIME_CONFIG` in `variables`, and only through
-atp-environment-set. The keys are described in the `README` of the package, under "Settings".
+atp-environment-set. The keys are described in the `README` of the package, under "Settings". atp-tests-run adds
+the keys of its search for business identifiers.
 
 ## Output
 
 A script prints its result on stdout. An error is one JSON object on stderr,
-`{"ok": false, "error": "<code>", "message": "<text>"}`, with exit status 1. The token is never printed.
+`{"ok": false, "error": "<code>", "message": "<text>"}`, with exit status 1. The script of atp-tests-run prints the
+error on stdout, where its JSON result goes, because its stderr carries progress lines. The token is never printed.

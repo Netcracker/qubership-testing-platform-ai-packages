@@ -10,7 +10,8 @@ GITLAB_* keys of the pipeline repository, and the object "variables" with the va
 the pipeline. The token comes from the environment or from .atp-assistant/gitlab-token.
 Every file is optional, except that set_environment.py needs the config.
 A script prints its result on stdout and an error on stderr, as one JSON object
-{"ok": false, "error": "<code>", "message": "<text>"}, and exits with 1.
+{"ok": false, "error": "<code>", "message": "<text>"}, and exits with 1. A script whose
+stderr carries progress lines calls report_errors_on_stdout() first.
 Python 3.9+, standard library only.
 """
 
@@ -39,6 +40,9 @@ CURRENT_KEY = "PIPELINE_RUNTIME_CONFIG"
 PIPELINE_SETTINGS = (("url", "GITLAB_URL"), ("project", "GITLAB_PROJECT_ID"), ("ref", "GITLAB_REF"))
 
 
+OUTPUT = {"errors_on_stdout": False}
+
+
 class GitLabError(Exception):
     """A failed GitLab request: its error code, the HTTP status, and the start of the body."""
 
@@ -47,10 +51,22 @@ class GitLabError(Exception):
         self.code, self.message, self.status, self.body = code, message, status, body
 
 
+def report_errors_on_stdout():
+    """Make fail() print the error object on stdout, where the script prints its JSON result."""
+    OUTPUT["errors_on_stdout"] = True
+
+
 def fail(code, message, **extra) -> NoReturn:
-    """Print an error object on stderr and exit with status 1."""
-    print(json.dumps({"ok": False, "error": code, "message": message, **extra}, ensure_ascii=False), file=sys.stderr)
+    """Print an error object, on stderr unless report_errors_on_stdout() was called, and exit with status 1."""
+    stream = sys.stdout if OUTPUT["errors_on_stdout"] else sys.stderr
+    print(json.dumps({"ok": False, "error": code, "message": message, **extra}, ensure_ascii=False), file=stream)
     sys.exit(1)
+
+
+def succeed(**fields) -> NoReturn:
+    """Print a result object on stdout and exit with status 0."""
+    print(json.dumps({"ok": True, **fields}, ensure_ascii=False))
+    sys.exit(0)
 
 
 def use_utf8_output():
@@ -206,16 +222,23 @@ def split_repo_url(repo, gitlab_url=""):
     return base, path
 
 
-def send(url, token):
-    """Send one GET request and return the body and the Link header; raise GitLabError."""
+def send(url, token, body=None):
+    """Send one request and return the body and the Link header; raise GitLabError.
+
+    The request is a GET, or a POST of the object body as JSON when body is given.
+    """
     headers = {"PRIVATE-TOKEN": token} if token else {}
-    request = urllib.request.Request(url, headers=headers, method="GET")
+    data = None
+    if body is not None:
+        data = json.dumps(body).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+    request = urllib.request.Request(url, data=data, headers=headers, method="GET" if data is None else "POST")
     try:
         with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT) as response:
             return response.read(), response.headers.get("Link") or ""
     except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8", "replace")[:300]
-        raise GitLabError("http_error", f"HTTP {exc.code} from GitLab", status=exc.code, body=body) from exc
+        answer = exc.read().decode("utf-8", "replace")[:300]
+        raise GitLabError("http_error", f"HTTP {exc.code} from GitLab", status=exc.code, body=answer) from exc
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         raise GitLabError("server_unreachable", f"Cannot reach GitLab: {exc}") from exc
     except ValueError as exc:

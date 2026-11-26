@@ -9,13 +9,14 @@ nesting, the filters, the table, the pagination, the search for an environment, 
 source of the repository and the branch, the token, and the errors. How the agent reads a
 request in plain language is not tested.
 
+The tests of run_tests.py are in test_run.py, which this module loads.
+
 Requires Python 3.9 or later.
 """
 
+import importlib
 import json
-import os
 import shutil
-import subprocess
 import sys
 import tempfile
 import threading
@@ -174,19 +175,7 @@ class ScriptCase(unittest.TestCase):
 
     def run_script(self, *args, token=None, cwd=None):
         """Return (exit code, stdout, stderr) of the script, run from the project folder."""
-        env = {key: value for key, value in os.environ.items() if key != "GITLAB_TOKEN"}
-        env["PYTHONIOENCODING"] = "utf-8"
-        if token:
-            env["GITLAB_TOKEN"] = token
-        done = subprocess.run(
-            [sys.executable, "-I", str(self.script), *args],
-            cwd=cwd or self.project,
-            env=env,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            check=False,
-        )
+        done = importlib.import_module("test_run").run_isolated(self.script, args, cwd or self.project, token)
         return done.returncode, done.stdout, done.stderr
 
     def lines(self, *args, **kwargs):
@@ -684,6 +673,12 @@ class RepoUrlCase(unittest.TestCase):
             split("https://host.example.com/gitlab/g/p.git", "https://host.example.com/gitlab/"),
             ("https://host.example.com/gitlab", "g/p"),
         )
+
+
+def load_tests(loader, tests, _pattern):
+    """Add the tests of run_tests.py to the tests of this module."""
+    tests.addTests(loader.loadTestsFromModule(importlib.import_module("test_run")))
+    return tests
 
 
 if __name__ == "__main__":
