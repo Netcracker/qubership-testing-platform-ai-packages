@@ -188,7 +188,7 @@ class RunCase(RunScriptCase):
         self.assertFalse(out["started"])
         self.assertEqual(out["variables"]["EXECUTION_NAME"], "Gen domestic")
         self.assertEqual(out["changed"], ["EXECUTION_TYPE", "EXECUTION_NAME"])
-        self.assertEqual(out["discovery"], {"enabled": False})
+        self.assertFalse(out["discovery"]["enabled"])
         self.assertEqual(self.gitlab.requests, [])
 
     def test_booleans_are_sent_in_lowercase(self):
@@ -232,7 +232,19 @@ class RunCase(RunScriptCase):
         self.assertIn({"key": "EXECUTION_NAME", "value": "Gen domestic"}, body["variables"])
         self.assertNotIn(TOKEN, text)
         self.assertNotIn("found", out)
-        self.assertNotIn("discovery", out)
+
+    def test_a_result_without_the_search_says_so(self):
+        """The plan, the result, and a timeout error say that no search is made, and name the keys."""
+        self.gitlab.reset(statuses=["success"])
+        plan, _ = self.result()
+        done, _ = self.result("--yes", "--interval", "0.05")
+        self.gitlab.reset(statuses=["running"])
+        error = self.error_of("--yes", "--interval", "0.1", "--timeout", "0.3")
+        for out in (plan, done, error):
+            self.assertFalse(out["discovery"]["enabled"])
+            self.assertIn("No search for business identifiers", out["discovery"]["message"])
+            self.assertIn("ORCHESTRATOR_URL", out["discovery"]["message"])
+            self.assertNotIn("found", out)
 
     def test_a_project_path_is_quoted(self):
         """GITLAB_PROJECT_ID can be a path of the project."""

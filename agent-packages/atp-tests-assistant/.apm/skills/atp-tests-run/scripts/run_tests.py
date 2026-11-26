@@ -38,9 +38,12 @@ With --yes, when the pipeline ends:
    "found": {"customerId": ["9177834604613948718"]},
    "discovery": {"reached": "runner_log", "downstream_pipeline_id": 8,
                  "run_id": "bed125d0-..."}}
-The last two fields are there only when the search is on. "reached" is the last step that
-worked: start, downstream_pipeline, job, run_id, or runner_log. A search that stopped adds
-"stopped" (timeout or errors) and "message" to "discovery".
+"found" is there only when the search is on. "reached" is the last step that worked:
+start, downstream_pipeline, job, run_id, or runner_log; the identifiers are searched in
+the runner log only. A search that stopped adds "stopped" (timeout or errors) and
+"message" to "discovery". When the search is off, "discovery" is
+{"enabled": false, "message": "..."} in every result, so that a result without "found"
+does not read as "nothing was found".
 
 Error codes: config_missing, config_unreadable, config_incomplete, invalid_pattern,
 gitlab_settings_missing, bad_argument, invalid_variables (with "problems"), token_missing,
@@ -69,6 +72,11 @@ SETTINGS = ("GITLAB_URL", "GITLAB_PROJECT_ID", "GITLAB_REF")
 NOT_EMPTY = ("ATP_TESTS_GIT_REPO_URL", "EXECUTION_TYPE", "EXECUTION_NAME")
 BOOLEANS = ("ENABLE_JIRA_INTEGRATION", "SEND_WEBEX_NOTIFICATION")
 FINISHED = ("success", "failed", "canceled", "skipped", "manual")
+SEARCH_OFF = {
+    "enabled": False,
+    "message": "No search for business identifiers: "
+    f"{', '.join(ids.REQUIRED_KEYS)} are not set in .atp-assistant/config.json.",
+}
 POLL_FAILURES_ALLOWED = 3
 
 
@@ -229,8 +237,8 @@ class Run:
     scout: Any = None  # downstream_ids.Scout when the search is on
 
     def found(self):
-        """Return the result fields of the search for identifiers, or {} when it is off."""
-        return self.scout.report() if self.scout else {}
+        """Return the result fields of the search for identifiers; say so when it is off."""
+        return self.scout.report() if self.scout else {"discovery": SEARCH_OFF}
 
 
 def read_status(run, failures, started):
@@ -293,7 +301,7 @@ def read_discovery(config):
 def describe_discovery(settings):
     """Return the plan of the search for the result without --yes."""
     if settings is None:
-        return {"enabled": False}
+        return SEARCH_OFF
     return {"enabled": True, "searches": list(settings.business), "timeout_seconds": settings.timeout}
 
 

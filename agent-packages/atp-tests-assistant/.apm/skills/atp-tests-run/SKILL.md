@@ -76,11 +76,17 @@ this run only: the script does not write it to the config.
 - `succeeded` false: the pipeline ended as `failed`, `canceled`, `skipped`, or `manual`. Show the status, the link
   (`pipeline.web_url`), the variables that were sent, and `failed_jobs` (name, stage, link) when it has any. Don't guess
   the cause.
-- `found` is there when the search is on: the identifiers by name, each with the values in the order they appeared.
-  Report them in the result too, together with those you reported while waiting. An empty list means that the logs
-  never showed one. `discovery.reached` says how far the search got, and `discovery.stopped` with `discovery.message`
-  says why it ended before the pipeline did (`timeout`: the time limit passed; `errors`: five requests in a row
-  failed). Report that in one sentence, because the user should not read the empty list as "no data was created".
+- The search for identifiers: always say in the result which of these three cases it is, because "not searched" and
+  "nothing found" are different answers.
+  - `discovery.enabled` is false: no search was made, because it is not configured. Say exactly that, with
+    `discovery.message`. Don't say that no identifiers or no rows were found.
+  - `found` is there and `discovery.reached` is not `runner_log`: the search is on, but it never read the runner log,
+    so nothing was searched. Say that, with how far it got (`discovery.reached`) and why it ended
+    (`discovery.stopped` and `discovery.message`), when they are there.
+  - `discovery.reached` is `runner_log`: report `found`, the identifiers by name with the values in the order they
+    appeared, together with those you reported while waiting. An empty list means that the log never showed one.
+    When `discovery.stopped` is there (`timeout`: the time limit passed; `errors`: five requests in a row failed),
+    say so too, because the list can be incomplete.
 - `ok: false` is an error, also printed on stdout:
   - `invalid_variables`: show `problems` and ask the user to correct the values. Nothing was started.
   - `invalid_pattern`: a pattern of the search is not a usable regular expression. Show the message and tell the user
