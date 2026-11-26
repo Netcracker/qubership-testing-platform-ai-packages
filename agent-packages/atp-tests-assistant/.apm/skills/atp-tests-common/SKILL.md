@@ -11,7 +11,8 @@ the agent doesn't run it.
 
 ## What it reads
 
-Every file is optional, and a script works with command-line options alone.
+Every file is optional, and a script works with command-line options alone. The exception is
+atp-tests-environment-set, which needs a variables file to write.
 
 | Source                                                | Holds                                                                                                                                           |
 | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -20,8 +21,9 @@ Every file is optional, and a script works with command-line options alone.
 | Environment variable `GITLAB_TOKEN`                   | The GitLab token. `GITLAB_TOKEN_ENV` names another variable.                                                                                    |
 | `.tdm-assistant/gitlab-token`                         | The token on the first line, when the variable is empty.                                                                                        |
 
-These files belong to the tdm-test-data-assistant package, which writes them. This package only reads them, so a
-change of a key there needs the same change here.
+These files belong to the tdm-test-data-assistant package. This package writes one value in them,
+`PIPELINE_RUNTIME_CONFIG` in the variables file, and only through atp-tests-environment-set. A change of a key there
+needs the same change here.
 
 ## Output
 

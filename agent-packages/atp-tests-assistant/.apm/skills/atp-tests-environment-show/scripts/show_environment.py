@@ -34,8 +34,6 @@ sys.dont_write_bytecode = True  # keep __pycache__ out of the skill folder
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "atp-tests-common" / "scripts"))
 common = importlib.import_module("atp_tests_common")
 
-CURRENT_KEY = "PIPELINE_RUNTIME_CONFIG"
-
 
 def parse_arguments(argv=None):
     """Return the parsed command line; exit with 2 on a wrong one."""
@@ -47,72 +45,48 @@ def parse_arguments(argv=None):
 
 def current_path(config):
     """Return the file path that PIPELINE_RUNTIME_CONFIG holds, or fail."""
-    value = str(common.read_variables(config).get(CURRENT_KEY) or "").strip()
+    value = str(common.read_variables(config).get(common.CURRENT_KEY) or "").strip()
     if not value:
         common.fail(
             "runtime_config_missing",
-            f"No current environment. Set {CURRENT_KEY} in the variables file that GENERATE_VARIABLES_FILE "
+            f"No current environment. Set {common.CURRENT_KEY} in the variables file that GENERATE_VARIABLES_FILE "
             "names in .tdm-assistant/config.json, or give --name.",
         )
     return value
-
-
-def read_file(pipeline, path, token):
-    """Return the text of the file, or None when GitLab finds the project and not the file or the branch."""
-    base, project, ref = pipeline
-    try:
-        return common.get_file(base, project, path, ref, token)
-    except common.GitLabError as exc:
-        if exc.status == 404 and "Project Not Found" not in exc.body:
-            return None
-        return common.fail_request(exc, f"{base}, project {project}", token)
-
-
-def environment_name(path):
-    """Return the environment name of a file path: the filename without .yaml."""
-    return path.rsplit("/", 1)[-1].removesuffix(common.ENVIRONMENT_SUFFIX)
 
 
 def render_file(title, path, where, text):
     """Return the answer that shows one file: the heading line and the fenced content."""
     longest = max((len(run) for run in re.findall("`+", text)), default=0)
     fence = "`" * max(3, longest + 1)
-    heading = f"{title} `{environment_name(path)}`: file `{path}` in {where}."
+    heading = f"{title} `{common.environment_name(path)}`: file `{path}` in {where}."
     return "\n".join([heading, "", f"{fence}yaml", *text.splitlines(), fence])
 
 
 def show_current(pipeline, config, token, where):
     """Return the answer for the current environment, or fail when its file does not exist."""
     path = current_path(config)
-    text = read_file(pipeline, path, token)
+    text = common.read_file_if_any(pipeline, path, token)
     if text is None:
         common.fail(
             "environment_file_missing",
-            f"{CURRENT_KEY} names the file {path}, which does not exist in {where}, or the branch does not exist.",
+            f"{common.CURRENT_KEY} names the file {path}, which does not exist in {where}, "
+            "or the branch does not exist.",
         )
-    return render_file(f"Current environment ({CURRENT_KEY})", path, where, text)
+    return render_file(f"Current environment ({common.CURRENT_KEY})", path, where, text)
 
 
 def show_named(pipeline, wanted, token, where):
     """Return the answer for --name: the file, the names that match, or that none does."""
-    path = f"{common.ENVIRONMENTS_FOLDER}/{wanted}{common.ENVIRONMENT_SUFFIX}"
-    text = read_file(pipeline, path, token)
-    if text is not None:
-        return render_file("Environment", path, where, text)
-    files = common.read_environments(*pipeline, token)
-    exact = [name for name in files if name.lower() == wanted.lower()]
-    passes = common.make_name_filter(wanted)
-    matches = exact or [name for name in files if passes(name)]
-    if not matches:
-        return f'No environment matches "{wanted}" in {where}, {len(files)} in all.'
-    if len(matches) > 1:
-        heading = f'{len(matches)} environments match "{wanted}" in {where}. Specify one of them:'
-        return "\n".join([heading, "", *(f"- `{name}`" for name in matches)])
-    path = f"{common.ENVIRONMENTS_FOLDER}/{files[matches[0]]}"
-    text = read_file(pipeline, path, token)
+    search = common.search_environment(pipeline, wanted, token)
+    if not search.path:
+        return common.describe_unresolved(search, wanted, where)
+    if not search.names:
+        return render_file("Environment", search.path, where, search.text)
+    text = common.read_file_if_any(pipeline, search.path, token)
     if text is None:
-        common.fail("environment_file_missing", f"GitLab lists the file {path} in {where} but cannot read it.")
-    return render_file(f'The only environment that matches "{wanted}" is', path, where, text)
+        common.fail("environment_file_missing", f"GitLab lists the file {search.path} in {where} but cannot read it.")
+    return render_file(f'The only environment that matches "{wanted}" is', search.path, where, text)
 
 
 def main():

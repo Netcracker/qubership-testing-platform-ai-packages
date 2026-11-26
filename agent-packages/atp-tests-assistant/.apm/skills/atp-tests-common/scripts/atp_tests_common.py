@@ -8,7 +8,8 @@ A script imports this module after adding the folder that holds it to sys.path:
 The module reads the files that the tdm-test-data-assistant package defines, and works
 without them: .tdm-assistant/config.json (found from the working directory up), the
 variables file that its key GENERATE_VARIABLES_FILE names, and the token. Every file is
-optional. A script prints its result on stdout and an error on stderr, as one JSON object
+optional, except that set_environment.py needs a variables file.
+A script prints its result on stdout and an error on stderr, as one JSON object
 {"ok": false, "error": "<code>", "message": "<text>"}, and exits with 1.
 Python 3.9+, standard library only.
 """
@@ -18,11 +19,12 @@ import json
 import os
 import re
 import sys
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import NoReturn
+from typing import NamedTuple, NoReturn
 
 CONFIG_PATH = Path(".tdm-assistant") / "config.json"
 TOKEN_FILE = "gitlab-token"
@@ -33,6 +35,7 @@ LINK_NEXT = re.compile(r'<([^>]+)>\s*;\s*rel="next"')
 SCP_URL = re.compile(r"[\w.-]+@([\w.-]+):(.+)")
 ENVIRONMENTS_FOLDER = "environments"
 ENVIRONMENT_SUFFIX = ".yaml"
+CURRENT_KEY = "PIPELINE_RUNTIME_CONFIG"
 PIPELINE_SETTINGS = (("url", "GITLAB_URL"), ("project", "GITLAB_PROJECT_ID"), ("ref", "GITLAB_REF"))
 
 
@@ -51,9 +54,10 @@ def fail(code, message, **extra) -> NoReturn:
 
 
 def use_utf8_output():
-    """Make stdout UTF-8 whatever the console code page is."""
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8")
+    """Make stdout and stderr UTF-8 whatever the console code page is."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
 
 
 def find_config():
@@ -84,26 +88,83 @@ def load_config():
     return config
 
 
-def read_variables(config):
-    """Return the variables object of the file that GENERATE_VARIABLES_FILE names.
+def variables_path(config):
+    """Return the path of the file that GENERATE_VARIABLES_FILE names, or None.
 
     A relative path is taken from the project folder, the parent of the .tdm-assistant
-    folder. The result is empty when the config has no such key.
+    folder.
     """
     name = config.get("GENERATE_VARIABLES_FILE")
     if not name:
-        return {}
+        return None
     path = Path(name)
-    if not path.is_absolute():
-        path = Path(config["CONFIG_DIR"]).parent / path
+    if path.is_absolute():
+        return path
+    return Path(config["CONFIG_DIR"]).parent / path
+
+
+def load_variables_file(path):
+    """Return the whole JSON object of the variables file and its text, or fail.
+
+    The object has a 'variables' object. The text keeps the byte order mark and the line
+    ends of the file.
+    """
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        text = path.read_bytes().decode("utf-8")
+        data = json.loads(text.removeprefix("\ufeff"))
     except (OSError, ValueError) as exc:
         fail("variables_file_unreadable", f"Cannot read the variables file {path}: {exc}")
-    variables = data.get("variables") if isinstance(data, dict) else None
-    if not isinstance(variables, dict):
+    if not isinstance(data, dict) or not isinstance(data.get("variables"), dict):
         fail("variables_file_unreadable", f"The variables file {path} has no 'variables' object.")
-    return variables
+    return data, text
+
+
+def read_variables(config):
+    """Return the variables object of the file that GENERATE_VARIABLES_FILE names.
+
+    The result is empty when the config has no such key.
+    """
+    path = variables_path(config)
+    if path is None:
+        return {}
+    return load_variables_file(path)[0]["variables"]
+
+
+def write_variable(path, name, value):
+    """Set one variable in the variables file and return its previous value, or None.
+
+    The file is not touched when it already holds the value. Otherwise it is written again
+    as JSON with the indentation, the line ends, the byte order mark, and the final line
+    end that it had. The new file replaces the old one in one step, so a failure leaves
+    the old file.
+    """
+    data, text = load_variables_file(path)
+    previous = data["variables"].get(name)
+    if previous == value:
+        return previous
+    data["variables"][name] = value
+    indent = re.search(r'\n([ \t]+)"', text)
+    written = json.dumps(data, ensure_ascii=False, indent=indent.group(1) if indent else 2)
+    if text.endswith("\n"):
+        written += "\n"
+    if "\r\n" in text:
+        written = written.replace("\n", "\r\n")
+    if text.startswith("\ufeff"):
+        written = "\ufeff" + written
+    temporary = None
+    try:
+        path = path.resolve()
+        with tempfile.NamedTemporaryFile("wb", dir=path.parent, suffix=".tmp", delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(written.encode("utf-8"))
+        temporary.chmod(path.stat().st_mode)
+        temporary.replace(path)
+    except OSError as exc:
+        if temporary:
+            temporary.chmod(0o600)  # Windows does not delete a read-only file
+            temporary.unlink(missing_ok=True)
+        fail("variables_file_unwritable", f"Cannot write the variables file {path}: {exc}")
+    return previous
 
 
 def read_token(config):
@@ -285,3 +346,61 @@ def read_environments(base, project, ref, token):
         if entry.get("type") == "blob" and entry.get("name", "").lower().endswith(ENVIRONMENT_SUFFIX)
     }
     return {name: files[name] for name in sorted(files, key=lambda name: (name.lower(), name))}
+
+
+class EnvironmentSearch(NamedTuple):
+    """The outcome of the search for one environment.
+
+    path is the file of the only environment found, and "" when none or several match.
+    text is the content of that file when the search has read it, and "" otherwise.
+    names are the matching names of the folder; the list is empty when the file named by
+    the search text itself exists. total is the number of environments in the folder, and
+    0 when the folder was not listed.
+    """
+
+    path: str
+    text: str
+    names: list
+    total: int
+
+
+def read_file_if_any(pipeline, path, token):
+    """Return the text of the file, or None when GitLab finds the project and not the file or the branch."""
+    base, project, ref = pipeline
+    try:
+        return get_file(base, project, path, ref, token)
+    except GitLabError as exc:
+        if exc.status == 404 and "Project Not Found" not in exc.body:
+            return None
+        return fail_request(exc, f"{base}, project {project}", token)
+
+
+def search_environment(pipeline, wanted, token):
+    """Search the pipeline repository for the environment that the text WANTED names.
+
+    The file environments/WANTED.yaml wins. Without it, a name of the folder equal to
+    WANTED, ignoring case, wins, and else every name that passes make_name_filter(WANTED).
+    """
+    path = f"{ENVIRONMENTS_FOLDER}/{wanted}{ENVIRONMENT_SUFFIX}"
+    content = read_file_if_any(pipeline, path, token)
+    if content is not None:
+        return EnvironmentSearch(path, content, [], 0)
+    files = read_environments(*pipeline, token)
+    exact = [name for name in files if name.lower() == wanted.lower()]
+    passes = make_name_filter(wanted)
+    names = exact or [name for name in files if passes(name)]
+    path = f"{ENVIRONMENTS_FOLDER}/{files[names[0]]}" if len(names) == 1 else ""
+    return EnvironmentSearch(path, "", names, len(files))
+
+
+def environment_name(path):
+    """Return the environment name of a file path: the filename without its .yaml extension."""
+    return path.rsplit("/", 1)[-1][: -len(ENVIRONMENT_SUFFIX)]
+
+
+def describe_unresolved(search, wanted, where):
+    """Return the answer for a search that found no single environment: none, or the list of them."""
+    if not search.names:
+        return f'No environment matches "{wanted}" in {where}, {search.total} in all.'
+    heading = f'{len(search.names)} environments match "{wanted}" in {where}. Specify one of them:'
+    return "\n".join([heading, "", *(f"- `{name}`" for name in search.names)])
