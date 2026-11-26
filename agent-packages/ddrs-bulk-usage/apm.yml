@@ -1,0 +1,4 @@
+name: ddrs-bulk-usage
+version: 0.1.0
+description: Skills that adapt the DDRS bulk usage templates to a project OCS, build the input workbook from subscriber data and a test matrix, and run the workbook locally with ddrs.pyz.
+author: Qubership

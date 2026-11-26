@@ -8,6 +8,7 @@ in its own folder under `agent-packages/` and installs on its own.
 | Package                                                                           | Purpose                                                               |
 | --------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
 | [seagull-diameter-scenarios](agent-packages/seagull-diameter-scenarios/README.md) | Turns recorded Diameter requests and responses into Seagull scenarios |
+| [ddrs-bulk-usage](agent-packages/ddrs-bulk-usage/README.md)                       | Adapts the DDRS bulk usage template to OCS and runs it locally |
 
 ## Install a package
 
