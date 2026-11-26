@@ -91,7 +91,8 @@ Found 2 of 250 environments in https://gitlab.example.com, project 7, branch mai
 - `dev-CI-Ivory`
 ```
 
-To run the pipeline on an environment, pass `environments/<name>.yaml` as `PIPELINE_RUNTIME_CONFIG`. For the first name
+To run the pipeline on an environment, [set it](#set-the-environment-of-the-pipeline), or pass
+`environments/<name>.yaml` as `PIPELINE_RUNTIME_CONFIG`. For the first name
 above, that is `environments/atp3prod_dyn-CI-Ivory.yaml`.
 
 ## Show the description of an environment
@@ -126,6 +127,33 @@ name: CI-Ivory
 
 The file is not masked: a password or a key that it holds appears in the chat and goes to the model.
 
+## Set the environment of the pipeline
+
+The environment of the pipeline is the value of `PIPELINE_RUNTIME_CONFIG` in the variables file that
+`GENERATE_VARIABLES_FILE` names in `.tdm-assistant/config.json`: `environments/<filename>`.
+
+| You write                                    | Command                                    |
+| -------------------------------------------- | ------------------------------------------ |
+| Set the pipeline environment to `CI-Ivory`   | `/atp-tests-set-environment name=CI-Ivory` |
+| Change the pipeline config to `CI-Ivory`     | `/atp-tests-set-environment name=CI-Ivory` |
+| Run the test case `X` on `CI-Ivory`          | no command; write it in plain language     |
+
+The name is searched as for the description of an environment:
+
+- When one environment is found, `PIPELINE_RUNTIME_CONFIG` is set to its file. The variable is added when the file has
+  none. The agent does not ask for a confirmation.
+- When several match, the agent lists them and changes nothing until you choose one.
+- When none matches, nothing changes.
+
+The script writes only this one value. The file is rewritten as JSON with its indentation and line ends. The other values stay, but a layout of your own,
+such as a list written on one line, is not kept.
+
+When you ask to run a test case on an environment, the agent sets the environment first and then starts the run with
+the tdm-test-data-assistant package, which asks for its own confirmation. The value stays in the file after the run.
+
+The repository, the branch, and the token are the same as for the list of environments, and the command accepts
+`ref=`, `url=`, and `project=` too.
+
 ## Errors
 
 | Error                         | Meaning and remedy                                                                                                                              |
@@ -138,6 +166,9 @@ The file is not masked: a password or a key that it holds appears in the chat an
 | `gitlab_settings_missing`     | Environments only: `GITLAB_URL`, `GITLAB_PROJECT_ID`, or `GITLAB_REF` is missing. Set it in the config, or give `url=`, `project=`, and `ref=`. |
 | `environments_folder_missing` | Environments only: the pipeline repository or the branch has no `environments` folder.                                                          |
 | `runtime_config_missing`      | No current environment. Set `PIPELINE_RUNTIME_CONFIG` in the variables file, or give `name=`.                                                   |
+| `variables_file_missing`      | Setting the environment only: the config has no `GENERATE_VARIABLES_FILE`. Add it.                                                              |
+| `variables_file_unreadable`   | The variables file can't be read, or it is not JSON with a `variables` object. Fix the file.                                                    |
+| `variables_file_unwritable`   | The variables file can't be written. Check that it is not read-only or locked.                                                                  |
 | `environment_file_missing`    | The branch, or the file that `PIPELINE_RUNTIME_CONFIG` names, does not exist. Check the value and `GITLAB_REF`.                                 |
 
 A request that matches no test file or no environment is not an error: the answer says that nothing was found.
