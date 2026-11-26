@@ -54,9 +54,8 @@ CI-Ivory", set the environment first and run second:
 2. Continue only when the output says that `PIPELINE_RUNTIME_CONFIG` was set or already holds the value. When it lists
    several names, ask which one is meant, and run the script again with that name. When nothing matches, say so and run
    no test.
-3. Follow the skill that runs the test, with its own confirmation. Never pass it the name from the request: that
-   name is not a file. tdm-generate-test-data does not read the config of this package, so when it runs the test, pass
-   it `PIPELINE_RUNTIME_CONFIG=environments/<filename>`, the value that the script printed.
+3. Follow [atp-tests-run](../atp-tests-run/SKILL.md), with its own confirmation. Don't pass the environment to it:
+   the config already holds the file, and the name from the request is not a file.
 
 ## Result and errors
 
