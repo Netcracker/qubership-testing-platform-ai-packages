@@ -13,6 +13,7 @@ rules, the arguments, and the safety checks stay in the skill. The package has n
 
 | Command                  | Does                                                                     |
 | ------------------------ | ------------------------------------------------------------------------ |
+| `/atp-config`            | Show or change the config of the tests assistant                         |
 | `/atp-list-tests`        | List the tests of the project's test repository                          |
 | `/atp-list-environments` | List the environments of the GitLab pipeline                             |
 | `/atp-show-environment`  | Show the YAML file of one environment of the pipeline                    |

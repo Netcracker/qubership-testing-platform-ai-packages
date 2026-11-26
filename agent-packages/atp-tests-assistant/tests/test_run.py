@@ -299,6 +299,13 @@ class DiscoveryCase(RunScriptCase):
         out, _ = self.result()
         self.assertEqual(out["discovery"], {"enabled": True, "searches": ["customerId"], "timeout_seconds": 420.0})
 
+    def test_patterns_without_the_url_leave_the_search_off(self):
+        """A config that holds the patterns and an empty ORCHESTRATOR_URL runs without the search."""
+        self.discovery(ORCHESTRATOR_URL="")
+        out, _ = self.result("--yes", "--interval", "0.05")
+        self.assertFalse(out["discovery"]["enabled"])
+        self.assertEqual(self.orchestrator.requests, [])
+
     def test_wrong_settings_are_refused(self):
         """A bad pattern, a bad value, a partial set, and a non-http URL start nothing."""
         cases = [

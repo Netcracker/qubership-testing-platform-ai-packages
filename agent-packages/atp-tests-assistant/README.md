@@ -7,7 +7,8 @@ second lists the environments of the GitLab pipeline, the YAML files in the `env
 repository, and can keep only the names that contain a given text. A third shows the YAML file of one environment, the
 current one or one that you specify by name or by a part of it. A fourth sets the environment of the pipeline: it
 finds the file by name or by a part of it and writes `PIPELINE_RUNTIME_CONFIG`, also before you run a test case on an
-environment. A fifth runs a test case or a scope in the pipeline, which is also how you generate test data.
+environment. A fifth runs a test case or a scope in the pipeline, which is also how you generate test data. A sixth
+shows and changes the settings of the package.
 
 To install the package and run the skills, follow the [user guide](docs/user-guide.md).
 
@@ -23,6 +24,7 @@ only when you type its name. The command is a frontend for the skill with formal
 | [atp-environment-show](.apm/skills/atp-environment-show/SKILL.md)   | `/atp-show-environment`  | Shows the YAML file of one environment of the pipeline                          |
 | [atp-environment-set](.apm/skills/atp-environment-set/SKILL.md)     | `/atp-set-environment`   | Sets `PIPELINE_RUNTIME_CONFIG` to one environment of the pipeline               |
 | [atp-tests-run](.apm/skills/atp-tests-run/SKILL.md)                 | `/atp-run-tests`         | Runs a test case or a scope in the pipeline, which also generates test data     |
+| [atp-config-manage](.apm/skills/atp-config-manage/SKILL.md)         | `/atp-config`            | Shows and changes the config of the package, and creates it                     |
 | [atp-common](.apm/skills/atp-common/SKILL.md)                       |                          | Shared script code. Not a task; the agent never invokes it                      |
 
 The package instruction
@@ -63,7 +65,10 @@ Running tests needs the file.
 Keep the token out of the config file. A script takes it from the environment variable, or else from the first line of
 `.atp-assistant/gitlab-token`. Do not commit that file.
 
-The package writes one value: `PIPELINE_RUNTIME_CONFIG` in `variables`, when you set the environment.
+The package writes the config only when you ask: the environment that you set, and the values that you change with
+`/atp-config` or in plain language. `/atp-config` also creates the file when there is none, with the project's own values empty and a sample or a
+default in the others. The
+patterns of the search for identifiers, and values whose name looks like a secret, are changed by hand.
 
 ## Running tests
 
@@ -77,8 +82,9 @@ it cannot cancel a pipeline.
 
 The test cases create the business identifiers of new data, such as a customer ID, early in the pipeline. With the keys
 below, at the top level of the config, the script reads the logs while the pipeline runs, and the agent reports each
-identifier as soon as the logs show it. The search is on when the first four keys are set, and off when none of them
-is; a partial set is an error (`config_incomplete`). It needs the downstream pipeline to be in the project of
+identifier as soon as the logs show it. The search is on when `ORCHESTRATOR_URL` is set, and it then needs the next
+three keys; a missing one is an error (`config_incomplete`). Without `ORCHESTRATOR_URL` the search is off, and the other
+keys can stay in the config. It needs the downstream pipeline to be in the project of
 `GITLAB_PROJECT_ID` or in another project that the token can read.
 
 | Key                       | Holds                                                                                           |

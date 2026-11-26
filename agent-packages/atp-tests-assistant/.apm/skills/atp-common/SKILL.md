@@ -20,9 +20,9 @@ atp-environment-set, which needs the config file to write, and atp-tests-run, wh
 | Environment variable `GITLAB_TOKEN` | The GitLab token. `GITLAB_TOKEN_ENV` names another variable.                                                                                                             |
 | `.atp-assistant/gitlab-token`       | The token on the first line, when the variable is empty.                                                                                                                 |
 
-The package writes one value in the config, `PIPELINE_RUNTIME_CONFIG` in `variables`, and only through
-atp-environment-set. The keys are described in the `README` of the package, under "Settings". atp-tests-run adds
-the keys of its search for business identifiers.
+The package writes the config only when the user asks: `PIPELINE_RUNTIME_CONFIG` through atp-environment-set, and
+other values through atp-config-manage, which also creates a missing file. The keys are described in the `README` of
+the package, under "Settings". atp-tests-run adds the keys of its search for business identifiers.
 
 ## Output
 

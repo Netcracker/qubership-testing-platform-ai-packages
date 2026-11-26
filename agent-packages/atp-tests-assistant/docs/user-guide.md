@@ -21,7 +21,8 @@ You need Python 3.9 or later on the machine. The scripts use only its standard l
 The skills need the settings of the pipeline repository, the URL and the branch of the test repository, and, for a
 private repository, a GitLab token that can read them.
 
-1. Create `.atp-assistant/config.json` in the folder in which you start your agent. The example and the keys are under
+1. Create `.atp-assistant/config.json` in the folder in which you start your agent: type `/atp-config`, which writes
+   the file, and [fill in your values](#show-and-change-the-config). The keys are under
    [Settings](../README.md#settings) in the `README`.
 2. Without the file, give the values in the request or the command, for example
    `/atp-list-tests repo=<url> branch=<branch>`. With `repo=` and no `branch=`, the script reads the default
@@ -45,6 +46,24 @@ move the settings by hand:
 
 If you generated test data with tdm-test-data-assistant, move the keys of the search for business identifiers too:
 `ORCHESTRATOR_URL`, `DOWNSTREAM_STAGE`, `RUN_ID_PATTERN`, `BUSINESS_ID_PATTERNS`, and `DISCOVERY_*`.
+
+## Show and change the config
+
+Ask in plain language, or type the command:
+
+| You write                       | Command                                     |
+| ------------------------------- | ------------------------------------------- |
+| Show the ATP config             | `/atp-config`                               |
+| Set `GITLAB_REF` to `develop`   | `/atp-config GITLAB_REF=develop`            |
+| Turn the Webex notification off | `/atp-config SEND_WEBEX_NOTIFICATION=false` |
+
+The answer lists the settings and the variables, and says whether a token is found, without showing it. A value whose
+name looks like a secret is hidden. A change is checked before it is written, so a wrong value changes nothing. When
+there is no config, the file is created in the current folder first. It holds samples of the patterns of the search for
+business identifiers: check them against your project. The search stays off until you set `ORCHESTRATOR_URL`.
+
+The patterns of the search for business identifiers, values that look like secrets, and new variables of your own are
+changed in the file by hand.
 
 ## List the tests
 
@@ -214,10 +233,12 @@ installed with its generation skill, use `/atp-run-tests` to run tests with this
 | `environment_file_missing`    | The branch, or the file that `PIPELINE_RUNTIME_CONFIG` names, does not exist. Check the value and `GITLAB_REF`.                                         |
 | `config_incomplete`           | Running tests: the keys of the search for identifiers are incomplete or wrong, as the message says.                                                     |
 | `invalid_pattern`             | Running tests: a pattern of the search is not a usable regular expression.                                                                              |
-| `bad_argument`                | Running tests: a variable was not given as `NAME=value`.                                                                                                |
+| `bad_argument`                | Running tests or changing the config: a value was not given as `NAME=value`.                                                                            |
 | `invalid_variables`           | Running tests: a variable is unknown, empty, or not `true` or `false`. Nothing was started.                                                             |
 | `token_missing`               | Running tests: no token. Set `GITLAB_TOKEN` or fill `.atp-assistant/gitlab-token`.                                                                      |
 | `http_error`                  | GitLab refused the request. A 401 or 403 usually means that the token is wrong or may not run pipelines.                                                |
 | `timeout`, `poll_failed`      | The pipeline was started and may still be running. Open its link; the skill cannot stop it.                                                             |
+| `unknown_key`                 | Changing the config: the key is unknown, or it is changed in the file by hand, as the message says.                                                     |
+| `invalid_value`               | Changing the config: a value is not allowed for its key. Nothing was changed.                                                                           |
 
 A request that matches no test file or no environment is not an error: the answer says that nothing was found.

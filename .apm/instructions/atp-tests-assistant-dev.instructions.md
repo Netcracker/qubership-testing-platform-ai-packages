@@ -11,7 +11,8 @@ packages.
 ### Names
 
 - A plain-language skill is `atp-<object>-<verb>`, such as `atp-environment-show`.
-- A command is `/atp-<verb>-<object>`, such as `/atp-show-environment`.
+- A command is `/atp-<verb>-<object>`, such as `/atp-show-environment`. The exception is `/atp-config`, which shows
+  and changes the config.
 - A filter by name is `name=<text>`.
 
 ### Scripts
