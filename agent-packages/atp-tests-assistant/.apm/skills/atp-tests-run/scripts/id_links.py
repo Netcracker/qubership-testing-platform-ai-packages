@@ -6,8 +6,9 @@ of BUSINESS_ID_LINK_TEMPLATES then gives one link for each identifier:
   get_property('<system>','<connection type>','<property>')  a value of the file below
   $ID                                                       the identifier, URL-encoded
 
-The values come from the JSON file environment-configuration/<name> of the test
-repository, where EXTRA_VARS of the pipeline variables names it as
+The values come from a JSON file of the test repository, in the folder
+ENV_CONFIGURATION_FOLDER of the config, by default TestGeneration/environment-configuration.
+EXTRA_VARS of the pipeline variables names the file as
 ENV_CONFIGURATION_TEMPLATE_FILENAME=<name>. EXTRA_VARS holds name=value pairs separated
 by commas, where "\\," is a comma inside a value:
 
@@ -25,7 +26,6 @@ import re
 import urllib.parse
 from dataclasses import dataclass
 
-FOLDER = "environment-configuration"
 EXTRA_VARS_KEY = "EXTRA_VARS"
 FILE_NAME_KEY = "ENV_CONFIGURATION_TEMPLATE_FILENAME"
 REPO_KEY = "ATP_TESTS_GIT_REPO_URL"
@@ -222,16 +222,16 @@ def resolve(templates, text, path):
     return tuple(outcomes)
 
 
-def load_links(templates, variables, read_file):
+def load_links(templates, variables, read_file, folder):
     """Return the Links of a run, or raise LinkError.
 
     templates is the value of BUSINESS_ID_LINK_TEMPLATES, and variables holds the pipeline
     variables of this run. read_file(repository URL, branch, path) returns the text of a
-    file and raises LinkError.
+    file and raises LinkError. folder is the folder of the environment configurations.
     """
     checked = check_templates(templates)
     filename = find_file_name(variables.get(EXTRA_VARS_KEY))
-    path = f"{FOLDER}/{filename}"
+    path = f"{folder}/{filename}"
     text = read_file(variables.get(REPO_KEY, ""), variables.get(BRANCH_KEY, "").strip(), path)
     runtime = variables.get(RUNTIME_KEY, "")
     warning = ""

@@ -52,8 +52,8 @@ FILES = [
 ]
 
 
-def tree_entries():
-    """Return the entries the fake GitLab lists for the tests folder, files and folders."""
+def tree_entries(root):
+    """Return the entries the fake GitLab lists for the tests folder root, files and folders."""
     entries, seen = [], set()
     for name in FILES:
         parts = name.split("/")
@@ -61,8 +61,8 @@ def tree_entries():
             folder = "/".join(parts[:depth])
             if folder not in seen:
                 seen.add(folder)
-                entries.append({"name": parts[depth - 1], "type": "tree", "path": f"{ROOT}/{folder}"})
-        entries.append({"name": parts[-1], "type": "blob", "path": f"{ROOT}/{name}"})
+                entries.append({"name": parts[depth - 1], "type": "tree", "path": f"{root}/{folder}"})
+        entries.append({"name": parts[-1], "type": "blob", "path": f"{root}/{name}"})
     return entries
 
 
@@ -102,7 +102,7 @@ class FakeGitLab(BaseHTTPRequestHandler):
             return self.reply_file(unquote(url.path.split("/")[7]), query.get("ref", [""])[0])
         if query.get("ref", [""])[0] == "nobranch" or project == "group%2Fnotests":
             return self.reply(404, {"message": "404 Tree Not Found"})
-        entries = environment_entries() if query.get("path") == ["environments"] else tree_entries()
+        entries = environment_entries() if query.get("path") == ["environments"] else tree_entries(query["path"][0])
         page = int(query.get("page", ["1"])[0])
         first = (page - 1) * PAGE_SIZE
         last = first + PAGE_SIZE
@@ -313,6 +313,17 @@ class SourceCase(ScriptCase):
         self.assertEqual(FakeGitLab.requests[0][1]["ref"], ["release"])
         self.assertEqual(FakeGitLab.requests[0][1]["path"], [ROOT])
         self.assertEqual(FakeGitLab.requests[0][0], "/api/v4/projects/group%2Ftests/repository/tree")
+
+    def test_the_tests_folder_comes_from_the_config(self):
+        """TESTS_FOLDER moves the tests, and its last part names the root of the answer."""
+        repo = f"{self.url}/group/tests.git"
+        self.save_config({"TESTS_FOLDER": "/e2e/specs/", "variables": {"ATP_TESTS_GIT_REPO_URL": repo}})
+        lines = self.lines()
+        self.assertTrue(lines[0].endswith("under e2e/specs."), lines[0])
+        self.assertEqual(lines[2], "- **specs/**")
+        self.assertEqual(FakeGitLab.requests[0][1]["path"], ["e2e/specs"])
+        self.save_config({"TESTS_FOLDER": "../specs", "variables": {"ATP_TESTS_GIT_REPO_URL": repo}})
+        self.assertEqual(self.error_of()["error"], "invalid_value")
 
     def test_repo_option_ignores_the_file_branch(self):
         """With --repo and no --branch, the request has no ref, so GitLab uses the default branch."""

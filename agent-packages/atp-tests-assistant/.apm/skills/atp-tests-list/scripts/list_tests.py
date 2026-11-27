@@ -1,7 +1,8 @@
 """List the Playwright test files (*.ts) of the project's test repository, sorted by name.
 
-The tests live under TestGeneration/tests/TestScenario of the repository. The script reads
-the folder tree from the GitLab API in one paginated request, keeps the *.ts files, applies
+The tests live in the tests folder of the repository, TESTS_FOLDER of the config, by default
+TestGeneration/tests/TestScenario. The script reads the folder tree
+from the GitLab API in one paginated request, keeps the *.ts files, applies
 the filters, and prints a nested Markdown list, or a table with --format table. The agent
 shows that output as written.
 
@@ -15,8 +16,8 @@ the request is anonymous. The token is never printed.
 
 Filters:
   --folder NAME   Only the tests in the folders called NAME, at any depth under
-                  TestScenario, with their subfolders. The match ignores case.
-  --under PATH    Only the tests in PATH, counted from TestScenario (Name or A/B).
+                  the tests folder, with their subfolders. The match ignores case.
+  --under PATH    Only the tests in PATH, counted from the tests folder (Name or A/B).
   --name TEXT     Only files whose name contains TEXT, ignoring case. TEXT with * or ?
                   is a mask for the whole name.
 
@@ -33,9 +34,7 @@ sys.dont_write_bytecode = True  # keep __pycache__ out of the skill folder
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "atp-common" / "scripts"))
 common = importlib.import_module("atp_common")
 
-TESTS_ROOT = "TestGeneration/tests/TestScenario"
 TEST_SUFFIX = ".ts"
-ROOT_LABEL = "TestScenario"
 REPO_KEY = "ATP_TESTS_GIT_REPO_URL"
 BRANCH_KEY = "ATP_TESTS_GIT_REPO_BRANCH"
 
@@ -45,8 +44,8 @@ def parse_arguments(argv=None):
     parser = argparse.ArgumentParser(description="List the test files of the test repository.")
     parser.add_argument("--repo", help="URL of the test repository; overrides the config")
     parser.add_argument("--branch", help="branch to read; overrides the config")
-    parser.add_argument("--folder", help="name of a folder, at any depth under TestScenario")
-    parser.add_argument("--under", help="path of a folder, counted from TestScenario")
+    parser.add_argument("--folder", help="name of a folder, at any depth under the tests folder")
+    parser.add_argument("--under", help="path of a folder, counted from the tests folder")
     parser.add_argument("--name", help="part of a filename, or a mask with * and ?")
     parser.add_argument("--format", choices=("tree", "table"), default="tree", help="tree (default) or table")
     args = parser.parse_args(argv)
@@ -57,15 +56,20 @@ def parse_arguments(argv=None):
     return args
 
 
-def collect(items):
+def label_of(tests_folder):
+    """Return the name under which the answer shows the tests folder: its last part."""
+    return tests_folder.rsplit("/", 1)[-1]
+
+
+def collect(items, tests_folder):
     """Return the folders and the test files of a tree listing, as tuples of path parts.
 
-    The parts are counted from the TestScenario folder. A folder is a tuple of names, and a
+    The parts are counted from the tests folder. A folder is a tuple of names, and a
     file is the tuple of its folder and its name. The folders include the ancestors of
     every file.
     """
     folders, files = set(), set()
-    prefix = TESTS_ROOT + "/"
+    prefix = tests_folder + "/"
     for item in items:
         path = item.get("path", "")
         if not path.startswith(prefix):
@@ -82,7 +86,7 @@ def collect(items):
 
 
 def choose_roots(folders, folder, under):
-    """Return the folders to list, as tuples of names; () is TestScenario itself.
+    """Return the folders to list, as tuples of names; () is the tests folder itself.
 
     A folder given by name is looked for at any depth, and a match inside another match is
     dropped, since the outer one lists it already. The result is sorted without regard to
@@ -110,7 +114,7 @@ def sort_key(path):
     return tuple(part.lower() for part in path[:-1]), path[-1].lower(), path
 
 
-def render_tree(files, roots):
+def render_tree(files, roots, label):
     """Return the lines of the nested list for the files, one top-level entry per root."""
     lines = []
     for root in roots:
@@ -124,7 +128,7 @@ def render_tree(files, roots):
                 target = target["folders"].setdefault(part, {"files": [], "folders": {}})
             target["files"].append(path[-1])
         if node["files"] or node["folders"]:
-            lines.append(f"- **{'/'.join(root) if root else ROOT_LABEL}/**")
+            lines.append(f"- **{'/'.join(root) if root else label}/**")
             lines.extend(render_node(node, 1))
     return lines
 
@@ -139,11 +143,11 @@ def render_node(node, depth):
     return lines
 
 
-def render_table(files):
+def render_table(files, label):
     """Return the lines of a table with one row for each file."""
     lines = ["| Folder | File |", "| --- | --- |"]
     for path in files:
-        folder = "/".join(path[:-1]) or ROOT_LABEL
+        folder = "/".join(path[:-1]) or label
         lines.append(f"| {folder.replace('|', chr(92) + '|')} | `{path[-1].replace('|', chr(92) + '|')}` |")
     return lines
 
@@ -154,7 +158,7 @@ def describe_filters(args):
     if args.folder:
         parts.append(f'folder "{args.folder.strip("/")}" at any depth')
     if args.under:
-        parts.append(f'folder "{args.under.strip("/")}" counted from {ROOT_LABEL}')
+        parts.append(f'folder "{args.under.strip("/")}" counted from {label_of(args.tests_folder)}')
     if args.name:
         masked = "*" in args.name or "?" in args.name
         parts.append(f'filename {"matches" if masked else "contains"} "{args.name}"')
@@ -178,9 +182,9 @@ def resolve_source(args, config):
     return repo, branch
 
 
-def read_tree(base, project, branch, token):
+def read_tree(base, project, branch, token, tests_folder):
     """Return the entries of the tests folder, or fail with a message for the user."""
-    query = {"path": TESTS_ROOT, "recursive": "true", "per_page": "100"}
+    query = {"path": tests_folder, "recursive": "true", "per_page": "100"}
     if branch:
         query["ref"] = branch
     try:
@@ -190,7 +194,7 @@ def read_tree(base, project, branch, token):
         if exc.status == 404 and "Tree Not Found" in exc.body:
             common.fail(
                 "tests_folder_missing",
-                f"The folder {TESTS_ROOT} does not exist in {where}, branch {branch or '(default)'}, "
+                f"The folder {tests_folder} does not exist in {where}, branch {branch or '(default)'}, "
                 "or the branch does not exist.",
             )
         if exc.status in (401, 403, 404):
@@ -210,11 +214,12 @@ def build_report(args, where, branch, files, roots):
     found = (
         f"Found {count} test file{'s' if count != 1 else ''} in {folder_count} folder{'s' if folder_count != 1 else ''}"
     )
-    head = [f"{found} of {where}, branch {branch or '(default)'}, under {TESTS_ROOT}."]
+    head = [f"{found} of {where}, branch {branch or '(default)'}, under {args.tests_folder}."]
     filters = describe_filters(args)
     if filters:
         head.append(filters)
-    body = render_table(files) if args.format == "table" else render_tree(files, roots)
+    label = label_of(args.tests_folder)
+    body = render_table(files, label) if args.format == "table" else render_tree(files, roots, label)
     return [*head, "", *body]
 
 
@@ -223,19 +228,20 @@ def main():
     args = parse_arguments()
     common.use_utf8_output()
     config = common.load_config()
+    args.tests_folder = common.read_folder(config, common.TESTS_FOLDER_KEY)
     repo, branch = resolve_source(args, config)
     base, project = common.split_repo_url(repo, config.get("GITLAB_URL"))
     where = f"{base}/{project}"
-    items = read_tree(base, project, branch, common.read_token(config))
-    folders, files = collect(items)
+    items = read_tree(base, project, branch, common.read_token(config), args.tests_folder)
+    folders, files = collect(items, args.tests_folder)
     roots = choose_roots(folders, args.folder, args.under)
     if not roots:
         wanted = args.folder or args.under
-        common.fail("folder_not_found", f'No folder "{wanted.strip("/")}" under {TESTS_ROOT} in {where}.')
+        common.fail("folder_not_found", f'No folder "{wanted.strip("/")}" under {args.tests_folder} in {where}.')
     chosen = select_files(files, roots, common.make_name_filter(args.name))
     if not chosen:
         message = f"No test files (*{TEST_SUFFIX}) found in {where}, branch {branch or '(default)'}"
-        print(f"{message}, under {TESTS_ROOT}. {describe_filters(args)}".strip())
+        print(f"{message}, under {args.tests_folder}. {describe_filters(args)}".strip())
         return
     print("\n".join(build_report(args, where, branch, chosen, roots)))
 

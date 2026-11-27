@@ -344,8 +344,10 @@ def read_links(config, variables, token):
     if text == "false":
         return None
     templates = config.get(common.LINK_TEMPLATES_KEY, common.DEFAULT_LINK_TEMPLATES)
+    folder = common.read_folder(config, common.CONFIGURATION_FOLDER_KEY)
+    read_file = functools.partial(read_repo_file, config, token)
     try:
-        return id_links.load_links(templates, variables, functools.partial(read_repo_file, config, token))
+        return id_links.load_links(templates, variables, read_file, folder)
     except id_links.LinkError as exc:
         message = str(exc)
         if exc.code == "invalid_link_template":
