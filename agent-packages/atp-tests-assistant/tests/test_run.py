@@ -1,8 +1,8 @@
 """Test run_tests.py against a fake GitLab and a fake orchestrator. selftest.py runs these tests.
 
 The tests cover the plan without --yes, the check of the variables and the settings, the
-start of the pipeline and the wait for it, the errors, and the search for business
-identifiers in the logs.
+start of the pipeline and the wait for it, the errors, the search for business
+identifiers in the logs, and the links to them.
 """
 
 import json
@@ -76,6 +76,7 @@ class Fake(ThreadingHTTPServer):
             "jobs": [[]],
             "trace": [(404, "")],
             "log": [(404, "")],
+            "file": [(404, "")],
         }
         self.answers = {key: list(value) for key, value in {**defaults, **answers}.items()}
         self.requests = []
@@ -115,6 +116,8 @@ class GitLabHandler(Handler):
             self.reply(200, next_answer(answers["bridges"]))
         elif "/pipelines/43/jobs" in self.path:
             self.reply(200, next_answer(answers["jobs"]))
+        elif "/repository/files/" in self.path:
+            self.reply(*next_answer(answers["file"]))
         elif self.path.endswith("/trace"):
             self.reply(*next_answer(answers["trace"]))
         elif "/jobs" in self.path:
@@ -382,6 +385,140 @@ class DiscoveryCase(RunScriptCase):
         self.orchestrator.reset(log=[(200, LOG_ONE)])
         self.result("--yes", "--interval", "0.1")
         self.assertEqual(self.orchestrator.requests[0], "/atp3/api/v1/runs/a%2Fb%3Fc%20d/logs?tail_lines=5000")
+
+
+def environment_configuration(url="http://crm.test:1234/"):
+    """Return the text of an environment configuration with one system, crm."""
+    connections = [{"HTTP": {"url": url, "password": "hunter2"}, "ECA": {"host": "eca.test", "port": 8}}]
+    return json.dumps({"systems": [{"crm": {"connections": connections}}]})
+
+
+class LinkCase(RunScriptCase):
+    """The links to the business identifiers."""
+
+    def links(self, templates=None, extra="A=1, ENV_CONFIGURATION_TEMPLATE_FILENAME=x.json", **more):
+        """Write a config with the search and the links on; templates replaces the default."""
+        keys = {
+            "ORCHESTRATOR_URL": self.orchestrator.url,
+            "DOWNSTREAM_STAGE": STAGE,
+            "RUN_ID_PATTERN": r"Run submitted: id=(?P<value>[^,\s]+)",
+            "BUSINESS_ID_PATTERNS": {"customerId": r"^customerId:[ \t]*(?P<value>.+)$"},
+            "DISCOVERY_INTERVAL": 0.05,
+            "DISCOVERY_SLOW_INTERVAL": 0.05,
+            "BUSINESS_IDS_AS_LINKS": True,
+            "variables": {**VARIABLES, "ATP_TESTS_GIT_REPO_URL": f"{self.gitlab.url}/g/t.git", "EXTRA_VARS": extra},
+        }
+        if templates is not None:
+            keys["BUSINESS_ID_LINK_TEMPLATES"] = templates
+        self.configure(**{**keys, **more})
+
+    def serve(self, text, **answers):
+        """Set the content of the configuration file and the answers of the chain."""
+        chain = {"bridges": [[BRIDGE]], "jobs": [STAGE_JOBS], "trace": [(200, JOB_LOG)]}
+        self.gitlab.reset(**{**chain, "file": [(200, text)], **answers})
+
+    def test_each_template_gives_a_link_for_each_identifier(self):
+        """The plan shows the filled templates, and the run reports an encoded link for each."""
+        self.links(
+            [
+                "get_property('crm','HTTP','url')/?ncobject=$ID",
+                "http://get_property('crm','ECA','host'):get_property('crm','ECA','port')/c/$ID",
+            ]
+        )
+        self.serve(environment_configuration(), statuses=["running"] * 3 + ["success"])
+        plan, _ = self.result()
+        shown = plan["discovery"]["links"]
+        self.assertEqual(shown["file"], "environment-configuration/x.json")
+        self.assertEqual(
+            [outcome["link"] for outcome in shown["templates"]],
+            ["http://crm.test:1234/?ncobject=$ID", "http://eca.test:8/c/$ID"],
+        )
+        self.assertEqual(shown["templates"][0]["template"], "get_property('crm','HTTP','url')/?ncobject=$ID")
+        self.assertEqual(
+            self.gitlab.requests[0][1:3],
+            ("/api/v4/projects/g%2Ft/repository/files/environment-configuration%2Fx.json/raw?ref=main", TOKEN),
+        )
+        self.orchestrator.reset(log=[(200, "customerId: 7&a=b\n")])
+        out, text = self.result("--yes", "--interval", "0.1")
+        expected = ["http://crm.test:1234/?ncobject=7%26a%3Db", "http://eca.test:8/c/7%26a%3Db"]
+        self.assertEqual(out["links"], {"customerId": {"7&a=b": expected}})
+        for link in expected:
+            self.assertEqual(text.count(f"LINK customerId=7&a=b {link}\n"), 1, text)
+        self.assertNotIn("hunter2", text)
+
+    def test_the_default_template_and_a_password_in_the_url(self):
+        """Without the key, the default template applies; the user and password of a URL are dropped."""
+        self.links()
+        self.serve(environment_configuration("https://bob:hunter2@crm.test/a b"))
+        plan, text = self.result()
+        self.assertEqual(plan["discovery"]["links"]["templates"][0]["link"], "https://crm.test/a%20b/?ncobject=$ID")
+        self.assertNotIn("hunter2", text)
+
+    def test_a_link_that_cannot_be_built_starts_nothing(self):
+        """A bad setting, a missing property, or a missing file is an error before the pipeline."""
+        good = environment_configuration()
+        cases = [
+            ("invalid_link_template", {"templates": []}, good),
+            ("invalid_link_template", {"templates": ["http://x/"]}, good),
+            ("invalid_link_template", {"templates": ["get_property('crm')/$ID"]}, good),
+            ("invalid_link_template", {"templates": ["http://x/get_property('crm','HTTP','password')$ID"]}, good),
+            ("invalid_value", {"BUSINESS_IDS_AS_LINKS": "yes"}, good),
+            ("env_config_unresolved", {"extra": "A=1"}, good),
+            ("env_config_unresolved", {"extra": "ENV_CONFIGURATION_TEMPLATE_FILENAME=../x.json"}, good),
+            ("env_config_unresolved", {"templates": ["get_property('billing','HTTP','url')/$ID"]}, good),
+            ("env_config_unresolved", {}, "not JSON hunter2"),
+            ("env_config_unresolved", {}, "[]"),
+            ("env_config_unresolved", {}, environment_configuration("javascript:alert(1)")),
+        ]
+        for code, keys, text in cases:
+            self.links(**keys)
+            self.serve(text)
+            error = self.error_of("--yes")
+            self.assertEqual(error["error"], code, (keys, text, error))
+            self.assertNotIn("hunter2", error["message"])
+            self.assertEqual([method for method, *_ in self.gitlab.requests if method == "POST"], [])
+        self.links()
+        self.gitlab.reset()
+        self.assertIn("HTTP 404", self.error_of()["message"])
+
+    def test_a_missing_value_is_reported_by_template(self):
+        """The error shows every template, with its link or with what has no value."""
+        good = "get_property('crm','HTTP','url')/$ID"
+        bad = "get_property('billing','HTTP','url')/$ID"
+        self.links([good, bad])
+        self.serve(environment_configuration())
+        error = self.error_of()
+        self.assertEqual(
+            error["templates"],
+            [
+                {"template": good, "link": "http://crm.test:1234/$ID"},
+                {"template": bad, "missing": ["billing.HTTP.url"]},
+            ],
+        )
+        self.assertIn("template 2: no value for billing.HTTP.url", error["message"])
+
+    def test_an_escaped_comma_stays_in_its_value(self):
+        """A pair is not split at an escaped comma, and the filename gets the comma."""
+        extra = r"A=1\,ENV_CONFIGURATION_TEMPLATE_FILENAME=no.json,ENV_CONFIGURATION_TEMPLATE_FILENAME=a\,b.json"
+        self.links(extra=extra)
+        self.serve(environment_configuration())
+        plan, _ = self.result()
+        self.assertEqual(plan["discovery"]["links"]["file"], "environment-configuration/a,b.json")
+        self.assertEqual(plan["variables"]["EXTRA_VARS"], extra)
+
+    def test_different_names_give_a_warning(self):
+        """A prefix that ends in '-' or '_' is allowed; another name is warned about."""
+        for runtime, differ in (("environments/dyn-X.yaml", False), ("environments/max.yaml", True), ("", False)):
+            self.links()
+            self.serve(environment_configuration())
+            plan, _ = self.result("--set", f"PIPELINE_RUNTIME_CONFIG={runtime}")
+            self.assertEqual("warning" in plan["discovery"]["links"], differ, runtime)
+
+    def test_without_the_search_the_links_are_not_checked(self):
+        """With ORCHESTRATOR_URL empty, nothing is read, whatever the keys of the links hold."""
+        self.links([], extra="", ORCHESTRATOR_URL="")
+        self.result()
+        self.assertEqual(self.gitlab.requests, [])
 
 
 if __name__ == "__main__":

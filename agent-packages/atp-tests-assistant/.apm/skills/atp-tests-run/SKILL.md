@@ -13,7 +13,8 @@ customers" is therefore a run of a test case. This skill starts the pipeline, wa
 A project can also configure a search for business identifiers, such as a customer ID. The script then reads the logs
 while the pipeline runs and prints each identifier the moment it appears, which is usually long before the pipeline
 ends. A user takes the identifier to the project's server and looks at the created data there. The settings are in the
-`README` of the package, under "Search for business identifiers".
+`README` of the package, under "Search for business identifiers". With `BUSINESS_IDS_AS_LINKS` set to `true` in the
+config, each identifier also comes with links to the object on the project's servers.
 
 ## Environment of the run
 
@@ -57,6 +58,9 @@ Run the script from the project folder, so that it finds `.atp-assistant/config.
    mark the ones that this request changed, and say that the run executes tests that can change data in the project's
    systems. When `discovery.enabled` is true, add that the script will report the identifiers `discovery.searches` as
    soon as it finds them.
+   When `discovery.links` is there, say that the identifiers come as links, name `discovery.links.file`, show
+   `discovery.links.templates` in a table of each `template` and its `link`, as code, and show
+   `discovery.links.warning`, when it is there, as written. `$ID` in a link stands for the identifier.
    - Before the first run of the conversation, ask as "Before the first run of a conversation" says.
    - Later, when `confirm` is true, ask the user to confirm.
    - Later, when `confirm` is false, don't ask: show the variables and go on.
@@ -66,7 +70,10 @@ Run the script from the project folder, so that it finds `.atp-assistant/config.
    have it.
 4. While the script runs, read its progress output every 30 to 60 seconds. A line `FOUND <name>=<value>` is a business
    identifier that the logs just showed. Tell the user at once, each time, with the name and the value as written, and
-   don't wait for the script to end. Repeat no identifier you have already reported. The other progress lines
+   don't wait for the script to end. Repeat no identifier you have already reported. A line
+   `LINK <name>=<value> <url>` is a link to that identifier; it follows its `FOUND` line. With one link, report the
+   value as the link, `[<value>](<url>)`. With several, write the value and then `[1](<url>)`, `[2](<url>)` in the
+   order of the lines. Don't change a URL, and don't open it. The other progress lines
    (`Downstream pipeline ... found`, `Run ... found in the job log`, `Search for identifiers: ...`) tell how far the
    search got. Mention them only when the user asks or when the search has stopped. If your tool cannot show the output
    of a running command, say so, and report the identifiers from the result when the script ends.
@@ -103,6 +110,8 @@ this run only: the script does not write it to the config.
     (`discovery.stopped` and `discovery.message`), when they are there.
   - `discovery.reached` is `runner_log`: report `found`, the identifiers by name with the values in the order they
     appeared, together with those you reported while waiting. An empty list means that the log never showed one.
+    When `links` is there, it holds the URLs of each value by name: report the values as links, as in step 4 of
+    "Run".
     When `discovery.stopped` is there (`timeout`: the time limit passed; `errors`: five requests in a row failed),
     say so too, because the list can be incomplete.
 - `ok: false` is an error, also printed on stdout:
@@ -110,6 +119,10 @@ this run only: the script does not write it to the config.
   - `invalid_variables`: show `problems` and ask the user to correct the values. Nothing was started.
   - `invalid_pattern`: a pattern of the search is not a usable regular expression. Show the message and tell the user
     to correct it in `.atp-assistant/config.json`. Nothing was started.
+  - `invalid_link_template`, `env_config_unresolved`, or `repo_url_invalid`: nothing was started, because the links
+    cannot be built. Show the message. When the error has `templates`, show each `template` in a table with its
+    `link`, or with what is `missing`, or its `problem`. Don't fill in a URL yourself, don't open the file of the configuration, and
+    don't switch `BUSINESS_IDS_AS_LINKS` off unless the user asks.
   - `token_missing`: nothing was started. Tell the user to set the environment variable named in the message, or to put
     the token into the file named there. Never ask the user to paste the token into the chat.
   - `timeout` or `poll_failed`: the pipeline was started and may still be running. Show `pipeline.web_url` and the last

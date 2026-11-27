@@ -7,8 +7,8 @@ second lists the environments of the GitLab pipeline, the YAML files in the `env
 repository, and can keep only the names that contain a given text. A third shows the YAML file of one environment, the
 current one or one that you specify by name or by a part of it. A fourth sets the environment of the pipeline: it
 finds the file by name or by a part of it and writes `PIPELINE_RUNTIME_CONFIG`, also before you run a test case on an
-environment. A fifth runs a test case or a scope in the pipeline, which is also how you generate test data. A sixth
-shows and changes the settings of the package.
+environment. A fifth runs a test case or a scope in the pipeline, which is also how you generate test data, and can
+report the business identifiers of the new data as links. A sixth shows and changes the settings of the package.
 
 To install the package and run the skills, follow the [user guide](docs/user-guide.md).
 
@@ -70,7 +70,8 @@ Keep the token out of the config file. A script takes it from the environment va
 The package writes the config only when you ask: the environment that you set, and the values that you change with
 `/atp-config` or in plain language. `/atp-config` also creates the file when there is none, with the project's own values empty and a sample or a
 default in the others. The
-patterns of the search for identifiers, and values whose name looks like a secret, are changed by hand.
+patterns of the search for identifiers, the templates of the links, and values whose name looks like a secret, are
+changed by hand.
 
 ## Running tests
 
@@ -135,6 +136,67 @@ failed requests in a row, and the result then says why in `discovery.stopped` an
 agent to read the output of the script while it runs. A tool that shows the output only at the end gets the
 identifiers at the end.
 
+### Links to the business identifiers
+
+With the links on, each identifier that the search finds is reported as a link to the object on a server of the
+project, for example to the new customer. The links need the [search](#search-for-business-identifiers): without
+`ORCHESTRATOR_URL`, the run neither builds nor checks them.
+
+| Key                          | Holds                                                                       |
+| ---------------------------- | --------------------------------------------------------------------------- |
+| `BUSINESS_IDS_AS_LINKS`      | Optional. `true` reports the identifiers as links. The default is `false`.  |
+| `BUSINESS_ID_LINK_TEMPLATES` | Optional. A list of templates; each one gives a link to every identifier.   |
+
+The default of `BUSINESS_ID_LINK_TEMPLATES` is one template:
+
+```json
+{
+  "BUSINESS_IDS_AS_LINKS": true,
+  "BUSINESS_ID_LINK_TEMPLATES": ["get_property('crm','HTTP','url')/?ncobject=$ID"]
+}
+```
+
+In a template:
+
+- `$ID` is the identifier, URL-encoded. A number stays as it is. Every template needs it.
+- `get_property('<system>','<connection type>','<property>')` is a property of the environment configuration. A
+  `/` at the end of the value is dropped where the template goes on with `/`, and a user and password in a URL
+  are dropped. A property whose name looks like a secret, such as `password` or `token`, is refused.
+
+The environment configuration is the file `environment-configuration/<filename>` of the test repository, on the
+branch `ATP_TESTS_GIT_REPO_BRANCH`. `EXTRA_VARS` in `variables`, a list of `name=value` pairs separated by commas,
+names it. Write a comma inside a value as `\,`, which is `\\,` in the JSON of the config:
+
+```json
+{
+  "variables": {
+    "EXTRA_VARS": "ENV_CONFIGURATION_TEMPLATE_FILENAME=CI-Ivory.json"
+  }
+}
+```
+
+The file lists systems, the connections of each system, and the properties of each connection:
+
+```json
+{
+  "systems": [
+    { "crm": { "connections": [{ "HTTP": { "url": "https://crm.example.com" } }] } }
+  ]
+}
+```
+
+The script reads the file before every run, also before the run is confirmed, and takes only the properties that
+the templates name. The plan of the run shows each template with the link that it gives, in which `$ID` is left.
+When a template gives no link, nothing is started, and the answer shows each template with its link or with the
+property that has no value. The token of GitLab needs the right to read the test repository.
+
+`EXTRA_VARS` does not follow `PIPELINE_RUNTIME_CONFIG`: setting another environment leaves the filename as it is.
+Name the two files alike, such as `environments/CI-Ivory.yaml` and `CI-Ivory.json`. The plan of a run warns when
+the names differ, ignoring case and a prefix of one of them that ends in `-` or `_`.
+
+Each link is printed as `LINK <name>=<value> <url>` after the `FOUND` line of its identifier, and the result
+lists them in `links`.
+
 ## Check the package
 
 ```bash
@@ -143,5 +205,5 @@ python agent-packages/atp-tests-assistant/tests/selftest.py
 
 The self-test starts a fake GitLab on localhost and checks the output of the scripts, the filters, the pagination, the
 search for an environment, the change of the config file, the choice of the repository and the branch, the token, and
-the errors. With a fake orchestrator, it also checks the run of a pipeline and the search for business identifiers. It
-does not test how the agent reads a request.
+the errors. With a fake orchestrator, it also checks the run of a pipeline, the search for business identifiers, and
+the links to them. It does not test how the agent reads a request.

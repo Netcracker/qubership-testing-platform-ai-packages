@@ -55,6 +55,7 @@ REQUEST_TIMEOUT = 30
 RUNS_PATH = "/atp3/api/v1/runs"
 TAIL_LINES = 5000
 FOUND_PREFIX = "FOUND"
+LINK_PREFIX = "LINK"
 
 
 class SettingsError(ValueError):
@@ -354,4 +355,28 @@ class Scout:
             for value in find_values(pattern, text):
                 if value not in known:
                     known.append(value)
-                    self.say(f"{FOUND_PREFIX} {name}={value}")
+                    self.announce(name, value)
+
+    def announce(self, name, value):
+        """Print the progress line of a new identifier."""
+        self.say(f"{FOUND_PREFIX} {name}={value}")
+
+
+class LinkingScout(Scout):
+    """A Scout that also reports the links to each identifier."""
+
+    def __init__(self, links, settings, pipeline_id, gitlab_get, say):
+        """Create a Scout; links.make(value) returns the links to one identifier."""
+        super().__init__(settings, pipeline_id, gitlab_get, say)
+        self.links = links
+
+    def announce(self, name, value):
+        """Print the identifier, and then one line for each link to it."""
+        super().announce(name, value)
+        for link in self.links.make(value):
+            self.say(f"{LINK_PREFIX} {name}={value} {link}")
+
+    def report(self):
+        """Return the fields of Scout.report() and the links by name and value."""
+        links = {name: {value: self.links.make(value) for value in values} for name, values in self.state.found.items()}
+        return {**super().report(), "links": links}
