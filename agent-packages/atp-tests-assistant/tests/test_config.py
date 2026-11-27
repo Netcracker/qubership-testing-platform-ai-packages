@@ -111,6 +111,17 @@ class ConfigCase(unittest.TestCase):
         self.output("--set", "RUN_TESTS_CONFIRM=")
         self.assertNotIn("RUN_TESTS_CONFIRM", self.config())
 
+    def test_the_links_are_off_in_a_new_config(self):
+        """A new config holds the links off and the default template; the template is changed by hand."""
+        self.output()
+        self.assertIs(self.config()["BUSINESS_IDS_AS_LINKS"], False)
+        templates = ["get_property('crm','HTTP','url')/?ncobject=$ID"]
+        self.assertEqual(self.config()["BUSINESS_ID_LINK_TEMPLATES"], templates)
+        self.output("--set", "BUSINESS_IDS_AS_LINKS=TRUE")
+        self.assertIs(self.config()["BUSINESS_IDS_AS_LINKS"], True)
+        error = self.error_of("--set", "BUSINESS_ID_LINK_TEMPLATES=x")
+        self.assertEqual(error["error"], "unknown_key")
+
     def test_an_empty_value_removes_an_optional_setting(self):
         """An optional key is removed, so it does not read as a wrong value."""
         self.save({"GITLAB_REF": "main", "DISCOVERY_TIMEOUT": 60})

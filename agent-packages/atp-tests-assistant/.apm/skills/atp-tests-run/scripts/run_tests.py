@@ -29,6 +29,11 @@ described in downstream_ids.py: ORCHESTRATOR_URL switches it on, and it then nee
 DOWNSTREAM_STAGE, RUN_ID_PATTERN, and BUSINESS_ID_PATTERNS. A search that cannot go on
 never stops the wait for the pipeline.
 
+With the search on and BUSINESS_IDS_AS_LINKS true, each identifier also gets the links
+that id_links.py describes, as progress lines "LINK <name>=<value> <url>". Their
+properties are read from the test repository before the pipeline starts, also without
+--yes, and a link that cannot be built starts nothing.
+
 Without --yes:
   {"ok": true, "started": false, "confirm": true, "ref": "main", "variables": {...},
    "changed": ["EXECUTION_NAME"],
@@ -41,6 +46,11 @@ With --yes, when the pipeline ends:
    "found": {"customerId": ["9177834604613948718"]},
    "discovery": {"reached": "runner_log", "downstream_pipeline_id": 8,
                  "run_id": "bed125d0-..."}}
+With the links on, "discovery" of the plan also has "links": {"file": "...",
+"templates": [{"template": "...", "link": "..."}]}, with "warning" when the names of
+the environment and the file differ, and the result has "links":
+{"customerId": {"<value>": ["<url>"]}}. When a template gives no link, the error
+env_config_unresolved has "templates" too, each with "link", "missing", or "problem".
 "found" is there only when the search is on. "reached" is the last step that worked:
 start, downstream_pipeline, job, run_id, or runner_log; the identifiers are searched in
 the runner log only. A search that stopped adds "stopped" (timeout or errors) and
@@ -50,12 +60,14 @@ does not read as "nothing was found".
 
 Error codes: config_missing, config_unreadable, config_incomplete, invalid_pattern,
 gitlab_settings_missing, bad_argument, invalid_value, invalid_variables (with "problems"), token_missing,
+invalid_link_template, env_config_unresolved, repo_url_invalid,
 http_error (with "status"), server_unreachable, timeout and poll_failed (both with
 "pipeline", and with "found" and "discovery" when the search is on; the pipeline keeps
 running). A wrong command line exits with 2. Python 3.9+, standard library only.
 """
 
 import argparse
+import functools
 import importlib
 import json
 import sys
@@ -70,6 +82,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "atp-common" / "scr
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # python -I leaves the script folder out
 common = importlib.import_module("atp_common")
 ids = importlib.import_module("downstream_ids")
+id_links = importlib.import_module("id_links")
 
 SETTINGS = ("GITLAB_URL", "GITLAB_PROJECT_ID", "GITLAB_REF")
 NOT_EMPTY = ("ATP_TESTS_GIT_REPO_URL", "EXECUTION_TYPE", "EXECUTION_NAME")
@@ -309,11 +322,51 @@ def read_discovery(config):
         return common.fail(exc.code, str(exc))
 
 
-def describe_discovery(settings):
+def read_repo_file(config, token, repo, branch, path):
+    """Return the text of a file of the test repository; raise id_links.LinkError."""
+    base, project = common.split_repo_url(repo, config.get("GITLAB_URL"))
+    try:
+        return common.get_file(base, project, path, branch or "HEAD", token)
+    except common.GitLabError as exc:
+        where = f"{path} of {base}/{project}, branch {branch or '(default)'}"
+        if exc.status in (401, 403, 404):
+            message = f"GitLab answered HTTP {exc.status} for {where}. Check the file, the branch, and the token."
+            raise id_links.LinkError("env_config_unresolved", message) from exc
+        raise id_links.LinkError(exc.code, f"{exc.message} for {where}") from exc
+
+
+def read_links(config, variables, token):
+    """Return the links of the run, None when BUSINESS_IDS_AS_LINKS is false, or fail."""
+    value = config.get(common.LINKS_KEY)
+    text = str("false" if value in (None, "") else value).strip().lower()
+    if text not in ("true", "false"):
+        common.fail("invalid_value", f"{common.LINKS_KEY} in the config must be true or false, not '{value}'.")
+    if text == "false":
+        return None
+    templates = config.get(common.LINK_TEMPLATES_KEY, common.DEFAULT_LINK_TEMPLATES)
+    try:
+        return id_links.load_links(templates, variables, functools.partial(read_repo_file, config, token))
+    except id_links.LinkError as exc:
+        message = str(exc)
+        if exc.code == "invalid_link_template":
+            message = f"{common.LINK_TEMPLATES_KEY} in the config: {message}."
+        remedy = f"Nothing was started. To run without links, set {common.LINKS_KEY} to false."
+        extra = {"templates": exc.templates} if exc.templates else {}
+        return common.fail(exc.code, f"{message} {remedy}", **extra)
+
+
+def describe_discovery(settings, links):
     """Return the plan of the search for the result without --yes."""
     if settings is None:
         return SEARCH_OFF
-    return {"enabled": True, "searches": list(settings.business), "timeout_seconds": settings.timeout}
+    plan = {"enabled": True, "searches": list(settings.business), "timeout_seconds": settings.timeout}
+    return {**plan, "links": links.plan()} if links else plan
+
+
+def make_scout(settings, links, pipeline_id, gitlab):
+    """Return the search of a started pipeline, which reports links when there are any."""
+    arguments = (settings, pipeline_id, gitlab.read, progress)
+    return ids.LinkingScout(links, *arguments) if links else ids.Scout(*arguments)
 
 
 def require_token(config):
@@ -340,6 +393,8 @@ def main():
     variables, changed = load_variables(config, overrides)
     settings = read_discovery(config)
     confirm = read_confirm(config)
+    token = require_token(config) if args.yes else common.read_token(config)
+    links = read_links(config, variables, token) if settings else None
 
     if not args.yes:
         common.succeed(
@@ -348,15 +403,15 @@ def main():
             ref=config["GITLAB_REF"],
             variables=variables,
             changed=changed,
-            discovery=describe_discovery(settings),
+            discovery=describe_discovery(settings, links),
         )
 
-    gitlab = GitLab(config, require_token(config))
+    gitlab = GitLab(config, token)
     pipeline = start_pipeline(gitlab, variables)
     progress(f"Pipeline {pipeline['id']} started: {pipeline['web_url']}")
     run = Run(gitlab, pipeline, variables)
     if settings:
-        run.scout = ids.Scout(settings, pipeline["id"], gitlab.read, progress)
+        run.scout = make_scout(settings, links, pipeline["id"], gitlab)
     waited = poll_status(run, args)
 
     result = {

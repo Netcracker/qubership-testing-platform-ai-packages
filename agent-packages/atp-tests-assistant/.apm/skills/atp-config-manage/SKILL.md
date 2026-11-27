@@ -27,7 +27,8 @@ The script prints the answer in Markdown, ready to show. Print it to the user ex
 JSON object on stderr with exit status 1; report its `message` and the remedy it names.
 
 When there is no config, the script creates one in the working directory and says so. Tell the user where it was
-created, which values are `not set`, and that the values of the search for identifiers are samples to check.
+created, which values are `not set`, and that the values of the search for identifiers and of the links to them are
+samples to check.
 
 ## Change a value
 
@@ -40,8 +41,10 @@ created, which values are `not set`, and that the values of the search for ident
 - An empty value, `--set ORCHESTRATOR_URL=`, removes an optional setting.
 - To select the environment by its name, follow atp-environment-set, which finds the file of the environment. Don't set
   `PIPELINE_RUNTIME_CONFIG` from a short name with this skill.
-- The patterns of the search for identifiers (`RUN_ID_PATTERN`, `BUSINESS_ID_PATTERNS`) and values whose name looks
-  like a secret are changed by hand. Tell the user the path of the file.
+- The patterns of the search for identifiers (`RUN_ID_PATTERN`, `BUSINESS_ID_PATTERNS`), the templates of the links
+  (`BUSINESS_ID_LINK_TEMPLATES`), and values whose name looks like a secret are changed by hand. Tell the user the
+  path of the file.
+- "Show the identifiers as links" is `BUSINESS_IDS_AS_LINKS=true`.
 - When the user wants to add a variable that the script does not know, say that it is added to `variables` by hand.
 
 ## Result and errors

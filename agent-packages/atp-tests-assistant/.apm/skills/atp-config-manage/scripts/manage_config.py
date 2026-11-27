@@ -6,14 +6,15 @@
 The config is found from the working directory up. When there is none, the script creates
 .atp-assistant/config.json in the working directory, also before --set. The values that
 differ from project to project are empty in it. The others hold a default or a sample,
-among them the patterns of the search for identifiers. The search stays off until
-ORCHESTRATOR_URL is filled.
+among them the patterns of the search for identifiers and the template of the links to
+them. The search stays off until ORCHESTRATOR_URL is filled, and the links until
+BUSINESS_IDS_AS_LINKS is true.
 
 KEY is a setting of the package or a variable of the pipeline: a name that "variables"
 already holds, or one of the variables the package knows. All values are checked before
 anything is written, so a wrong one changes nothing. An empty value removes an optional
-setting. The patterns of the search for identifiers, and values whose name looks like a
-secret, are changed by hand only.
+setting. The patterns of the search for identifiers, the templates of the links, and
+values whose name looks like a secret, are changed by hand only.
 
 The output is Markdown, and the agent shows it as written. A value whose name looks like a
 secret, and a password in a URL, are masked. The token is never read into the output: the
@@ -45,8 +46,10 @@ OPTIONAL = (
     "DISCOVERY_TIMEOUT",
     "DISCOVERY_INTERVAL",
     "DISCOVERY_SLOW_INTERVAL",
+    common.LINKS_KEY,
 )
-BY_HAND = ("RUN_ID_PATTERN", "BUSINESS_ID_PATTERNS")
+BY_HAND = ("RUN_ID_PATTERN", "BUSINESS_ID_PATTERNS", common.LINK_TEMPLATES_KEY)
+SETTING_BOOLEANS = (common.CONFIRM_KEY, common.LINKS_KEY)
 URLS = ("GITLAB_URL", "ORCHESTRATOR_URL")
 NUMBERS = ("DISCOVERY_TIMEOUT", "DISCOVERY_INTERVAL", "DISCOVERY_SLOW_INTERVAL")
 BOOLEANS = ("ENABLE_JIRA_INTEGRATION", "SEND_WEBEX_NOTIFICATION")
@@ -73,6 +76,8 @@ TEMPLATE = {
     "DISCOVERY_TIMEOUT": 420,
     "DISCOVERY_INTERVAL": 5,
     "DISCOVERY_SLOW_INTERVAL": 15,
+    common.LINKS_KEY: False,
+    common.LINK_TEMPLATES_KEY: list(common.DEFAULT_LINK_TEMPLATES),
     "variables": VARIABLES,
 }
 SECRET_NAME = re.compile(r"PASSWORD|PASSWD|SECRET|PRIVATE_KEY|API_?KEY|TOKEN(?!_ENV)", re.IGNORECASE)
@@ -111,12 +116,12 @@ def new_config_file():
 
 def check_value(key, value):
     """Return (the value to store, "") or (None, the problem) for a new value of a key."""
-    if key in BOOLEANS or (key == common.CONFIRM_KEY and value):
+    if key in BOOLEANS or (key in SETTING_BOOLEANS and value):
         lowered = value.lower()
         if lowered not in ("true", "false"):
             return None, f"'{key}' must be true or false, not '{value}'"
         # A pipeline variable is a string; the setting of the package is a JSON boolean.
-        return lowered == "true" if key == common.CONFIRM_KEY else lowered, ""
+        return lowered == "true" if key in SETTING_BOOLEANS else lowered, ""
     if key in URLS and value and not value.lower().startswith(("http://", "https://")):
         return None, f"'{key}' must start with http:// or https://"
     if key in NUMBERS and value:

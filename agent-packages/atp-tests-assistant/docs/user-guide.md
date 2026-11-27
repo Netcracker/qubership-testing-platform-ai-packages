@@ -60,10 +60,11 @@ Ask in plain language, or type the command:
 The answer lists the settings and the variables, and says whether a token is found, without showing it. A value whose
 name looks like a secret is hidden. A change is checked before it is written, so a wrong value changes nothing. When
 there is no config, the file is created in the current folder first. It holds samples of the patterns of the search for
-business identifiers: check them against your project. The search stays off until you set `ORCHESTRATOR_URL`.
+business identifiers and the template of the links to them: check them against your project. The search stays off
+until you set `ORCHESTRATOR_URL`, and the links until you set `BUSINESS_IDS_AS_LINKS` to `true`.
 
-The patterns of the search for business identifiers, values that look like secrets, and new variables of your own are
-changed in the file by hand.
+The patterns of the search for business identifiers, the templates of the links, values that look like secrets, and
+new variables of your own, such as `EXTRA_VARS`, are changed in the file by hand.
 
 ## List the tests
 
@@ -211,6 +212,13 @@ agent starts the pipeline, gives you its link, and waits until it ends. With the
 while the pipeline runs. Without it, the agent says that no identifiers were searched for. A value that you give in a
 request is used for that run only, except the environment, which is saved in the config.
 
+To get the identifiers as links to the objects on your servers, type `/atp-config BUSINESS_IDS_AS_LINKS=true`, and
+set up the templates and `EXTRA_VARS` as
+[Links to the business identifiers](../README.md#links-to-the-business-identifiers) describes. Before the run, the
+agent names the configuration file that gives the addresses, shows each template with its link, and warns when the
+name of the file differs from the name of the environment of the pipeline. When a template has a property without
+a value, the agent says which one, and the run does not start.
+
 The command takes `test=`, `scope=`, or `type=` with `name=`, and optionally `env=`, `branch=`, `repo=`, `jira=`,
 `webex=`, and any other variable as `NAME=value`. `/atp-run-tests help` prints them.
 
@@ -237,10 +245,13 @@ installed with its generation skill, use `/atp-run-tests` to run tests with this
 | `invalid_pattern`             | Running tests: a pattern of the search is not a usable regular expression.                                                                              |
 | `bad_argument`                | Running tests or changing the config: a value was not given as `NAME=value`.                                                                            |
 | `invalid_variables`           | Running tests: a variable is unknown, empty, or not `true` or `false`. Nothing was started.                                                             |
+| `invalid_link_template`       | Running tests: `BUSINESS_ID_LINK_TEMPLATES` is empty or wrong, or names a secret property. Fix it in the file.                                          |
+| `env_config_unresolved`       | Running tests: the links can't be built from `EXTRA_VARS` and the environment configuration, as the message says.                                       |
+| `repo_url_invalid`            | A repository URL, such as `ATP_TESTS_GIT_REPO_URL`, has no host, group, and project. Correct it.                                                        |
 | `token_missing`               | Running tests: no token. Set `GITLAB_TOKEN` or fill `.atp-assistant/gitlab-token`.                                                                      |
 | `http_error`                  | GitLab refused the request. A 401 or 403 usually means that the token is wrong or may not run pipelines.                                                |
 | `timeout`, `poll_failed`      | The pipeline was started and may still be running. Open its link; the skill cannot stop it.                                                             |
 | `unknown_key`                 | Changing the config: the key is unknown, or it is changed in the file by hand, as the message says.                                                     |
-| `invalid_value`               | A value is not allowed for its key, such as `RUN_TESTS_CONFIRM` other than `true` or `false`. Nothing was changed or started.                           |
+| `invalid_value`               | A value is not allowed for its key, such as `BUSINESS_IDS_AS_LINKS` other than `true` or `false`. Nothing was changed or started.                       |
 
 A request that matches no test file or no environment is not an error: the answer says that nothing was found.
