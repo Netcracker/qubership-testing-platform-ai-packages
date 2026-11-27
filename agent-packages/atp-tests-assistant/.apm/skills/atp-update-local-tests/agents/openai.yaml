@@ -1,0 +1,4 @@
+# Codex starts this skill only when the user names it; the model does not pick it
+# from the wording of a request.
+policy:
+  allow_implicit_invocation: false

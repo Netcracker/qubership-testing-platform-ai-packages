@@ -1,6 +1,6 @@
 ---
 name: atp-local-folder-set
-description: Use when the user asks to set, show, or check the folder on their computer that holds the tests for a local run, for example "the local tests are in D:\work\tests", "set the local tests folder to D:\work\tests", or "check my local tests folder", or the same in another language. Checks that the folder has the test files and the environment configurations, and writes LOCAL_ROOT_FOLDER in the config file of the package. It does not clone or update a repository, and it runs no test.
+description: Use when the user asks to set, show, or check the folder on their computer that holds the tests for a local run, for example "the local tests are in D:\work\tests", "set the local tests folder to D:\work\tests", or "check my local tests folder", or the same in another language. Checks that the folder has the test files and the environment configurations, and writes LOCAL_ROOT_FOLDER in the config file of the package. It does not clone or update a repository (atp-local-tests-update does), and it runs no test.
 user-invocable: false
 ---
 
