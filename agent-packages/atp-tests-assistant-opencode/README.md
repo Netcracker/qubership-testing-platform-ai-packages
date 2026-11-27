@@ -18,6 +18,7 @@ rules, the arguments, and the safety checks stay in the skill. The package has n
 | `/atp-list-environments` | List the environments of the GitLab pipeline                             |
 | `/atp-show-environment`  | Show the YAML file of one environment of the pipeline                    |
 | `/atp-set-environment`   | Set the environment of the GitLab pipeline                               |
+| `/atp-set-local-folder`  | Set or check the folder of the local tests                               |
 | `/atp-run-tests`         | Run a test case or a scope in the GitLab pipeline and wait until it ends |
 
 The arguments and examples are in the

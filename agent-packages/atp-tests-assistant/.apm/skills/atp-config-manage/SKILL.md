@@ -47,6 +47,8 @@ samples to check.
 - "Show the identifiers as links" is `BUSINESS_IDS_AS_LINKS=true`.
 - `TESTS_FOLDER` is the folder of the test repository that holds the tests, and `ENV_CONFIGURATION_FOLDER` the one
   with the environment configurations for the links. An empty value brings back the default.
+- To set the folder of the local tests, `LOCAL_ROOT_FOLDER`, follow
+  [atp-local-folder-set](../atp-local-folder-set/SKILL.md), which checks the folder first.
 - When the user wants to add a variable that the script does not know, say that it is added to `variables` by hand.
 
 ## Result and errors

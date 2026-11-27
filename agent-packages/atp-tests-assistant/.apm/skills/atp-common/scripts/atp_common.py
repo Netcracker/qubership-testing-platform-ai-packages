@@ -7,7 +7,8 @@ A script imports this module after adding the folder that holds it to sys.path:
 
 The settings are in .atp-assistant/config.json, found from the working directory up: the
 GITLAB_* keys of the pipeline repository, the folders of the test repository, and the object
-"variables" with the variables of the pipeline. The token comes from the environment or from
+"variables" with the variables of the pipeline. LOCAL_ROOT_FOLDER names the local copy of
+the test repository. The token comes from the environment or from
 .atp-assistant/gitlab-token.
 Every file is optional, except that set_environment.py needs the config.
 A script prints its result on stdout and an error on stderr, as one JSON object
@@ -42,6 +43,7 @@ CONFIRM_KEY = "RUN_TESTS_CONFIRM"
 LINKS_KEY = "BUSINESS_IDS_AS_LINKS"
 LINK_TEMPLATES_KEY = "BUSINESS_ID_LINK_TEMPLATES"
 DEFAULT_LINK_TEMPLATES = ("get_property('crm','HTTP','url')/?ncobject=$ID",)
+LOCAL_ROOT_KEY = "LOCAL_ROOT_FOLDER"
 TESTS_FOLDER_KEY = "TESTS_FOLDER"
 CONFIGURATION_FOLDER_KEY = "ENV_CONFIGURATION_FOLDER"
 # The folders of the test repository that the config can move.
@@ -152,6 +154,60 @@ def read_folder(config, key):
     return folder
 
 
+def local_root(config):
+    """Return the path of the local tests folder, LOCAL_ROOT_FOLDER of the config, or fail.
+
+    A relative path starts at the project folder, the one that holds .atp-assistant.
+    """
+    text = str(config.get(LOCAL_ROOT_KEY) or "").strip()
+    if not text:
+        fail("local_root_missing", f"{LOCAL_ROOT_KEY} is not set in .atp-assistant/config.json.")
+    return Path(config["CONFIG_DIR"]).parent / os.path.expanduser(text)
+
+
+class LocalContents(NamedTuple):
+    """What the local tests folder holds.
+
+    tests are the *.ts files of the tests folder, and configurations the *.json files of
+    the folder of the environment configurations, both as paths relative to their folder.
+    problems says what keeps the folder from being used, and is empty for a usable one.
+    """
+
+    tests: list
+    configurations: list
+    problems: list
+
+
+def find_files(folder, suffix, deep):
+    """Return the paths under folder, relative to it, of the files with the suffix, sorted.
+
+    With deep, the subfolders count too, except node_modules.
+    """
+    found = []
+    for here, folders, names in os.walk(folder):
+        folders[:] = [name for name in folders if deep and name != "node_modules"]
+        found += [Path(here, name).relative_to(folder).as_posix() for name in names if name.lower().endswith(suffix)]
+    return sorted(found, key=str.lower)
+
+
+def read_local_root(root, config):
+    """Return the LocalContents of the folder root; only the names of the files are read."""
+    if not root.is_dir():
+        reason = "is not a folder" if root.exists() else "does not exist"
+        return LocalContents([], [], [f"{root} {reason}."])
+    found, problems = [], []
+    for key, suffix, deep in ((TESTS_FOLDER_KEY, ".ts", True), (CONFIGURATION_FOLDER_KEY, ".json", False)):
+        relative = read_folder(config, key)
+        folder = root / relative
+        files = find_files(folder, suffix, deep) if folder.is_dir() else []
+        found.append(files)
+        if not folder.is_dir():
+            problems.append(f"No folder {relative}.")
+        elif not files:
+            problems.append(f"No *{suffix} files in {relative}.")
+    return LocalContents(found[0], found[1], problems)
+
+
 def read_variables(config):
     """Return the pipeline variables of the config, or an empty dict when it has none."""
     return config.get("variables", {})
@@ -169,6 +225,19 @@ def write_variable(path, name, value):
         return previous
     data["variables"][name] = value
     save_config_file(path, data, text)
+    return previous
+
+
+def write_setting(path, name, value):
+    """Set one setting at the top level of the config file and return its previous value, or None.
+
+    The file is not touched when it already holds the value.
+    """
+    data, text = load_config_file(path)
+    previous = data.get(name)
+    if previous != value:
+        data[name] = value
+        save_config_file(path, data, text)
     return previous
 
 
