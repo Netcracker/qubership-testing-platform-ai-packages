@@ -111,6 +111,18 @@ class ConfigCase(unittest.TestCase):
         self.output("--set", "RUN_TESTS_CONFIRM=")
         self.assertNotIn("RUN_TESTS_CONFIRM", self.config())
 
+    def test_the_folders_of_the_test_repository(self):
+        """A new config holds the default folders; a change is checked and loses the slashes at the ends."""
+        self.output()
+        self.assertEqual(self.config()["TESTS_FOLDER"], "TestGeneration/tests/TestScenario")
+        self.assertEqual(self.config()["ENV_CONFIGURATION_FOLDER"], "TestGeneration/environment-configuration")
+        self.output("--set", "TESTS_FOLDER=/e2e/specs/")
+        self.assertEqual(self.config()["TESTS_FOLDER"], "e2e/specs")
+        for wrong in ("TESTS_FOLDER=a/../b", "ENV_CONFIGURATION_FOLDER=a\\b", "ENV_CONFIGURATION_FOLDER=/"):
+            self.assertEqual(self.error_of("--set", wrong)["error"], "invalid_value", wrong)
+        self.output("--set", "TESTS_FOLDER=")
+        self.assertNotIn("TESTS_FOLDER", self.config())
+
     def test_the_links_are_off_in_a_new_config(self):
         """A new config holds the links off and the default template; the template is changed by hand."""
         self.output()

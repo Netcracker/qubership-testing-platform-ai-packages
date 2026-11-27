@@ -6,8 +6,9 @@ A script imports this module after adding the folder that holds it to sys.path:
     common = importlib.import_module("atp_common")
 
 The settings are in .atp-assistant/config.json, found from the working directory up: the
-GITLAB_* keys of the pipeline repository, and the object "variables" with the variables of
-the pipeline. The token comes from the environment or from .atp-assistant/gitlab-token.
+GITLAB_* keys of the pipeline repository, the folders of the test repository, and the object
+"variables" with the variables of the pipeline. The token comes from the environment or from
+.atp-assistant/gitlab-token.
 Every file is optional, except that set_environment.py needs the config.
 A script prints its result on stdout and an error on stderr, as one JSON object
 {"ok": false, "error": "<code>", "message": "<text>"}, and exits with 1. A script whose
@@ -41,6 +42,13 @@ CONFIRM_KEY = "RUN_TESTS_CONFIRM"
 LINKS_KEY = "BUSINESS_IDS_AS_LINKS"
 LINK_TEMPLATES_KEY = "BUSINESS_ID_LINK_TEMPLATES"
 DEFAULT_LINK_TEMPLATES = ("get_property('crm','HTTP','url')/?ncobject=$ID",)
+TESTS_FOLDER_KEY = "TESTS_FOLDER"
+CONFIGURATION_FOLDER_KEY = "ENV_CONFIGURATION_FOLDER"
+# The folders of the test repository that the config can move.
+DEFAULT_FOLDERS = {
+    TESTS_FOLDER_KEY: "TestGeneration/tests/TestScenario",
+    CONFIGURATION_FOLDER_KEY: "TestGeneration/environment-configuration",
+}
 PIPELINE_SETTINGS = (("url", "GITLAB_URL"), ("project", "GITLAB_PROJECT_ID"), ("ref", "GITLAB_REF"))
 
 
@@ -120,6 +128,28 @@ def load_config_file(path):
     if not isinstance(data.get("variables", {}), dict):
         fail("config_unreadable", f"'variables' in {path} must be a JSON object.")
     return data, text
+
+
+def parse_folder(value):
+    """Return (the folder without a slash at either end, "") or ("", the problem)."""
+    folder = value.strip().strip("/") if isinstance(value, str) else ""
+    if "\\" in folder or any(part in ("", ".", "..") for part in folder.split("/")):
+        return "", f"must be a folder of the repository, such as a/b, not '{value}'"
+    return folder, ""
+
+
+def read_folder(config, key):
+    """Return the folder of the test repository that the config key gives, or fail.
+
+    A missing key or an empty value gives the default of DEFAULT_FOLDERS.
+    """
+    value = config.get(key)
+    if value in (None, ""):
+        return DEFAULT_FOLDERS[key]
+    folder, problem = parse_folder(value)
+    if problem:
+        fail("invalid_value", f"{key} in the config {problem}.")
+    return folder
 
 
 def read_variables(config):

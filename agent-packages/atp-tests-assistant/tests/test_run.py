@@ -428,15 +428,15 @@ class LinkCase(RunScriptCase):
         self.serve(environment_configuration(), statuses=["running"] * 3 + ["success"])
         plan, _ = self.result()
         shown = plan["discovery"]["links"]
-        self.assertEqual(shown["file"], "environment-configuration/x.json")
+        self.assertEqual(shown["file"], "TestGeneration/environment-configuration/x.json")
         self.assertEqual(
             [outcome["link"] for outcome in shown["templates"]],
             ["http://crm.test:1234/?ncobject=$ID", "http://eca.test:8/c/$ID"],
         )
         self.assertEqual(shown["templates"][0]["template"], "get_property('crm','HTTP','url')/?ncobject=$ID")
+        path = "TestGeneration%2Fenvironment-configuration%2Fx.json"
         self.assertEqual(
-            self.gitlab.requests[0][1:3],
-            ("/api/v4/projects/g%2Ft/repository/files/environment-configuration%2Fx.json/raw?ref=main", TOKEN),
+            self.gitlab.requests[0][1:3], (f"/api/v4/projects/g%2Ft/repository/files/{path}/raw?ref=main", TOKEN)
         )
         self.orchestrator.reset(log=[(200, "customerId: 7&a=b\n")])
         out, text = self.result("--yes", "--interval", "0.1")
@@ -445,6 +445,18 @@ class LinkCase(RunScriptCase):
         for link in expected:
             self.assertEqual(text.count(f"LINK customerId=7&a=b {link}\n"), 1, text)
         self.assertNotIn("hunter2", text)
+
+    def test_the_folder_of_the_configuration_comes_from_the_config(self):
+        """ENV_CONFIGURATION_FOLDER moves the file; a wrong folder starts nothing."""
+        self.links(ENV_CONFIGURATION_FOLDER="config/env/")
+        self.serve(environment_configuration())
+        plan, _ = self.result()
+        self.assertEqual(plan["discovery"]["links"]["file"], "config/env/x.json")
+        self.assertIn("/repository/files/config%2Fenv%2Fx.json/raw", self.gitlab.requests[0][1])
+        self.links(ENV_CONFIGURATION_FOLDER="../env")
+        self.serve(environment_configuration())
+        self.assertEqual(self.error_of("--yes")["error"], "invalid_value")
+        self.assertEqual([method for method, *_ in self.gitlab.requests if method == "POST"], [])
 
     def test_the_default_template_and_a_password_in_the_url(self):
         """Without the key, the default template applies; the user and password of a URL are dropped."""
@@ -503,7 +515,7 @@ class LinkCase(RunScriptCase):
         self.links(extra=extra)
         self.serve(environment_configuration())
         plan, _ = self.result()
-        self.assertEqual(plan["discovery"]["links"]["file"], "environment-configuration/a,b.json")
+        self.assertEqual(plan["discovery"]["links"]["file"], "TestGeneration/environment-configuration/a,b.json")
         self.assertEqual(plan["variables"]["EXTRA_VARS"], extra)
 
     def test_different_names_give_a_warning(self):

@@ -15,6 +15,9 @@ request in plain language ("show all tests"), follow atp-tests-list directly ins
 
 ## Arguments
 
+`TestScenario` is the last part of the tests folder, `TESTS_FOLDER` of the config, by default
+`TestGeneration/tests/TestScenario`.
+
 ```text
 /atp-list-tests [folder=<name> | folder=/<path>] [name=<text>] [format=tree|table] [repo=<url>] [branch=<branch>]
 ```

@@ -41,6 +41,7 @@ REQUIRED = ("GITLAB_URL", "GITLAB_PROJECT_ID", "GITLAB_REF")
 OPTIONAL = (
     common.CONFIRM_KEY,
     "GITLAB_TOKEN_ENV",
+    *common.DEFAULT_FOLDERS,
     "ORCHESTRATOR_URL",
     "DOWNSTREAM_STAGE",
     "DISCOVERY_TIMEOUT",
@@ -69,6 +70,7 @@ TEMPLATE = {
     "GITLAB_REF": "main",
     common.CONFIRM_KEY: True,
     "GITLAB_TOKEN_ENV": "GITLAB_TOKEN",
+    **common.DEFAULT_FOLDERS,
     "ORCHESTRATOR_URL": "",
     "DOWNSTREAM_STAGE": "1. Run ATP3 tests",
     "RUN_ID_PATTERN": "Run submitted: id=(?P<value>[0-9a-f-]{36})",
@@ -132,7 +134,8 @@ def check_value(key, value):
         if not 0 < number < float("inf"):
             return None, f"'{key}' must be a positive number, not '{value}'"
         return int(number) if number.is_integer() else number, ""
-    return value, ""
+    folder, problem = common.parse_folder(value) if key in common.DEFAULT_FOLDERS and value else (value, "")
+    return (None, f"'{key}' {problem}") if problem else (folder, "")
 
 
 def locate(data, key):

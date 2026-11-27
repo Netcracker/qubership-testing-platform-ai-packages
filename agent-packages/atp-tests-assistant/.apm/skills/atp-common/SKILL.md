@@ -23,6 +23,8 @@ atp-environment-set, which needs the config file to write, and atp-tests-run, wh
 The package writes the config only when the user asks: `PIPELINE_RUNTIME_CONFIG` through atp-environment-set, and
 other values through atp-config-manage, which also creates a missing file. The keys are described in the `README` of
 the package, under "Settings". atp-tests-run adds the keys of its search for business identifiers and of the links to them.
+`TESTS_FOLDER` and `ENV_CONFIGURATION_FOLDER` name folders of the test repository; `read_folder` gives their
+defaults.
 
 ## Output
 

@@ -19,7 +19,7 @@ only when you type its name. The command is a frontend for the skill with formal
 
 | Plain-language skill                                                | The command it serves    | Purpose                                                                         |
 | ------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------- |
-| [atp-tests-list](.apm/skills/atp-tests-list/SKILL.md)               | `/atp-list-tests`        | Lists the test files under `TestGeneration/tests/TestScenario`                  |
+| [atp-tests-list](.apm/skills/atp-tests-list/SKILL.md)               | `/atp-list-tests`        | Lists the test files of the tests folder (`TESTS_FOLDER`)                       |
 | [atp-environments-list](.apm/skills/atp-environments-list/SKILL.md) | `/atp-list-environments` | Lists the environments of the GitLab pipeline, optionally by a part of the name |
 | [atp-environment-show](.apm/skills/atp-environment-show/SKILL.md)   | `/atp-show-environment`  | Shows the YAML file of one environment of the pipeline                          |
 | [atp-environment-set](.apm/skills/atp-environment-set/SKILL.md)     | `/atp-set-environment`   | Sets `PIPELINE_RUNTIME_CONFIG` to one environment of the pipeline               |
@@ -55,14 +55,16 @@ Running tests needs the file.
 }
 ```
 
-| Key                 | Holds                                                                                   |
-| ------------------- | --------------------------------------------------------------------------------------- |
-| `GITLAB_URL`        | Base URL of the GitLab service.                                                         |
-| `GITLAB_PROJECT_ID` | The numeric ID or the path of the GitLab project that holds the pipeline.               |
-| `GITLAB_REF`        | The branch of the pipeline repository, such as `main`.                                  |
-| `GITLAB_TOKEN_ENV`  | Optional. The environment variable that holds the token. The default is `GITLAB_TOKEN`. |
-| `RUN_TESTS_CONFIRM` | Optional. `false` starts later runs without a question. The default is `true`.          |
-| `variables`         | The variables of the pipeline. Keep there only what the pipeline receives.              |
+| Key                        | Holds                                                                                          |
+| -------------------------- | ---------------------------------------------------------------------------------------------- |
+| `GITLAB_URL`               | Base URL of the GitLab service.                                                                |
+| `GITLAB_PROJECT_ID`        | The numeric ID or the path of the GitLab project that holds the pipeline.                      |
+| `GITLAB_REF`               | The branch of the pipeline repository, such as `main`.                                         |
+| `GITLAB_TOKEN_ENV`         | Optional. The environment variable that holds the token. The default is `GITLAB_TOKEN`.        |
+| `RUN_TESTS_CONFIRM`        | Optional. `false` starts later runs without a question. The default is `true`.                 |
+| `TESTS_FOLDER`             | Optional. The folder with the tests. Default: `TestGeneration/tests/TestScenario`.             |
+| `ENV_CONFIGURATION_FOLDER` | Optional. The environment configurations. Default: `TestGeneration/environment-configuration`. |
+| `variables`                | The variables of the pipeline. Keep there only what the pipeline receives.                     |
 
 Keep the token out of the config file. A script takes it from the environment variable, or else from the first line of
 `.atp-assistant/gitlab-token`. Do not commit that file.
@@ -142,10 +144,10 @@ With the links on, each identifier that the search finds is reported as a link t
 project, for example to the new customer. The links need the [search](#search-for-business-identifiers): without
 `ORCHESTRATOR_URL`, the run neither builds nor checks them.
 
-| Key                          | Holds                                                                       |
-| ---------------------------- | --------------------------------------------------------------------------- |
-| `BUSINESS_IDS_AS_LINKS`      | Optional. `true` reports the identifiers as links. The default is `false`.  |
-| `BUSINESS_ID_LINK_TEMPLATES` | Optional. A list of templates; each one gives a link to every identifier.   |
+| Key                          | Holds                                                                      |
+| ---------------------------- | -------------------------------------------------------------------------- |
+| `BUSINESS_IDS_AS_LINKS`      | Optional. `true` reports the identifiers as links. The default is `false`. |
+| `BUSINESS_ID_LINK_TEMPLATES` | Optional. A list of templates; each one gives a link to every identifier.  |
 
 The default of `BUSINESS_ID_LINK_TEMPLATES` is one template:
 
@@ -163,9 +165,10 @@ In a template:
   `/` at the end of the value is dropped where the template goes on with `/`, and a user and password in a URL
   are dropped. A property whose name looks like a secret, such as `password` or `token`, is refused.
 
-The environment configuration is the file `environment-configuration/<filename>` of the test repository, on the
-branch `ATP_TESTS_GIT_REPO_BRANCH`. `EXTRA_VARS` in `variables`, a list of `name=value` pairs separated by commas,
-names it. Write a comma inside a value as `\,`, which is `\\,` in the JSON of the config:
+The environment configuration is a file of the test repository, on the branch `ATP_TESTS_GIT_REPO_BRANCH`, in the
+folder `ENV_CONFIGURATION_FOLDER`, by default `TestGeneration/environment-configuration`. `EXTRA_VARS` in
+`variables`, a list of `name=value` pairs separated by commas, names the file. Write a comma inside a value as `\,`,
+which is `\\,` in the JSON of the config:
 
 ```json
 {

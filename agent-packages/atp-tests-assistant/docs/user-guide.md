@@ -56,6 +56,7 @@ Ask in plain language, or type the command:
 | Show the ATP config             | `/atp-config`                               |
 | Set `GITLAB_REF` to `develop`   | `/atp-config GITLAB_REF=develop`            |
 | Turn the Webex notification off | `/atp-config SEND_WEBEX_NOTIFICATION=false` |
+| Take the tests from `e2e/tests` | `/atp-config TESTS_FOLDER=e2e/tests`        |
 
 The answer lists the settings and the variables, and says whether a token is found, without showing it. A value whose
 name looks like a secret is hidden. A change is checked before it is written, so a wrong value changes nothing. When
@@ -78,8 +79,9 @@ Ask in plain language, or type the command:
 | Show the tests with `create` in the name         | `/atp-list-tests name=create`                 |
 | Show the tests in the folder Billing, as a table | `/atp-list-tests folder=Billing format=table` |
 
-All tests are `*.ts` files under `TestGeneration/tests/TestScenario`, and the answer shows them sorted by name, ignoring
-case, at every level. A folder lists its own files first and its subfolders after them. A folder with no matching
+All tests are `*.ts` files in the tests folder of the test repository, `TestGeneration/tests/TestScenario` unless
+`TESTS_FOLDER` of the config names another one. The examples below use the default. The answer shows the tests sorted
+by name, ignoring case, at every level. A folder lists its own files first and its subfolders after them. A folder with no matching
 files is left out.
 
 ```text
@@ -231,8 +233,8 @@ installed with its generation skill, use `/atp-run-tests` to run tests with this
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `repo_missing`                | No repository. Give `repo=<url>`, or set `ATP_TESTS_GIT_REPO_URL` in `variables` of the config.                                                         |
 | `repo_inaccessible`           | GitLab answered 401, 403, or 404: the repository doesn't exist, or the token is missing or can't read it.                                               |
-| `tests_folder_missing`        | The repository or the branch has no `TestGeneration/tests/TestScenario`, or the branch doesn't exist.                                                   |
-| `folder_not_found`            | No folder with the given name or path under `TestScenario`.                                                                                             |
+| `tests_folder_missing`        | The repository or the branch has no tests folder (`TESTS_FOLDER`), or the branch doesn't exist.                                                         |
+| `folder_not_found`            | No folder with the given name or path under the tests folder.                                                                                           |
 | `server_unreachable`          | The script can't reach GitLab. Check the URL and the network.                                                                                           |
 | `gitlab_settings_missing`     | `GITLAB_URL`, `GITLAB_PROJECT_ID`, or `GITLAB_REF` is missing. Set it in the config; the environment commands also take `url=`, `project=`, and `ref=`. |
 | `environments_folder_missing` | Environments only: the pipeline repository or the branch has no `environments` folder.                                                                  |

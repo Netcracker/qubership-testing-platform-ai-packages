@@ -30,5 +30,5 @@ follows its own page.
 - **The token is not yours.** Don't read `.atp-assistant/gitlab-token`, don't print the value of `GITLAB_TOKEN`, and
   don't ask the user to paste a token into the chat. When the script reports a missing token, tell the user where it
   goes.
-- **Say how you read the wording.** When "in Customers" could mean a folder at any depth or a folder directly under
-  `TestScenario`, say which one you chose, as `--folder` or `--under`.
+- **Say how you read the wording.** When "in Customers" could mean a folder at any depth or a folder directly under the
+  tests folder, say which one you chose, as `--folder` or `--under`.

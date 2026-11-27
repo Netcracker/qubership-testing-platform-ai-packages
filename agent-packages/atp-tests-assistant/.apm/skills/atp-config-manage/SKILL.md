@@ -45,6 +45,8 @@ samples to check.
   (`BUSINESS_ID_LINK_TEMPLATES`), and values whose name looks like a secret are changed by hand. Tell the user the
   path of the file.
 - "Show the identifiers as links" is `BUSINESS_IDS_AS_LINKS=true`.
+- `TESTS_FOLDER` is the folder of the test repository that holds the tests, and `ENV_CONFIGURATION_FOLDER` the one
+  with the environment configurations for the links. An empty value brings back the default.
 - When the user wants to add a variable that the script does not know, say that it is added to `variables` by hand.
 
 ## Result and errors
