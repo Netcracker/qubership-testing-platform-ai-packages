@@ -44,6 +44,8 @@ LINKS_KEY = "BUSINESS_IDS_AS_LINKS"
 LINK_TEMPLATES_KEY = "BUSINESS_ID_LINK_TEMPLATES"
 DEFAULT_LINK_TEMPLATES = ("get_property('crm','HTTP','url')/?ncobject=$ID",)
 LOCAL_ROOT_KEY = "LOCAL_ROOT_FOLDER"
+REPO_KEY = "ATP_TESTS_GIT_REPO_URL"
+BRANCH_KEY = "ATP_TESTS_GIT_REPO_BRANCH"
 TESTS_FOLDER_KEY = "TESTS_FOLDER"
 CONFIGURATION_FOLDER_KEY = "ENV_CONFIGURATION_FOLDER"
 # The folders of the test repository that the config can move.
@@ -154,6 +156,30 @@ def read_folder(config, key):
     return folder
 
 
+def test_source(args, config):
+    """Return the URL and the branch of the test repository, or fail without a URL.
+
+    args.repo and args.branch win over ATP_TESTS_GIT_REPO_URL and ATP_TESTS_GIT_REPO_BRANCH
+    of the pipeline variables. With args.repo and no args.branch, the branch is "".
+    """
+    variables = {} if args.repo and args.branch is not None else read_variables(config)
+    repo = args.repo or str(variables.get(REPO_KEY) or "").strip()
+    if not repo:
+        fail(
+            "repo_missing",
+            "No test repository. Give --repo, or set ATP_TESTS_GIT_REPO_URL in 'variables' "
+            "of .atp-assistant/config.json.",
+        )
+    if args.branch is not None:
+        return repo, args.branch.strip()
+    return repo, "" if args.repo else str(variables.get(BRANCH_KEY) or "").strip()
+
+
+def absolute_path(text):
+    """Return the absolute path of a folder that the user typed; ~ is the home folder."""
+    return Path(os.path.abspath(os.path.expanduser(text)))
+
+
 def local_root(config):
     """Return the path of the local tests folder, LOCAL_ROOT_FOLDER of the config, or fail.
 
@@ -206,6 +232,29 @@ def read_local_root(root, config):
         elif not files:
             problems.append(f"No *{suffix} files in {relative}.")
     return LocalContents(found[0], found[1], problems)
+
+
+def describe_local_root(contents, config):
+    """Return the Markdown lines that say what a usable local tests folder holds."""
+    tests = read_folder(config, TESTS_FOLDER_KEY)
+    configurations = read_folder(config, CONFIGURATION_FOLDER_KEY)
+    count = len(contents.tests)
+    names = ", ".join(f"`{name}`" for name in contents.configurations)
+    return [
+        f"- Tests: {count} `*.ts` file{'s' if count != 1 else ''} in `{tests}`.",
+        f"- Environment configurations in `{configurations}`: {names}.",
+    ]
+
+
+def load_config_for_local_root():
+    """Return the config, or fail when there is no file to hold LOCAL_ROOT_FOLDER."""
+    config = load_config()
+    if "CONFIG_FILE" not in config:
+        fail(
+            "config_missing",
+            f"No .atp-assistant/config.json to hold {LOCAL_ROOT_KEY}. Create it with /atp-config.",
+        )
+    return config
 
 
 def read_variables(config):

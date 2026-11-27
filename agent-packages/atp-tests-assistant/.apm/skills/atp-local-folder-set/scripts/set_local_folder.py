@@ -18,7 +18,6 @@ only.
 
 import argparse
 import importlib
-import os
 import sys
 from pathlib import Path
 
@@ -51,7 +50,7 @@ def check(root, config, unchanged):
 def set_folder(text, config):
     """Check the folder, write it to the config, and return it, its contents, and what was done."""
     config_file = config["CONFIG_FILE"]
-    root = Path(os.path.abspath(os.path.expanduser(text)))
+    root = common.absolute_path(text)
     contents = check(root, config, "The config was not changed.")
     previous = common.write_setting(Path(config_file), common.LOCAL_ROOT_KEY, str(root))
     if previous == str(root):
@@ -62,35 +61,18 @@ def set_folder(text, config):
     return contents, done
 
 
-def describe(contents, config):
-    """Return the lines that say what the folder holds."""
-    tests = common.read_folder(config, common.TESTS_FOLDER_KEY)
-    configurations = common.read_folder(config, common.CONFIGURATION_FOLDER_KEY)
-    count = len(contents.tests)
-    names = ", ".join(f"`{name}`" for name in contents.configurations)
-    return [
-        f"- Tests: {count} `*.ts` file{'s' if count != 1 else ''} in `{tests}`.",
-        f"- Environment configurations in `{configurations}`: {names}.",
-    ]
-
-
 def main():
     """Set or check the folder of the local tests and print what it holds."""
     args = parse_arguments()
     common.use_utf8_output()
-    config = common.load_config()
-    if "CONFIG_FILE" not in config:
-        common.fail(
-            "config_missing",
-            f"No .atp-assistant/config.json to hold {common.LOCAL_ROOT_KEY}. Create it with /atp-config.",
-        )
+    config = common.load_config_for_local_root()
     if args.path is None:
         root = common.local_root(config)
         contents = check(root, config, "")
         done = f"{common.LOCAL_ROOT_KEY} is `{root}`."
     else:
         contents, done = set_folder(args.path, config)
-    print("\n".join([done, "", *describe(contents, config)]))
+    print("\n".join([done, "", *common.describe_local_root(contents, config)]))
 
 
 if __name__ == "__main__":

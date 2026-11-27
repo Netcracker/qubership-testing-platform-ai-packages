@@ -83,6 +83,20 @@ The folder has the layout of the test repository. It needs `*.ts` files in `Test
 answer shows the number of tests and the names of the environment configurations. When it does not, the answer
 says what is missing, and the config stays as it is. The config file has to exist: `/atp-config` creates it.
 
+### Clone or update the local tests
+
+| You write                            | Command                                      |
+| ------------------------------------ | -------------------------------------------- |
+| Clone the tests into `D:\work\tests` | `/atp-update-local-tests path=D:\work\tests` |
+| Update the local tests               | `/atp-update-local-tests`                    |
+| Update the local tests from develop  | `/atp-update-local-tests branch=develop`     |
+
+The repository, the branch, and the token are those of the list of tests, and Git 2.31 or later has to be installed.
+A missing or empty folder gets a clone, and the folder is saved in the config. A clone that is there is updated by
+a fast-forward. Your work is never overwritten: with changes that are not committed, with local commits next to
+new ones in the repository, or with another branch checked out, nothing is updated, and the answer says why. Name
+the branch to have it checked out.
+
 Running the local tests is not part of this version.
 
 ## List the tests
@@ -259,6 +273,14 @@ installed with its generation skill, use `/atp-run-tests` to run tests with this
 | `runtime_config_missing`      | No current environment. Set `PIPELINE_RUNTIME_CONFIG` in `variables`, or give `name=`.                                                                  |
 | `local_root_missing`          | No folder of the local tests. Set it with `/atp-set-local-folder path=<folder>`.                                                                        |
 | `local_root_invalid`          | The folder of the local tests does not exist or lacks the files, as the message says.                                                                   |
+| `local_changes`               | Updating: files have changes that are not committed. Commit or put them away, then update again.                                                        |
+| `local_diverged`              | Updating: the branch has local commits and new ones in the repository. Join them with Git.                                                              |
+| `branch_differs`              | Updating: another branch is checked out. Name the branch with `branch=`.                                                                                |
+| `branch_missing`              | Updating: the repository has no such branch.                                                                                                            |
+| `local_root_not_a_clone`      | Updating: the folder holds files and is not a clone. Give an empty or a new folder.                                                                     |
+| `local_root_other_repo`       | Updating: the folder is a clone of another repository.                                                                                                  |
+| `git_missing`                 | Updating: Git is not installed or not in `PATH`.                                                                                                        |
+| `git_failed`, `git_timeout`   | Updating: Git stopped, as the message says. Check the network, the branch, and the token.                                                               |
 | `config_missing`              | Setting the environment or the local folder, and running tests: there is no `.atp-assistant/config.json`. Create it.                                    |
 | `config_unreadable`           | The config can't be read, or it or its `variables` is not a JSON object. Fix the file.                                                                  |
 | `config_unwritable`           | The config can't be written. Check that it is not read-only or locked.                                                                                  |

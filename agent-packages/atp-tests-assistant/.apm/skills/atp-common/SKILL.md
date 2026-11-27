@@ -25,7 +25,7 @@ other values through atp-config-manage, which also creates a missing file. The k
 the package, under "Settings". atp-tests-run adds the keys of its search for business identifiers and of the links to them.
 `TESTS_FOLDER` and `ENV_CONFIGURATION_FOLDER` name folders of the test repository; `read_folder` gives their
 defaults. `LOCAL_ROOT_FOLDER` names the local copy of the test repository; `local_root` and `read_local_root`
-find and check it.
+find and check it. `test_source` gives the URL and the branch of the test repository.
 
 ## Output
 

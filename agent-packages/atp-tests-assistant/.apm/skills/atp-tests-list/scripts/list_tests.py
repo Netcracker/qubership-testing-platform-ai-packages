@@ -35,8 +35,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "atp-common" / "scr
 common = importlib.import_module("atp_common")
 
 TEST_SUFFIX = ".ts"
-REPO_KEY = "ATP_TESTS_GIT_REPO_URL"
-BRANCH_KEY = "ATP_TESTS_GIT_REPO_BRANCH"
 
 
 def parse_arguments(argv=None):
@@ -165,23 +163,6 @@ def describe_filters(args):
     return "Filters: " + "; ".join(parts) + "." if parts else ""
 
 
-def resolve_source(args, config):
-    """Return the repository URL and the branch from the command line and the config."""
-    variables = {} if args.repo and args.branch is not None else common.read_variables(config)
-    repo = args.repo or str(variables.get(REPO_KEY) or "").strip()
-    if not repo:
-        common.fail(
-            "repo_missing",
-            "No test repository. Give --repo, or set ATP_TESTS_GIT_REPO_URL in 'variables' "
-            "of .atp-assistant/config.json.",
-        )
-    if args.branch is not None:
-        branch = args.branch.strip()
-    else:
-        branch = "" if args.repo else str(variables.get(BRANCH_KEY) or "").strip()
-    return repo, branch
-
-
 def read_tree(base, project, branch, token, tests_folder):
     """Return the entries of the tests folder, or fail with a message for the user."""
     query = {"path": tests_folder, "recursive": "true", "per_page": "100"}
@@ -229,7 +210,7 @@ def main():
     common.use_utf8_output()
     config = common.load_config()
     args.tests_folder = common.read_folder(config, common.TESTS_FOLDER_KEY)
-    repo, branch = resolve_source(args, config)
+    repo, branch = common.test_source(args, config)
     base, project = common.split_repo_url(repo, config.get("GITLAB_URL"))
     where = f"{base}/{project}"
     items = read_tree(base, project, branch, common.read_token(config), args.tests_folder)

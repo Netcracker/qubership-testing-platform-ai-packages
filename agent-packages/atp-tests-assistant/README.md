@@ -9,7 +9,8 @@ current one or one that you specify by name or by a part of it. A fourth sets th
 finds the file by name or by a part of it and writes `PIPELINE_RUNTIME_CONFIG`, also before you run a test case on an
 environment. A fifth runs a test case or a scope in the pipeline, which is also how you generate test data, and can
 report the business identifiers of the new data as links. A sixth shows and changes the settings of the package. A
-seventh sets and checks the folder on your computer that holds the tests for a local run.
+seventh sets and checks the folder on your computer that holds the tests for a local run. An eighth clones the
+test repository into that folder, or updates the clone.
 
 To install the package and run the skills, follow the [user guide](docs/user-guide.md).
 
@@ -18,16 +19,17 @@ To install the package and run the skills, follow the [user guide](docs/user-gui
 A task has a plain-language skill, which the agent picks from an ordinary request, and a command, which the agent runs
 only when you type its name. The command is a frontend for the skill with formal arguments.
 
-| Plain-language skill                                                | The command it serves    | Purpose                                                                         |
-| ------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------- |
-| [atp-tests-list](.apm/skills/atp-tests-list/SKILL.md)               | `/atp-list-tests`        | Lists the test files of the tests folder (`TESTS_FOLDER`)                       |
-| [atp-environments-list](.apm/skills/atp-environments-list/SKILL.md) | `/atp-list-environments` | Lists the environments of the GitLab pipeline, optionally by a part of the name |
-| [atp-environment-show](.apm/skills/atp-environment-show/SKILL.md)   | `/atp-show-environment`  | Shows the YAML file of one environment of the pipeline                          |
-| [atp-environment-set](.apm/skills/atp-environment-set/SKILL.md)     | `/atp-set-environment`   | Sets `PIPELINE_RUNTIME_CONFIG` to one environment of the pipeline               |
-| [atp-tests-run](.apm/skills/atp-tests-run/SKILL.md)                 | `/atp-run-tests`         | Runs a test case or a scope in the pipeline, which also generates test data     |
-| [atp-config-manage](.apm/skills/atp-config-manage/SKILL.md)         | `/atp-config`            | Shows and changes the config of the package, and creates it                     |
-| [atp-local-folder-set](.apm/skills/atp-local-folder-set/SKILL.md)   | `/atp-set-local-folder`  | Sets and checks the folder of the local tests                                   |
-| [atp-common](.apm/skills/atp-common/SKILL.md)                       |                          | Shared script code. Not a task; the agent never invokes it                      |
+| Plain-language skill                                                  | The command it serves     | Purpose                                                                         |
+| --------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------- |
+| [atp-tests-list](.apm/skills/atp-tests-list/SKILL.md)                 | `/atp-list-tests`         | Lists the test files of the tests folder (`TESTS_FOLDER`)                       |
+| [atp-environments-list](.apm/skills/atp-environments-list/SKILL.md)   | `/atp-list-environments`  | Lists the environments of the GitLab pipeline, optionally by a part of the name |
+| [atp-environment-show](.apm/skills/atp-environment-show/SKILL.md)     | `/atp-show-environment`   | Shows the YAML file of one environment of the pipeline                          |
+| [atp-environment-set](.apm/skills/atp-environment-set/SKILL.md)       | `/atp-set-environment`    | Sets `PIPELINE_RUNTIME_CONFIG` to one environment of the pipeline               |
+| [atp-tests-run](.apm/skills/atp-tests-run/SKILL.md)                   | `/atp-run-tests`          | Runs a test case or a scope in the pipeline, which also generates test data     |
+| [atp-config-manage](.apm/skills/atp-config-manage/SKILL.md)           | `/atp-config`             | Shows and changes the config of the package, and creates it                     |
+| [atp-local-folder-set](.apm/skills/atp-local-folder-set/SKILL.md)     | `/atp-set-local-folder`   | Sets and checks the folder of the local tests                                   |
+| [atp-local-tests-update](.apm/skills/atp-local-tests-update/SKILL.md) | `/atp-update-local-tests` | Clones or updates the local tests                                               |
+| [atp-common](.apm/skills/atp-common/SKILL.md)                         |                           | Shared script code. Not a task; the agent never invokes it                      |
 
 The package instruction
 [atp-tests-assistant](.apm/instructions/atp-tests-assistant.instructions.md) applies to a plain request: the agent
@@ -83,7 +85,13 @@ changed by hand.
 `LOCAL_ROOT_FOLDER` names a folder on your computer with a copy of the test repository, in the same layout. The
 folder needs `*.ts` files in `TESTS_FOLDER` and `*.json` files in `ENV_CONFIGURATION_FOLDER`.
 atp-local-folder-set checks this before it writes the value, and sends no request to GitLab. `/atp-config` writes
-the value without the check. The package does not yet clone the repository into the folder or run its tests.
+the value without the check. The package does not yet run the local tests.
+
+atp-local-tests-update clones the repository of `ATP_TESTS_GIT_REPO_URL` into a missing or empty folder, or
+updates the clone there on the branch `ATP_TESTS_GIT_REPO_BRANCH`. It needs Git 2.31 or later. The update is a
+fast-forward only: a changed file, local commits next to new ones, another checked out branch, or a clone of another
+repository stop it, and nothing is lost. The clone uses `http` or `https`. Git gets the token from its environment,
+so the token is not saved in the clone.
 
 ## Running tests
 
@@ -218,5 +226,6 @@ python agent-packages/atp-tests-assistant/tests/selftest.py
 
 The self-test starts a fake GitLab on localhost and checks the output of the scripts, the filters, the pagination, the
 search for an environment, the change of the config file, the choice of the repository and the branch, the token,
-the errors, and the check of the local tests folder. With a fake orchestrator, it also checks the run of a pipeline,
+the errors, and the check of the local tests folder. With real Git and a repository served on localhost, it checks
+the clone and the update of the local tests. With a fake orchestrator, it also checks the run of a pipeline,
 the search for business identifiers, and the links to them. It does not test how the agent reads a request.
