@@ -67,6 +67,24 @@ until you set `ORCHESTRATOR_URL`, and the links until you set `BUSINESS_IDS_AS_L
 The patterns of the search for business identifiers, the templates of the links, values that look like secrets, and
 new variables of your own, such as `EXTRA_VARS`, are changed in the file by hand.
 
+## Set the folder of the local tests
+
+A local run takes the tests from a folder on your computer, such as a clone of the test repository. Ask in plain
+language, or type the command:
+
+| You write                              | Command                                    |
+| -------------------------------------- | ------------------------------------------ |
+| The local tests are in `D:\work\tests` | `/atp-set-local-folder path=D:\work\tests` |
+| Check the local tests folder           | `/atp-set-local-folder`                    |
+
+The folder has the layout of the test repository. It needs `*.ts` files in `TestGeneration/tests/TestScenario` and
+`*.json` files in `TestGeneration/environment-configuration`, or in the folders that `TESTS_FOLDER` and
+`ENV_CONFIGURATION_FOLDER` name. When it passes, its path is saved as `LOCAL_ROOT_FOLDER` in the config, and the
+answer shows the number of tests and the names of the environment configurations. When it does not, the answer
+says what is missing, and the config stays as it is. The config file has to exist: `/atp-config` creates it.
+
+Running the local tests is not part of this version.
+
 ## List the tests
 
 Ask in plain language, or type the command:
@@ -239,7 +257,9 @@ installed with its generation skill, use `/atp-run-tests` to run tests with this
 | `gitlab_settings_missing`     | `GITLAB_URL`, `GITLAB_PROJECT_ID`, or `GITLAB_REF` is missing. Set it in the config; the environment commands also take `url=`, `project=`, and `ref=`. |
 | `environments_folder_missing` | Environments only: the pipeline repository or the branch has no `environments` folder.                                                                  |
 | `runtime_config_missing`      | No current environment. Set `PIPELINE_RUNTIME_CONFIG` in `variables`, or give `name=`.                                                                  |
-| `config_missing`              | Setting the environment and running tests: there is no `.atp-assistant/config.json`. Create it.                                                         |
+| `local_root_missing`          | No folder of the local tests. Set it with `/atp-set-local-folder path=<folder>`.                                                                        |
+| `local_root_invalid`          | The folder of the local tests does not exist or lacks the files, as the message says.                                                                   |
+| `config_missing`              | Setting the environment or the local folder, and running tests: there is no `.atp-assistant/config.json`. Create it.                                    |
 | `config_unreadable`           | The config can't be read, or it or its `variables` is not a JSON object. Fix the file.                                                                  |
 | `config_unwritable`           | The config can't be written. Check that it is not read-only or locked.                                                                                  |
 | `environment_file_missing`    | The branch, or the file that `PIPELINE_RUNTIME_CONFIG` names, does not exist. Check the value and `GITLAB_REF`.                                         |

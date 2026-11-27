@@ -9,8 +9,8 @@ nesting, the filters, the table, the pagination, the search for an environment, 
 source of the repository and the branch, the token, and the errors. How the agent reads a
 request in plain language is not tested.
 
-The tests of run_tests.py and manage_config.py are in test_run.py and test_config.py, which
-this module loads.
+The tests of run_tests.py, manage_config.py, and set_local_folder.py are in test_run.py,
+test_config.py, and test_local.py, which this module loads.
 
 Requires Python 3.9 or later.
 """
@@ -688,8 +688,8 @@ class RepoUrlCase(unittest.TestCase):
 
 
 def load_tests(loader, tests, _pattern):
-    """Add the tests of run_tests.py and manage_config.py to the tests of this module."""
-    for module in ("test_run", "test_config"):
+    """Add the tests of the other test modules to the tests of this module."""
+    for module in ("test_run", "test_config", "test_local"):
         tests.addTests(loader.loadTestsFromModule(importlib.import_module(module)))
     return tests
 
